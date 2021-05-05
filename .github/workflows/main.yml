@@ -1,0 +1,39 @@
+name: 'Docker push to ARM'
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.github/workflows/**'
+      - 'examples/**'
+    branches:
+      - main
+    release:
+      types:
+        - created
+
+env:
+  IMAGE_NAME: rtlamr2mqtt
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Log into registry
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ github.actor }} --password-stdin
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v1
+        with:
+          buildx-version: latest
+      - name: Build dockerfile (with push)
+        run: |
+            docker buildx build \
+            --platform=linux/amd64,linux/arm/v7,linux/arm64 \
+            --output "type=image,push=true" \
+            --compress \
+            --file ./Dockerfile . \
+            --tag $(echo "${{ github.actor }}" | tr '[:upper:]' '[:lower:]')/${IMAGE_NAME}:latest
