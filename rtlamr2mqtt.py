@@ -10,11 +10,18 @@ import paho.mqtt.client as mqtt
 
 # uses signal to shutdown and hard kill opened processes and self
 def shutdown(signum, frame):
-    rtltcp.send_signal(15)
-    rtlamr.send_signal(15)
-    sleep(1)
-    rtltcp.send_signal(9)
-    rtlamr.send_signal(9)
+    if rtltcp.returncode is None:
+        rtltcp.terminate()
+        try:
+            rtltcp.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            rtltcp.kill()
+    if rtlamr.returncode is None:
+        rtlamr.terminate()
+        try:
+            rtlamr.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            rtlamr.kill()
     sys.exit(0)
 
 signal.signal(signal.SIGTERM, shutdown)
@@ -27,13 +34,6 @@ mqtt_password = "secret" if os.environ.get('MQTT_PASSWORD') is None else os.envi
 rtlamr_protocol = "scm+" if os.environ.get('PROTOCOL') is None else os.environ['PROTOCOL']
 meter_id = "" if os.environ.get('FILTER_ID') is None else os.environ['FILTER_ID']
 sleep_for = 60 if os.environ.get('SLEEP') is None else float(os.environ['SLEEP'])
-
-# start the rtl_tcp program
-rtltcp = subprocess.Popen(["/usr/bin/rtl_tcp > /dev/null 2>&1 &"], shell=True,
-    stdin=None, stdout=None, stderr=None, close_fds=True)
-
-# Wait 5 seconds to settle
-sleep(5)
 
 mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
 mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
@@ -50,23 +50,47 @@ last_reading = 0.0
 number_of_readings = 0
 
 while True:
+    # start the rtl_tcp program
+    rtltcp = subprocess.Popen(["/usr/bin/rtl_tcp"])
+    print('RTL_TCP started with PID {}'.format(rtltcp.pid), file=sys.stderr)
+    # Wait 5 seconds to settle
+    sleep(2)
     # start the rtlamr program.
-    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype=%s' % rtlamr_protocol, '-format=csv', '-single=true', '-filterid={}'.format(meter_id)]
-    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, universal_newlines=True)
-    for amrline in rtlamr.stdout:
-        flds = amrline.strip('\n').split(',')
-        if len(flds) > 8:
-            print(flds, file=sys.stderr)
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(rtlamr_protocol), '-format=csv', '-single=true', '-filterid={}'.format(meter_id)]
+    with subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, universal_newlines=True) as rtlamr:
+        print('RTLAMR started with PID {}'.format(rtlamr.pid), file=sys.stderr)
+        for amrline in rtlamr.stdout:
+            flds = amrline.strip('\n').split(',')
+            if len(flds) > 8:
+                print(flds, file=sys.stderr)
+            try:
+              reading = float("{}.{}".format(flds[7][:-3],flds[7][-3:]))
+            except ValueError:
+              reading = -1
+              number_of_readings -= 1
+            # Send a reading to MQTT after a good reading or after 10 readings (meter reset?)
+            if reading >= last_reading or number_of_readings >= 10:
+                mqtt_client.publish(topic=state_topic, payload=number_format.format(reading), qos=0, retain=False)
+                last_reading = reading
+                number_of_readings = 0
+            else:
+                number_of_readings += 1
+    # Check if the process is alive
+    while rtltcp.returncode is None:
+        # Try to be nice and send a SIGTERM
+        rtltcp.terminate()
         try:
-          reading = float("{}.{}".format(flds[7][:-3],flds[7][-3:]))
-        except ValueError:
-          reading = -1
-          number_of_readings -= 1
-        # Send a reading to MQTT after a good reading or after 10 readings (meter reset?)
-        if reading >= last_reading or number_of_readings >= 10:
-            mqtt_client.publish(topic=state_topic, payload=number_format.format(reading), qos=0, retain=False)
-            last_reading = reading
-            number_of_readings = 0
-        else:
-            number_of_readings += 1
+            rtltcp.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # Nope, just kill it
+            rtltcp.kill()
+    # Check if the process is alive
+    while rtlamr.returncode is None:
+        # Try to be nice and send a SIGTERM
+        rtlamr.terminate()
+        try:
+            rtlamr.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # Nope, just kill it
+            rtlamr.kill()
     sleep(sleep_for)
