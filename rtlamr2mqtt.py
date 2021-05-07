@@ -70,7 +70,7 @@ while True:
               number_of_readings -= 1
             # Send a reading to MQTT after a good reading or after 10 readings (meter reset?)
             if reading >= last_reading or number_of_readings >= 10:
-                mqtt_client.publish(topic=state_topic, payload=number_format.format(reading), qos=0, retain=False)
+                mqtt_client.publish(topic=state_topic, payload=number_format.format(reading), qos=0, retain=True)
                 last_reading = reading
                 number_of_readings = 0
             else:
