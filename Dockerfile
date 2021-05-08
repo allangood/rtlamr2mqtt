@@ -17,10 +17,11 @@ COPY --from=builder /go/bin/rtlamr* /usr/bin/
 COPY --from=builder /usr/local/bin/rtl* /usr/bin/
 COPY --from=builder /usr/local/etc/rtl_433/ /etc/rtl_433/
 COPY ./rtlamr2mqtt.py /usr/bin
+COPY ./requirements.txt /tmp
 
 RUN apk update \
     && apk add rtl-sdr \
-    && pip3 install paho-mqtt \
+    && pip3 install -r /tmp/requirements.txt \
     && chmod 755 /usr/bin/rtlamr2mqtt.py
 
 STOPSIGNAL SIGTERM
