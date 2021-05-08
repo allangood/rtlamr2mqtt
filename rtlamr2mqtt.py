@@ -46,8 +46,6 @@ discover_payload = {"name": "meter_{}".format(meter_id), "unit_of_measurement": 
 mqtt_client.publish(topic=discover_topic, payload=dumps(discover_payload), qos=0, retain=True)
 
 number_format = '{0:.3f}'
-last_reading = 0.0
-number_of_readings = 0
 
 while True:
     # start the rtl_tcp program
@@ -66,15 +64,10 @@ while True:
             try:
               reading = float("{}.{}".format(flds[7][:-3],flds[7][-3:]))
             except ValueError:
-              reading = -1
-              number_of_readings -= 1
+              reading = None
             # Send a reading to MQTT after a good reading or after 10 readings (meter reset?)
-            if reading >= last_reading or number_of_readings >= 10:
+            if reading is not None:
                 mqtt_client.publish(topic=state_topic, payload=number_format.format(reading), qos=0, retain=True)
-                last_reading = reading
-                number_of_readings = 0
-            else:
-                number_of_readings += 1
     # Check if the process is alive
     while rtltcp.returncode is None:
         # Try to be nice and send a SIGTERM
