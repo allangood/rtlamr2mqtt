@@ -35,39 +35,36 @@ rtlamr_protocol = "scm+" if os.environ.get('PROTOCOL') is None else os.environ['
 meter_id = "" if os.environ.get('FILTER_ID') is None else os.environ['FILTER_ID']
 sleep_for = 60 if os.environ.get('SLEEP') is None else float(os.environ['SLEEP'])
 
-mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
-mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
-mqtt_client.connect(host=mqtt_host, port=mqtt_port, keepalive=60)
-
 state_topic = 'rtlamr/{}/state'.format(meter_id)
 discover_topic = 'homeassistant/sensor/rtlamr/{}/config'.format(meter_id)
+mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
+mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
+mqtt_client.connect(host=mqtt_host, port=mqtt_port)
 discover_payload = {"name": "meter_{}".format(meter_id), "unit_of_measurement": u"\u33A5", "icon": "mdi:gauge", "state_topic": state_topic}
-
 mqtt_client.publish(topic=discover_topic, payload=dumps(discover_payload), qos=0, retain=True)
-
-number_format = '{0:.3f}'
 
 while True:
     # start the rtl_tcp program
-    rtltcp = subprocess.Popen(["/usr/bin/rtl_tcp"])
+    rtltcp = subprocess.Popen(["/usr/bin/rtl_tcp"], stderr=subprocess.DEVNULL)
     print('RTL_TCP started with PID {}'.format(rtltcp.pid), file=sys.stderr)
     # Wait 5 seconds to settle
     sleep(2)
     # start the rtlamr program.
     rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(rtlamr_protocol), '-format=csv', '-single=true', '-filterid={}'.format(meter_id)]
-    with subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, universal_newlines=True) as rtlamr:
+    with subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True) as rtlamr:
         print('RTLAMR started with PID {}'.format(rtlamr.pid), file=sys.stderr)
         for amrline in rtlamr.stdout:
             flds = amrline.strip('\n').split(',')
             if len(flds) > 8:
-                print(flds, file=sys.stderr)
-            try:
-              reading = float("{}.{}".format(flds[7][:-3],flds[7][-3:]))
-            except ValueError:
-              reading = None
-            # Send a reading to MQTT after a good reading or after 10 readings (meter reset?)
-            if reading is not None:
-                mqtt_client.publish(topic=state_topic, payload=number_format.format(reading), qos=0, retain=True)
+                try:
+                  reading = "{}.{}".format(flds[7][:-3],flds[7][-3:])
+                except ValueError:
+                  reading = None
+                # Send a reading to MQTT after a good reading
+                if reading is not None:
+                    print('Sending reading "{}" to MQTT server "{}"'.format(flds[7], mqtt_host), file=sys.stderr)
+                    mqtt_client.connect(host=mqtt_host, port=mqtt_port)
+                    mqtt_client.publish(topic=state_topic, payload=reading, qos=0, retain=True)
     # Check if the process is alive
     while rtltcp.returncode is None:
         # Try to be nice and send a SIGTERM
@@ -86,4 +83,5 @@ while True:
         except subprocess.TimeoutExpired:
             # Nope, just kill it
             rtlamr.kill()
+    mqtt_client.disconnect()
     sleep(sleep_for)
