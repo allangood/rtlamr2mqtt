@@ -23,6 +23,32 @@ utility_meter:
     cycle: monthly
 ```
 
+Configuration sample:
+```
+mqtt:
+  host: 192.168.1.1
+  user: mqtt
+  password: sdfhkjh(*&
+  ha_autodiscovery: true
+  ha_autodiscovery_topic: homeassistant
+
+meters:
+  - id: 7823010
+    protocol: scm+
+    name: meter_water
+    field_meterid: 6
+    field_consumption: 7
+    format: #####.###
+    unit_of_measurement: "\u33A5"
+    icon: mdi:gauge
+  - id: 6567984
+    protocol: scm
+    name: meter_water
+    id_field: 2
+    read_field: 3
+    unit: kWh
+```
+
 Docker compose configuration:
 ```
 version: "3"
@@ -33,11 +59,5 @@ services:
     restart: unless-stopped
     devices:
       - /dev/bus/usb/004/002
-    environment:
-      - MQTT_USER=<MQTT_USER>
-      - MQTT_PASSWORD=<MQTT_PASSWORD>
-      - MQTT_HOST=<MQTT_HOST>
-      - PROTOCOL=<protocol>
-      - FILTER_ID=<meter_id>
-      - SLEEP=<Sleep time in seconds>
-```
+    volumes:
+      /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
