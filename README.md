@@ -13,18 +13,24 @@ Home Assistant configuration:
 ```
 utility_meter:
   hourly_water:
-    source: sensor.meter_<meter_id>
+    source: sensor.<meter_name>
     cycle: hourly
   daily_water:
-    source: sensor.meter_<meter_id>
+    source: sensor.<meter_name>
     cycle: daily
   monthly_water:
-    source: sensor.meter_<meter_id>
+    source: sensor.<meter_name>
     cycle: monthly
 ```
 
 Configuration sample:
 ```
+# (Optional section)
+general:
+  # Sleep for this amount of seconds after one successful of every meter
+  sleep_for: 300
+
+# (Required section)
 mqtt:
   host: 192.168.1.1
   user: mqtt
@@ -32,20 +38,27 @@ mqtt:
   ha_autodiscovery: true
   ha_autodiscovery_topic: homeassistant
 
+# (Optional)
+custom_parameters:
+  rtltcp: "-s 2048000"
+  # (Optional) Add any custom parameter to RTLAMR.
+  # ***DO NOT ADD -msgtype, -filterid nor -protocol parameters here***
+  rtlamr: "-unique=true -symbollength=7"
+
 meters:
   - id: 7823010
     protocol: scm+
     name: meter_water
     field_meterid: 6
     field_consumption: 7
-    format: #####.###
+    format: "#####.###"
     unit_of_measurement: "\u33A5"
     icon: mdi:gauge
   - id: 6567984
     protocol: scm
-    name: meter_water
-    id_field: 2
-    read_field: 3
+    name: meter_hydro
+    id_field: 3
+    read_field: 7
     unit: kWh
 ```
 

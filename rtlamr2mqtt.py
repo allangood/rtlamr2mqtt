@@ -17,12 +17,14 @@ def shutdown(signum, frame):
             rtltcp.wait(timeout=5)
         except subprocess.TimeoutExpired:
             rtltcp.kill()
+            rtltcp.wait()
     if rtlamr.returncode is None:
         rtlamr.terminate()
         try:
             rtlamr.wait(timeout=5)
         except subprocess.TimeoutExpired:
             rtlamr.kill()
+            rtlamr.wait()
     sys.exit(0)
 
 signal.signal(signal.SIGTERM, shutdown)
@@ -43,23 +45,28 @@ if 'ha_autodiscovery' in config['mqtt']:
     if str(config['mqtt']['ha_autodiscovery']).lower() in ['true', 'yes']:
         ha_autodiscovery = True
 ha_autodiscovery = False if 'ha_autodiscovery' not in config['mqtt'] else config['mqtt']['ha_autodiscovery']
-
 state_topic = 'rtlamr/{}/state'
 discover_topic = 'homeassistant/sensor/rtlamr/{}/config'
 mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
 mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
-mqtt_client.connect(host=mqtt_host, port=mqtt_port)
+
+if 'general' in config:
+    sleep_for = 0 if 'sleep_for' not in config['general'] else config['general']['sleep_for']
+else:
+    sleep_for = 0
 
 # Build RTLAMR config
 # TODO: Add a configuration section for rtlamr and rtl_tcp configuration parameters
 protocols = []
 meter_ids = []
+meter_readings = {}
 for idx,meter in enumerate(config['meters']):
-    config['meters'][idx]['name'] = str('meter_{}'.format(meter['id'])).encode('utf-8') if 'name' not in meter else str(meter['name'])
+    config['meters'][idx]['name'] = str('meter_{}'.format(meter['id'])) if 'name' not in meter else str(meter['name'])
     config['meters'][idx]['unit_of_measurement'] = '' if 'unit_of_measurement' not in meter else str(meter['unit_of_measurement'])
     config['meters'][idx]['icon'] = 'mdi:gauge' if 'icon' not in meter else str(meter['icon'])
     protocols.append(meter['protocol'])
     meter_ids.append(str(meter['id']))
+    meter_readings[str(meter['id'])] = 0
     # if HA Autodiscovery is enabled, send the MQTT payload
     if ha_autodiscovery:
         print('Sending MQTT autodiscovery payload to Home Assistant...', file=sys.stderr)
@@ -69,8 +76,23 @@ for idx,meter in enumerate(config['meters']):
             "icon": config['meters'][idx]['icon'],
             "state_topic": state_topic.format(config['meters'][idx]['name'])
         }
+        mqtt_client.connect(host=mqtt_host, port=mqtt_port)
         mqtt_client.publish(topic=discover_topic.format(config['meters'][idx]['name']), payload=dumps(discover_payload), qos=0, retain=True)
-rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=csv', '-filterid={}'.format(','.join(meter_ids))]
+        mqtt_client.disconnect()
+
+rtlamr_custom = []
+if 'custom_parameters' in config:
+    if 'rtlamr' in config['custom_parameters']:
+        rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
+rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=csv', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
+#################################################################
+
+# Build RTLTCP command
+rtltcp_custom = []
+if 'custom_parameters' in config:
+    if 'rtltcp' in config['custom_parameters']:
+        rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
+rtltcp_cmd = ["/usr/bin/rtl_tcp"] + rtltcp_custom
 #################################################################
 
 # Main loop
@@ -78,7 +100,7 @@ while True:
     # Is this the first time are we executing this loop? Or is rtltcp running?
     if 'rtltcp' not in locals() or rtltcp.poll() is not None:
         # start the rtl_tcp program
-        rtltcp = subprocess.Popen(["/usr/bin/rtl_tcp"], stderr=subprocess.DEVNULL)
+        rtltcp = subprocess.Popen(rtltcp_cmd, stderr=subprocess.DEVNULL)
         print('RTL_TCP started with PID {}'.format(rtltcp.pid), file=sys.stderr)
         # Wait 2 seconds to settle
         sleep(2)
@@ -103,5 +125,28 @@ while True:
                     print('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter['id'], formated_reading), file=sys.stderr)
                     mqtt_client.connect(host=mqtt_host, port=mqtt_port)
                     mqtt_client.publish(topic=state_topic.format(meter['name']), payload=str(formated_reading).encode('utf-8'), qos=0, retain=True)
-    # The next line will be executed only if the rtlamr process dies
-    mqtt_client.disconnect()
+                    mqtt_client.disconnect()
+                    meter_readings[str(meter['id'])] += 1
+        if sleep_for > 0:
+            # Check if we have readings for all meters
+            if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings):
+                # Set all values to 0
+                meter_readings = dict.fromkeys(meter_readings, 0)
+                # Exit from the main for loop and stop reading the rtlamr output
+                break
+    # Kill all process
+    if rtltcp.returncode is None:
+        rtltcp.terminate()
+        try:
+            rtltcp.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            rtltcp.kill()
+            rtltcp.wait()
+    if rtlamr.returncode is None:
+        rtlamr.terminate()
+        try:
+            rtlamr.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            rtlamr.kill()
+            rtlamr.wait()
+    sleep(sleep_for)
