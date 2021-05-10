@@ -57,9 +57,9 @@ meters:
   - id: 6567984
     protocol: scm
     name: meter_hydro
-    id_field: 3
-    read_field: 7
-    unit: kWh
+    field_meterid: 3
+    field_consumption: 7
+    unit_of_measurement: kWh
 ```
 
 Docker compose configuration:
