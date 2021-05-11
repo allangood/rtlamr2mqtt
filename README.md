@@ -73,3 +73,10 @@ services:
       - /dev/bus/usb/004/002
     volumes:
       /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
+```
+
+Credits to:
+
+https://github.com/bemasher/rtlamr
+
+https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr
