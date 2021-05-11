@@ -6,7 +6,7 @@ import yaml
 import signal
 import subprocess
 from time import sleep
-from json import dumps
+from json import dumps,loads
 import paho.mqtt.client as mqtt
 
 # uses signal to shutdown and hard kill opened processes and self
@@ -84,7 +84,7 @@ rtlamr_custom = []
 if 'custom_parameters' in config:
     if 'rtlamr' in config['custom_parameters']:
         rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
-rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=csv', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
+rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
 #################################################################
 
 # Build RTLTCP command
@@ -110,23 +110,33 @@ while True:
         rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
         print('RTLAMR started with PID {}'.format(rtlamr.pid), file=sys.stderr)
     for amrline in rtlamr.stdout:
-        csv_fields = amrline.strip('\n').split(',')
-        if len(csv_fields) >= 7: # We've got a good reading.
-            reading = None
-            for meter in config['meters']: # We have a reading, but we don't know for which meter is it, let's check
-                field_id = int(meter['field_meterid'])
-                field_consumption = int(meter['field_consumption'])
-                raw_reading = str(csv_fields[field_consumption]).strip()
-                if str(csv_fields[field_id]).strip() == str(meter['id']).strip() and raw_reading is not None:
-                    if 'format' in meter:
-                        formated_reading = meter['format'].replace('#','{}').format(*raw_reading.zfill(meter['format'].count('#')))
-                    else:
-                        formated_reading = raw_reading
-                    print('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter['id'], formated_reading), file=sys.stderr)
-                    mqtt_client.connect(host=mqtt_host, port=mqtt_port)
-                    mqtt_client.publish(topic=state_topic.format(meter['name']), payload=str(formated_reading).encode('utf-8'), qos=0, retain=True)
-                    mqtt_client.disconnect()
-                    meter_readings[str(meter['id'])] += 1
+        try:
+            json_output = loads(amrline)
+        except json.decoder.JSONDecodeError:
+            json_output = None
+        if json_output is not None and 'Message' in json_output:
+            if 'EndpointID' in json_output['Message']:
+                meter_id = str(json_output['Message']['EndpointID']).strip()
+            elif 'ID' in json_output['Message']:
+                meter_id = str(json_output['Message']['ID']).strip()
+            else:
+                meter_id = None
+            if 'Consumption' in json_output['Message']:
+                raw_reading = str(json_output['Message']['Consumption']).strip()
+            else:
+                raw_reading = None
+            if meter_id is not None and raw_reading is not None:
+                for meter in config['meters']: # We have a reading, but we don't know for which meter is it, let's check
+                    if meter_id == str(meter['id']).strip():
+                        if 'format' in meter:
+                            formated_reading = meter['format'].replace('#','{}').format(*raw_reading.zfill(meter['format'].count('#')))
+                        else:
+                            formated_reading = raw_reading
+                        print('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading), file=sys.stderr)
+                        mqtt_client.connect(host=mqtt_host, port=mqtt_port)
+                        mqtt_client.publish(topic=state_topic.format(meter['name']), payload=str(formated_reading).encode('utf-8'), qos=0, retain=True)
+                        mqtt_client.disconnect()
+                        meter_readings[meter_id] += 1
         if sleep_for > 0:
             # Check if we have readings for all meters
             if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings):

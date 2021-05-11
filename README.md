@@ -2,7 +2,10 @@
 This project was created to send readings made by RTLAMR to a MQTT broker.
 My user case is to integrate it with Home Assistant.
 
-I didn't know anyone else was using this project, but I just got a request to extend it so expect a lot of changes in the upcoming days! :)
+***UPDATE***
+Two fields were deprecated from the configuration file and are not necessary anymore:
+ - field_meterid
+ - field_consumption
 
 Home Assistant Utility:
 
@@ -28,6 +31,7 @@ Configuration sample:
 # (Optional section)
 general:
   # Sleep for this amount of seconds after one successful of every meter
+  # Set this to 0 (default) to disable it
   sleep_for: 300
 
 # (Required section)
@@ -41,7 +45,6 @@ mqtt:
 # (Optional)
 custom_parameters:
   rtltcp: "-s 2048000"
-  # (Optional) Add any custom parameter to RTLAMR.
   # ***DO NOT ADD -msgtype, -filterid nor -protocol parameters here***
   rtlamr: "-unique=true -symbollength=7"
 
@@ -49,16 +52,12 @@ meters:
   - id: 7823010
     protocol: scm+
     name: meter_water
-    field_meterid: 6
-    field_consumption: 7
     format: "#####.###"
     unit_of_measurement: "\u33A5"
     icon: mdi:gauge
   - id: 6567984
     protocol: scm
     name: meter_hydro
-    field_meterid: 3
-    field_consumption: 7
     unit_of_measurement: kWh
 ```
 
