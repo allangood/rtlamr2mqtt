@@ -72,7 +72,7 @@ services:
     devices:
       - /dev/bus/usb/004/002
     volumes:
-      /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
+      - /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
 ```
 
 Credits to:
