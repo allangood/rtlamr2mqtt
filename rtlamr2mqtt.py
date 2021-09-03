@@ -30,6 +30,20 @@ def shutdown(signum, frame):
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
 
+# DEBUG Mode
+# The DEBUG mode will run RTLAMR collecting all
+# signals and dump it to the stdout to make it easy
+# to find meters IDs and signals
+if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
+    print('Starting in DEBUG Mode...', file=sys.stderr)
+    rtltcp_cmd = ['/usr/bin/rtl_tcp']
+    rtltcp = subprocess.Popen(rtltcp_cmd, stderr=subprocess.DEVNULL)
+    sleep(2)
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype=all', '-format=json']
+    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
+    for amrline in rtlamr.stdout:
+        print(amrline, file=sys.stderr)
+
 ##################### BUILD CONFIGURATION #####################
 with open('/etc/rtlamr2mqtt.yaml','r') as config_file:
   config = yaml.safe_load(config_file)
@@ -92,7 +106,7 @@ rtltcp_custom = []
 if 'custom_parameters' in config:
     if 'rtltcp' in config['custom_parameters']:
         rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
-rtltcp_cmd = ["/usr/bin/rtl_tcp"] + rtltcp_custom
+rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
 #################################################################
 
 # Main loop
