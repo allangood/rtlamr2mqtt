@@ -9,7 +9,7 @@
     "map": [
         "config:rw"
     ],
-    "url": "https://github.com/allangood/rtlamr2mqtt",
+    "url": "https://gitlab.com/abpluth/rtlamr2mqtt",
     "uart": true,
     "udev": true,
     "usb": true,
