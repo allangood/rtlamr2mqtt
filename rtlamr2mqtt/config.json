@@ -1,6 +1,6 @@
 {
     "name": "rtlamr2mqtt",
-    "version": "0.10.1",
+    "version": "0.10.2",
     "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
     "description": "RTLAMR to MQTT Bridge",

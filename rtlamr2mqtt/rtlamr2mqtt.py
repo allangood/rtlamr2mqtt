@@ -51,7 +51,7 @@ def load_config():
     """Load current add-on version information and current config."""
     current_config_file = os.path.join("/data/options.json")
 
-    return json.load(open(current_config_file))["options"]
+    return json.load(open(current_config_file))
 
 ##################### BUILD CONFIGURATION #####################
 config = load_config()
