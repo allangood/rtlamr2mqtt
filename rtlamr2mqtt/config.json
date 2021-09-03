@@ -1,6 +1,6 @@
 {
     "name": "rtlamr2mqtt",
-    "version": "0.10.0",
+    "version": "0.10.1",
     "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
     "description": "RTLAMR to MQTT Bridge",
@@ -45,13 +45,7 @@
                 "unit_of_measurement": "㎥",
                 "icon": "mdi:gauge"
             }
-        ],
-        "device": {
-            "name": "myups",
-            "driver": "usbhid-ups",
-            "port": "auto",
-            "config": []
-        }
+        ]
     },
     "schema": {
         "general": {
@@ -78,7 +72,6 @@
                 "unit_of_measurement": "str",
                 "icon": "str"
             }
-        ],
-        "list_usb_devices": "bool?"
+        ]
     }
 }

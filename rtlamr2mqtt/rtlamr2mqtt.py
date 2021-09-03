@@ -49,11 +49,7 @@ if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
 def load_config():
     config = {}
     """Load current add-on version information and current config."""
-    current_config_file = os.path.join("config.json")
-
-    if not os.path.isfile(current_config_file):
-        click.echo("Current version: %s" % crayons.yellow("Not available"))
-        return False
+    current_config_file = os.path.join("/data/options.json")
 
     return json.load(open(current_config_file))["options"]
 
