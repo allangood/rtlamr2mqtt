@@ -1,4 +1,4 @@
-FROM python:rc-alpine3.12
+FROM python:3.6.14-alpine3.13
 
 ARG BUILD_ARCH
 
