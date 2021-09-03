@@ -1,7 +1,6 @@
 FROM python:rc-alpine3.12
 
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
+ARG BUILD_ARCH
 
 ENV RTLAMR_VERSION=v0.9.1
 
@@ -13,7 +12,7 @@ RUN apk update \
     && apk add rtl-sdr \
     && pip3 install -r /tmp/requirements.txt \
     && chmod 755 /usr/bin/rtlamr2mqtt.py \
-    && case ${TARGETPLATFORM} in \
+    && case ${BUILD_ARCH} in \
          "linux/amd64")  ARCH=amd64  ;; \
          "linux/arm64")  ARCH=arm64  ;; \
          "linux/arm/v7") ARCH=arm    ;; \
