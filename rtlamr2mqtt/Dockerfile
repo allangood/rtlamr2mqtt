@@ -12,6 +12,11 @@ RUN apk update \
     && apk add rtl-sdr \
     && pip3 install -r /tmp/requirements.txt \
     && chmod 755 /usr/bin/rtlamr2mqtt.py \
+    && echo ${BUILD_ARCH} \
+    && echo ${BUILD_ARCH} \
+    && echo ${BUILD_ARCH} \
+    && echo ${BUILD_ARCH} \
+    && echo ${BUILD_ARCH} \
     && case ${BUILD_ARCH} in \
          "linux/amd64")  ARCH=amd64  ;; \
          "linux/arm64")  ARCH=arm64  ;; \
