@@ -1,9 +1,9 @@
 {
     "name": "rtlamr2mqtt",
     "version": "0.10.0",
-    "slug": "rtlamr",
+    "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
-    "description": "",
+    "description": "RTLAMR to MQTT Bridge",
     "startup": "application",
     "boot": "auto",
     "map": [
@@ -21,6 +21,7 @@
         "armv7",
         "i386"
     ],
+    "services": ["mqtt:need"],
     "options": {
         "general": {
             "sleep_for": 300
