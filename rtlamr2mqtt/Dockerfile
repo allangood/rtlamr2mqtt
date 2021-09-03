@@ -12,11 +12,6 @@ RUN apk update \
     && apk add rtl-sdr \
     && pip3 install -r /tmp/requirements.txt \
     && chmod 755 /usr/bin/rtlamr2mqtt.py \
-    && echo ${BUILD_ARCH} \
-    && echo ${BUILD_ARCH} \
-    && echo ${BUILD_ARCH} \
-    && echo ${BUILD_ARCH} \
-    && echo ${BUILD_ARCH} \
     && case ${BUILD_ARCH} in \
          "linux/amd64")  ARCH=amd64  ;; \
          "linux/arm64")  ARCH=arm64  ;; \
@@ -33,7 +28,3 @@ RUN apk update \
 
 STOPSIGNAL SIGTERM
 CMD ["/usr/bin/rtlamr2mqtt.py"]
-
-
-
-https://github.com/bemasher/rtlamr/releases/download/v0.9.1/rtlamr_linux_amd64.tar.gz \
