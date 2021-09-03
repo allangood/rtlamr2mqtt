@@ -15,9 +15,9 @@
     "usb": true,
     "host_network": false,
     "arch": [
+        "aarch64",
         "amd64",
-        "arm64",
-        "armv6",
+        "armhf",
         "armv7",
         "i386"
     ],
@@ -57,7 +57,7 @@
     },
     "schema": {
         "general": {
-            "sleep_for": 300
+            "sleep_for": "int"
         },
         "mqtt": {
             "host": "str",
