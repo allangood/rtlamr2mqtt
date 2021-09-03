@@ -19,8 +19,8 @@ RUN apk update \
          "arm/v6") ARCH=arm    ;; \
          "386")    ARCH=i386   ;; \
     esac \
-    && wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VERSION}/rtlamr_linux_${BUILD_ARCH}.tar.gz \
-    && tar zxvf rtlamr_linux_${BUILD_ARCH}.tar.gz \
+    && wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VERSION}/rtlamr_linux_${ARCH}.tar.gz \
+    && tar zxvf rtlamr_linux_${ARCH}.tar.gz \
     && chmod 755 rtlamr \
     && mv rtlamr /usr/bin \
     && rm -f /tmp/*
