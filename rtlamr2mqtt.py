@@ -41,8 +41,10 @@ if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
     sleep(2)
     rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype=all', '-format=json']
     rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
-    for amrline in rtlamr.stdout:
-        print(amrline, file=sys.stderr)
+    # loop forever
+    while True:
+        for amrline in rtlamr.stdout:
+            print(amrline, file=sys.stderr)
 
 ##################### BUILD CONFIGURATION #####################
 with open('/etc/rtlamr2mqtt.yaml','r') as config_file:
