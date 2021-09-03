@@ -82,6 +82,5 @@
             }
         ],
         "list_usb_devices": "bool?"
-    },
-    "image": "docker.com/allangood/rtlamr2mqtt:latest"
+    }
 }
