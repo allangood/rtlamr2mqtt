@@ -10,7 +10,7 @@ Two fields were deprecated from the configuration file and are not necessary any
 If you don't know your Meter ID or the protocol to listen, you can run the container in DEBUG mode to listen for everything.
 ### How to run the container in DEBUG Mode:
 ```
-docker run --rm -ti -e DEBUG=yes allangood/rtlamr2mqtt
+docker run --rm -ti -e DEBUG=yes --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
 
 ### Home Assistant Utility:
@@ -76,7 +76,7 @@ services:
     image: allangood/rtlamr2mqtt
     restart: unless-stopped
     devices:
-      - /dev/bus/usb/004/002
+      - /dev/bus/usb
     volumes:
       - /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
 ```
