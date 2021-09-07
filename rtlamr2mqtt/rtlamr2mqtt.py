@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import sys
-import yaml
 import signal
 import subprocess
 from time import sleep
@@ -46,9 +46,19 @@ if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
         for amrline in rtlamr.stdout:
             print(amrline, file=sys.stderr)
 
+def load_config():
+    config = {}
+    """Load current add-on version information and current config."""
+    current_config_file = os.path.join("config.json")
+
+    if not os.path.isfile(current_config_file):
+        click.echo("Current version: %s" % crayons.yellow("Not available"))
+        return False
+
+    return json.load(open(current_config_file))["options"]
+
 ##################### BUILD CONFIGURATION #####################
-with open('/etc/rtlamr2mqtt.yaml','r') as config_file:
-  config = yaml.safe_load(config_file)
+config = load_config()
 
 # Build MQTT configuration
 mqtt_host = "127.0.0.1" if 'host' not in config['mqtt'] else config['mqtt']['host']

@@ -1,0 +1,86 @@
+{
+    "name": "rtlamr2mqtt",
+    "version": "0.10.0",
+    "slug": "rtlamr",
+    "panel_icon": "mdi:gauge",
+    "description": "",
+    "startup": "application",
+    "boot": "auto",
+    "map": [
+        "config:rw"
+    ],
+    "url": "https://github.com/allangood/rtlamr2mqtt",
+    "uart": true,
+    "udev": true,
+    "usb": true,
+    "host_network": false,
+    "arch": [
+        "amd64",
+        "arm64",
+        "armv6",
+        "armv7",
+        "i386"
+    ],
+    "options": {
+        "general": {
+            "sleep_for": 300
+        },
+        "mqtt": {
+            "host": "hassio.local",
+            "port": 1883,
+            "user": "",
+            "password": "",
+            "ha_autodiscovery": true,
+            "ha_autodiscovery_topic": "homeassistant"
+        },
+        "rtl": {
+            "rtltcp": "-s 2048000",
+            "rtlamr": "-unique=true -symbollength=7"
+        },
+        "meters": [
+            {
+                "id": 123456789,
+                "protocol": "scm+",
+                "name": "water_meter",
+                "format": "####.###",
+                "unit_of_measurement": "㎥",
+                "icon": "mdi:gauge"
+            }
+        ],
+        "device": {
+            "name": "myups",
+            "driver": "usbhid-ups",
+            "port": "auto",
+            "config": []
+        }
+    },
+    "schema": {
+        "general": {
+            "sleep_for": 300
+        },
+        "mqtt": {
+            "host": "str",
+            "port": "int",
+            "user": "str",
+            "password": "str",
+            "ha_autodiscovery": "bool",
+            "ha_autodiscovery_topic": "str"
+        },
+        "rtl": {
+            "rtltcp": "str",
+            "rtlamr": "str"
+        },
+        "meters": [
+            {
+                "id": "int",
+                "protocol": "list(idm|netidm|r900|r900bcd|scm|scm+)",
+                "name": "str",
+                "format": "str",
+                "unit_of_measurement": "str",
+                "icon": "str"
+            }
+        ],
+        "list_usb_devices": "bool?"
+    },
+    "image": "docker.com/allangood/rtlamr2mqtt:latest"
+}

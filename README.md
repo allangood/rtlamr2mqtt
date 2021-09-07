@@ -32,57 +32,8 @@ utility_meter:
     cycle: monthly
 ```
 
-### Configuration sample:
-```
-# (Optional section)
-general:
-  # Sleep for this amount of seconds after one successful of every meter
-  # Set this to 0 (default) to disable it
-  sleep_for: 300
-
-# (Required section)
-mqtt:
-  host: 192.168.1.1
-  user: mqtt
-  password: sdfhkjh(*&
-  ha_autodiscovery: true
-  ha_autodiscovery_topic: homeassistant
-
-# (Optional)
-custom_parameters:
-  rtltcp: "-s 2048000"
-  # ***DO NOT ADD -msgtype, -filterid nor -protocol parameters here***
-  rtlamr: "-unique=true -symbollength=7"
-
-meters:
-  - id: 7823010
-    protocol: scm+
-    name: meter_water
-    format: "#####.###"
-    unit_of_measurement: "\u33A5"
-    icon: mdi:gauge
-  - id: 6567984
-    protocol: scm
-    name: meter_hydro
-    unit_of_measurement: kWh
-```
-
-### Docker compose configuration:
-```
-version: "3"
-services:
-  rtlamr:
-    container_name: rtlamr2mqtt
-    image: allangood/rtlamr2mqtt
-    restart: unless-stopped
-    devices:
-      - /dev/bus/usb
-    volumes:
-      - /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
-```
-
-
 ### Credits to:
+Credits to:
 
 https://github.com/bemasher/rtlamr
 
