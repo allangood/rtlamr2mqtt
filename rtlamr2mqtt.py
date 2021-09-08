@@ -62,7 +62,7 @@ if 'ha_autodiscovery' in config['mqtt']:
         ha_autodiscovery = True
 ha_autodiscovery = False if 'ha_autodiscovery' not in config['mqtt'] else config['mqtt']['ha_autodiscovery']
 state_topic = 'rtlamr/{}/state'
-discover_topic = 'homeassistant/sensor/rtlamr/{}/config'
+discover_topic = ha_autodiscovery_topic + '/sensor/rtlamr/{}/config'
 mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
 mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
 
