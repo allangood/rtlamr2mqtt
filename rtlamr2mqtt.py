@@ -55,7 +55,7 @@ mqtt_host = "127.0.0.1" if 'host' not in config['mqtt'] else config['mqtt']['hos
 mqtt_port = 1883 if 'port' not in config['mqtt'] else int(config['mqtt']['port'])
 mqtt_user = "user" if 'user' not in config['mqtt'] else config['mqtt']['user']
 mqtt_password = "secret" if 'password' not in config['mqtt'] else config['mqtt']['password']
-ha_autodiscovery_topic = "homeassistant" if 'ha_autodiscovery_topic' not in config['mqtt'] else config['mqtt']['password']
+ha_autodiscovery_topic = "homeassistant" if 'ha_autodiscovery_topic' not in config['mqtt'] else config['mqtt']['ha_autodiscovery_topic']
 ha_autodiscovery = False
 if 'ha_autodiscovery' in config['mqtt']:
     if str(config['mqtt']['ha_autodiscovery']).lower() in ['true', 'yes']:
