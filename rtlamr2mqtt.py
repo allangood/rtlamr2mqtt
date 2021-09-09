@@ -36,7 +36,7 @@ signal.signal(signal.SIGINT, shutdown)
 # to find meters IDs and signals
 if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
     print('Starting in DEBUG Mode...', file=sys.stderr)
-    if os.environ.get('RTL_MSGTYPE') not None:
+    if os.environ.get('RTL_MSGTYPE') is not None:
         msgtype = os.environ.get('DEBUG')
     else:
         msgtype = 'all'
