@@ -97,7 +97,7 @@ for idx,meter in enumerate(config['meters']):
             "state_topic": state_topic.format(config['meters'][idx]['name'])
         }
         mqtt_client.connect(host=mqtt_host, port=mqtt_port)
-        mqtt_client.publish(topic=discover_topic), payload=dumps(discover_payload), qos=0, retain=True)
+        mqtt_client.publish(topic=discover_topic, payload=dumps(discover_payload), qos=0, retain=True)
         mqtt_client.disconnect()
 
 rtlamr_custom = []

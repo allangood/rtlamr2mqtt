@@ -31,6 +31,18 @@ utility_meter:
     source: sensor.<meter_name>
     cycle: monthly
 ```
+If you have `ha_autodiscovery: false` in your configuration, you will need to manually add the sensors to your HA configuration.
+
+This is a sample for a water meter using the configuration from the next section:
+```
+sensor:
+  - platform: mqtt
+    name: "My Utility Meter"
+    state_topic: rtlamr/meter_water/state
+    unit_of_measurement: "\u33A5"
+```
+You must change `meter_water` with the name you have configured in the configuration YAML file (below)
+
 
 ### Configuration sample:
 ```
@@ -44,7 +56,7 @@ general:
 mqtt:
   host: 192.168.1.1
   user: mqtt
-  password: sdfhkjh(*&
+  password: my very strong password
   ha_autodiscovery: true
   ha_autodiscovery_topic: homeassistant
 
