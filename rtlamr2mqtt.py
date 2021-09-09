@@ -36,10 +36,14 @@ signal.signal(signal.SIGINT, shutdown)
 # to find meters IDs and signals
 if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
     print('Starting in DEBUG Mode...', file=sys.stderr)
+    if os.environ.get('RTL_MSGTYPE') not None:
+        msgtype = os.environ.get('DEBUG')
+    else:
+        msgtype = 'all'
     rtltcp_cmd = ['/usr/bin/rtl_tcp']
     rtltcp = subprocess.Popen(rtltcp_cmd, stderr=subprocess.DEVNULL)
     sleep(2)
-    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype=all', '-format=json']
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
     rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
     # loop forever
     while True:
@@ -55,14 +59,13 @@ mqtt_host = "127.0.0.1" if 'host' not in config['mqtt'] else config['mqtt']['hos
 mqtt_port = 1883 if 'port' not in config['mqtt'] else int(config['mqtt']['port'])
 mqtt_user = "user" if 'user' not in config['mqtt'] else config['mqtt']['user']
 mqtt_password = "secret" if 'password' not in config['mqtt'] else config['mqtt']['password']
-ha_autodiscovery_topic = "homeassistant" if 'ha_autodiscovery_topic' not in config['mqtt'] else config['mqtt']['ha_autodiscovery_topic']
+ha_autodiscovery_topic = "homeassistant" if 'ha_autodiscovery_topic' not in config['mqtt'] else str(config['mqtt']['ha_autodiscovery_topic'])
 ha_autodiscovery = False
 if 'ha_autodiscovery' in config['mqtt']:
     if str(config['mqtt']['ha_autodiscovery']).lower() in ['true', 'yes']:
         ha_autodiscovery = True
-ha_autodiscovery = False if 'ha_autodiscovery' not in config['mqtt'] else config['mqtt']['ha_autodiscovery']
+
 state_topic = 'rtlamr/{}/state'
-discover_topic = ha_autodiscovery_topic + '/sensor/rtlamr/{}/config'
 mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
 mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
 
@@ -86,6 +89,7 @@ for idx,meter in enumerate(config['meters']):
     # if HA Autodiscovery is enabled, send the MQTT payload
     if ha_autodiscovery:
         print('Sending MQTT autodiscovery payload to Home Assistant...', file=sys.stderr)
+        discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, config['meters'][idx]['name'])
         discover_payload = {
             "name": config['meters'][idx]['name'],
             "unit_of_measurement": config['meters'][idx]['unit_of_measurement'],
@@ -93,7 +97,7 @@ for idx,meter in enumerate(config['meters']):
             "state_topic": state_topic.format(config['meters'][idx]['name'])
         }
         mqtt_client.connect(host=mqtt_host, port=mqtt_port)
-        mqtt_client.publish(topic=discover_topic.format(config['meters'][idx]['name']), payload=dumps(discover_payload), qos=0, retain=True)
+        mqtt_client.publish(topic=discover_topic), payload=dumps(discover_payload), qos=0, retain=True)
         mqtt_client.disconnect()
 
 rtlamr_custom = []
