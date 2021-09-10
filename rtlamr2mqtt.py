@@ -151,10 +151,12 @@ while True:
                 meter_id = str(json_output['Message']['EndpointID']).strip()
             elif 'ID' in json_output['Message']:
                 meter_id = str(json_output['Message']['ID']).strip()
-
+            else:
+                meter_id = None
             if 'Consumption' in json_output['Message']:
                 raw_reading = str(json_output['Message']['Consumption']).strip()
-                                        
+            else:
+                raw_reading = None
             if meter_id and raw_reading:
                 for meter in config['meters']: # We have a reading, but we don't know for which meter is it, let's check
                     if meter_id == str(meter['id']).strip():
