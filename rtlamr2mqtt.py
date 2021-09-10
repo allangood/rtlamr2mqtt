@@ -41,10 +41,7 @@ signal.signal(signal.SIGINT, shutdown)
 # to find meters IDs and signals
 if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
     print('Starting in DEBUG Mode...', file=sys.stderr)
-    if os.environ.get('RTL_MSGTYPE') is not None:
-        msgtype = os.environ.get('DEBUG')
-    else:
-        msgtype = 'all'
+    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
     rtltcp_cmd = ['/usr/bin/rtl_tcp']
     rtltcp = subprocess.Popen(rtltcp_cmd, stderr=subprocess.DEVNULL)
     sleep(2)
@@ -61,21 +58,21 @@ with open('/etc/rtlamr2mqtt.yaml','r') as config_file:
 
 # Build MQTT configuration
 availability_topic = 'rtlamr/status' # Setting for LWT messages
-mqtt_host = "127.0.0.1" if 'host' not in config['mqtt'] else config['mqtt']['host']
-mqtt_port = 1883 if 'port' not in config['mqtt'] else int(config['mqtt']['port'])
-mqtt_user = None if 'user' not in config['mqtt'] else config['mqtt']['user']
-mqtt_password = None if 'password' not in config['mqtt'] else config['mqtt']['password']
-ha_autodiscovery_topic = "homeassistant" if 'ha_autodiscovery_topic' not in config['mqtt'] else str(config['mqtt']['ha_autodiscovery_topic'])
+mqtt_host = config['mqtt'].get('host', '127.0.0.1')
+mqtt_port = int(config['mqtt'].get('port', 1883))
+mqtt_user = config['mqtt'].get('user', None)
+mqtt_password = config['mqtt'].get('password', None)
+ha_autodiscovery_topic = config['mqtt'].get('ha_autodiscovery_topic', 'homeassistant')
 ha_autodiscovery = False
 if 'ha_autodiscovery' in config['mqtt']:
     if str(config['mqtt']['ha_autodiscovery']).lower() in ['true', 'yes']:
         ha_autodiscovery = True
 mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
-if mqtt_user is not None:
+if mqtt_user:
     mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
 
 if 'general' in config:
-    sleep_for = 0 if 'sleep_for' not in config['general'] else config['general']['sleep_for']
+    sleep_for = int(config['general'].get('sleep_for', 0))
 else:
     sleep_for = 0
 
@@ -86,9 +83,9 @@ meter_ids = []
 meter_readings = {}
 for idx,meter in enumerate(config['meters']):
     state_topic = 'rtlamr/{}/state'.format(config['meters'][idx]['name'])
-    config['meters'][idx]['name'] = str('meter_{}'.format(meter['id'])) if 'name' not in meter else str(meter['name'])
-    config['meters'][idx]['unit_of_measurement'] = '' if 'unit_of_measurement' not in meter else str(meter['unit_of_measurement'])
-    config['meters'][idx]['icon'] = 'mdi:gauge' if 'icon' not in meter else str(meter['icon'])
+    config['meters'][idx]['name'] = str(meter.get('name', 'meter_{}'.format(meter['id']))
+    config['meters'][idx]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
+    config['meters'][idx]['icon'] = meter.get('icon', 'mdi:gauge')
     protocols.append(meter['protocol'])
     meter_ids.append(str(meter['id']))
     meter_readings[str(meter['id'])] = 0
@@ -149,7 +146,7 @@ while True:
             json_output = loads(amrline)
         except json.decoder.JSONDecodeError:
             json_output = None
-        if json_output is not None and 'Message' in json_output:
+        if json_output and 'Message' in json_output:
             if 'EndpointID' in json_output['Message']:
                 meter_id = str(json_output['Message']['EndpointID']).strip()
             elif 'ID' in json_output['Message']:
@@ -160,7 +157,7 @@ while True:
                 raw_reading = str(json_output['Message']['Consumption']).strip()
             else:
                 raw_reading = None
-            if meter_id is not None and raw_reading is not None:
+            if meter_id and raw_reading:
                 for meter in config['meters']: # We have a reading, but we don't know for which meter is it, let's check
                     if meter_id == str(meter['id']).strip():
                         if 'format' in meter:
