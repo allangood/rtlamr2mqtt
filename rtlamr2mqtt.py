@@ -82,10 +82,10 @@ protocols = []
 meter_ids = []
 meter_readings = {}
 for idx,meter in enumerate(config['meters']):
-    state_topic = 'rtlamr/{}/state'.format(config['meters'][idx]['name'])
-    config['meters'][idx]['name'] = str(meter.get('name', 'meter_{}'.format(meter['id']))
+    state_topic = 'rtlamr/{}/state'.format(str(config['meters'][idx]['name']))
+    config['meters'][idx]['name'] = str(meter.get('name', 'meter_{}'.format(meter['id'])))
     config['meters'][idx]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
-    config['meters'][idx]['icon'] = meter.get('icon', 'mdi:gauge')
+    config['meters'][idx]['icon'] = str(meter.get('icon', 'mdi:gauge'))
     protocols.append(meter['protocol'])
     meter_ids.append(str(meter['id']))
     meter_readings[str(meter['id'])] = 0
@@ -95,6 +95,7 @@ for idx,meter in enumerate(config['meters']):
         discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, config['meters'][idx]['name'])
         discover_payload = {
             "name": config['meters'][idx]['name'],
+            "unique_id": str(meter['id']),
             "unit_of_measurement": config['meters'][idx]['unit_of_measurement'],
             "icon": config['meters'][idx]['icon'],
             "availability_topic": availability_topic,
