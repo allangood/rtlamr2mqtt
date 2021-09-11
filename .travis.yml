@@ -1,5 +1,7 @@
 language: python
+# distro to be used
 dist: focal
+# command to install packages
 addons:
   apt:
     packages:
@@ -8,8 +10,6 @@ python:
   - "3.9"
   - "nightly"  # nightly build
 # command to install dependencies
-before_install:
-  - mosquitto
 install:
   - pip install -r requirements.txt
 # command to run tests
