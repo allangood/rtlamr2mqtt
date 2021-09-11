@@ -57,6 +57,12 @@ config_path = '/etc/rtlamr2mqtt.yaml' if len(sys.argv) != 2 else sys.argv[1]
 with open(config_path,'r') as config_file:
   config = yaml.safe_load(config_file)
 
+sleep_for = 0
+if 'general' in config:
+    config_mode = config['general'].get('mode', 'normal')
+    if config_mode != 'test':
+        sleep_for = int(config['general'].get('sleep_for', 0))
+
 # Build MQTT configuration
 availability_topic = 'rtlamr/status' # Setting for LWT messages
 mqtt_host = config['mqtt'].get('host', '127.0.0.1')
@@ -71,11 +77,6 @@ if 'ha_autodiscovery' in config['mqtt']:
 mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
 if mqtt_user:
     mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
-
-if 'general' in config:
-    sleep_for = int(config['general'].get('sleep_for', 0))
-else:
-    sleep_for = 0
 
 # Build Meter and RTLAMR config and send HA Auto-discover payload if enabled
 # TODO: Add a configuration section for rtlamr and rtl_tcp configuration parameters
@@ -174,10 +175,10 @@ while True:
                         mqtt_client.disconnect()
                         mqtt_client.loop_stop()
                         meter_readings[meter_id] += 1
-        if sleep_for > 0:
+        if sleep_for > 0 or config_mode == 'test':
             # Check if we have readings for all meters
             if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings):
-                # Set all values to 0
+                # Set all meter readins values to 0
                 meter_readings = dict.fromkeys(meter_readings, 0)
                 # Exit from the main for loop and stop reading the rtlamr output
                 break
@@ -196,4 +197,7 @@ while True:
         except subprocess.TimeoutExpired:
             rtlamr.kill()
             rtlamr.wait()
+    if config_mode == 'test':
+        # If in test mode and reached this point, everything is fine
+        sys.exit(0)
     sleep(sleep_for)

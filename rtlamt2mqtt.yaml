@@ -1,5 +1,6 @@
 general:
-  sleep_for: 300
+  sleep_for: 0
+  mode: test
 
 mqtt:
   host: 127.0.0.1
