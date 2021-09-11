@@ -53,8 +53,15 @@ if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
             print(amrline, file=sys.stderr)
 
 ##################### BUILD CONFIGURATION #####################
-with open('/etc/rtlamr2mqtt.yaml','r') as config_file:
+config_path = '/etc/rtlamr2mqtt.yaml' if len(sys.argv) != 2 else sys.argv[1]
+with open(config_path,'r') as config_file:
   config = yaml.safe_load(config_file)
+
+sleep_for = 0
+if 'general' in config:
+    config_mode = config['general'].get('mode', 'normal')
+    if config_mode != 'test':
+        sleep_for = int(config['general'].get('sleep_for', 0))
 
 # Build MQTT configuration
 availability_topic = 'rtlamr/status' # Setting for LWT messages
@@ -71,18 +78,13 @@ mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
 if mqtt_user:
     mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
 
-if 'general' in config:
-    sleep_for = int(config['general'].get('sleep_for', 0))
-else:
-    sleep_for = 0
-
 # Build Meter and RTLAMR config and send HA Auto-discover payload if enabled
 # TODO: Add a configuration section for rtlamr and rtl_tcp configuration parameters
 protocols = []
 meter_ids = []
 meter_readings = {}
 for idx,meter in enumerate(config['meters']):
-    state_topic = 'rtlamr/{}/state'.format(str(config['meters'][idx]['name']))
+    state_topic = 'rtlamr/{}/state'.format(str(meter['id']))
     config['meters'][idx]['name'] = str(meter.get('name', 'meter_{}'.format(meter['id'])))
     config['meters'][idx]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
     config['meters'][idx]['icon'] = str(meter.get('icon', 'mdi:gauge'))
@@ -166,17 +168,17 @@ while True:
                         else:
                             formated_reading = raw_reading
                         print('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading), file=sys.stderr)
-                        state_topic = 'rtlamr/{}/state'.format(meter['name'])
-                        mqtt_client.loop_start()
+                        state_topic = 'rtlamr/{}/state'.format(meter_id)
                         mqtt_client.connect(host=mqtt_host, port=mqtt_port)
+                        mqtt_client.loop_start()
                         mqtt_client.publish(topic=state_topic, payload=str(formated_reading).encode('utf-8'), qos=0, retain=True)
                         mqtt_client.disconnect()
                         mqtt_client.loop_stop()
                         meter_readings[meter_id] += 1
-        if sleep_for > 0:
+        if sleep_for > 0 or config_mode == 'test':
             # Check if we have readings for all meters
             if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings):
-                # Set all values to 0
+                # Set all meter readins values to 0
                 meter_readings = dict.fromkeys(meter_readings, 0)
                 # Exit from the main for loop and stop reading the rtlamr output
                 break
@@ -195,4 +197,7 @@ while True:
         except subprocess.TimeoutExpired:
             rtlamr.kill()
             rtlamr.wait()
+    if config_mode == 'test':
+        # If in test mode and reached this point, everything is fine
+        sys.exit(0)
     sleep(sleep_for)

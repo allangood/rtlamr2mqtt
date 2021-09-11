@@ -1,0 +1,26 @@
+language: python
+env:
+  - RTLAMR_VERSION=v0.9.1
+# distro to be used
+dist: focal
+# command to install packages
+addons:
+  apt:
+    packages:
+      - mosquitto
+      - rtl-sdr
+python:
+  - "3.9"
+  - "nightly"  # nightly build
+# execute commands before install
+before_install:
+  - wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VERSION}/rtlamr_linux_amd64.tar.gz
+  - tar zxvf rtlamr_linux_amd64.tar.gz
+  - chmod 755 rtlamr
+  - sudo mv rtlamr /usr/bin
+# command to install dependencies
+install:
+  - pip install -r requirements.txt
+# command to run tests
+script:
+  - python3 rtlamr2mqtt.py rtlamt2mqtt.yaml || python rtlamr2mqtt.py rtlamt2mqtt.yaml
