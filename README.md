@@ -1,4 +1,6 @@
 ### RTLAMR2MQTT
+[![Build Status](https://app.travis-ci.com/allangood/rtlamr2mqtt.svg?branch=main)](https://app.travis-ci.com/allangood/rtlamr2mqtt)
+
 This project was created to send readings made by RTLAMR to a MQTT broker.
 My user case is to integrate it with Home Assistant.
 
