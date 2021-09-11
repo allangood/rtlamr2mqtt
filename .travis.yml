@@ -1,7 +1,6 @@
 language: python
 env:
   - RTLAMR_VERSION=v0.9.1
-  - ARCH=amd64
 # distro to be used
 dist: focal
 # command to install packages
@@ -15,8 +14,8 @@ python:
   - "nightly"  # nightly build
 # execute commands before install
 before_install:
-  - wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VERSION}/rtlamr_linux_${ARCH}.tar.gz
-  - tar zxvf rtlamr_linux_${ARCH}.tar.gz
+  - wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VERSION}/rtlamr_linux_amd64.tar.gz
+  - tar zxvf rtlamr_linux_amd64.tar.gz
   - chmod 755 rtlamr
   - sudo mv rtlamr /usr/bin
 # command to install dependencies
