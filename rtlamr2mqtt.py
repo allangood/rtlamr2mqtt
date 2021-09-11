@@ -53,7 +53,8 @@ if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
             print(amrline, file=sys.stderr)
 
 ##################### BUILD CONFIGURATION #####################
-with open('/etc/rtlamr2mqtt.yaml','r') as config_file:
+config_path = '/etc/rtlamr2mqtt.yaml' if len(sys.argv) != 2 else sys.argv[1]
+with open(config_path,'r') as config_file:
   config = yaml.safe_load(config_file)
 
 # Build MQTT configuration

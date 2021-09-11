@@ -1,0 +1,21 @@
+general:
+  sleep_for: 300
+
+mqtt:
+  host: 127.0.0.1
+  user: test
+  password: testpassword
+  ha_autodiscovery: true
+  ha_autodiscovery_topic: homeassistant
+
+custom_parameters:
+  rtltcp: "-s 2048000"
+  rtlamr: "-unique=true -symbollength=32"
+
+meters:
+  - id: 12345678
+    protocol: scm+
+    name: test_meter
+    format: "######.###"
+    unit_of_measurement: "\u33A5"
+    icon: mdi:gauge
