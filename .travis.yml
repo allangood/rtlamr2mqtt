@@ -1,9 +1,15 @@
 language: python
 dist: focal
+addons:
+  apt:
+    packages:
+      - mosquitto
 python:
   - "3.9"
   - "nightly"  # nightly build
 # command to install dependencies
+before_install:
+  - mosquitto -c /etc/mosquitto.conf
 install:
   - pip install -r requirements.txt
 # command to run tests
