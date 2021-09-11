@@ -82,7 +82,7 @@ protocols = []
 meter_ids = []
 meter_readings = {}
 for idx,meter in enumerate(config['meters']):
-    state_topic = 'rtlamr/{}/state'.format(str(config['meters'][idx]['name']))
+    state_topic = 'rtlamr/{}/state'.format(str(meter['id']))
     config['meters'][idx]['name'] = str(meter.get('name', 'meter_{}'.format(meter['id'])))
     config['meters'][idx]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
     config['meters'][idx]['icon'] = str(meter.get('icon', 'mdi:gauge'))
@@ -166,9 +166,9 @@ while True:
                         else:
                             formated_reading = raw_reading
                         print('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading), file=sys.stderr)
-                        state_topic = 'rtlamr/{}/state'.format(meter['name'])
-                        mqtt_client.loop_start()
+                        state_topic = 'rtlamr/{}/state'.format(meter_id)
                         mqtt_client.connect(host=mqtt_host, port=mqtt_port)
+                        mqtt_client.loop_start()
                         mqtt_client.publish(topic=state_topic, payload=str(formated_reading).encode('utf-8'), qos=0, retain=True)
                         mqtt_client.disconnect()
                         mqtt_client.loop_stop()
