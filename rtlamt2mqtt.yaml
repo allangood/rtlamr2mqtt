@@ -1,6 +1,7 @@
 general:
   sleep_for: 0
   mode: test
+  verbosity: debug
 
 mqtt:
   host: 127.0.0.1

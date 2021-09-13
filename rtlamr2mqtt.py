@@ -5,17 +5,48 @@ import sys
 import yaml
 import signal
 import subprocess
+import paho.mqtt.publish as publish
 from time import sleep
-from json import dumps,loads
-import paho.mqtt.client as mqtt
+from json import dumps, loads
+from paho.mqtt import MQTTException
+from json.decoder import JSONDecodeError
+
+# Publish message function
+def publish_message(**kwargs):
+    if 'username' in kwargs:
+        auth = { 'username': kwargs['username'], 'password': kwargs['password'] }
+    else:
+        auth = None
+    topic = kwargs.get('topic')
+    payload = kwargs.get('payload', None)
+    qos = int(kwargs.get('qos', 0))
+    retain = kwargs.get('retain', False)
+    client_id = 'rtlamr2mqtt'
+    hostname = kwargs.get('hostname', 'localhost')
+    port = int(kwargs.get('port', 1883))
+    will = { 'topic': availability_topic, 'payload':'offline', 'qos': 1, 'retain': True }
+    if verbosity == 'debug':
+        log_message('Sending message to MQTT:')
+        for k,v in kwargs.items():
+            if k == 'password':
+                v = '*** REDACTED ***'
+            log_message(' > {} => {}'.format(k,v))
+    try:
+        publish.single(
+            topic=topic, payload=payload, qos=qos, retain=retain, hostname=hostname,
+            port=port, client_id=client_id, keepalive=60, will=will, auth=auth, tls=None
+        )
+    except MQTTException as e:
+        log_message('Error connecting to MQTT broker: {}'.format(e))
+
+def log_message(message):
+    print(message, file=sys.stderr)
 
 # uses signal to shutdown and hard kill opened processes and self
 def shutdown(signum, frame):
-    mqtt_client.connect(host=mqtt_host, port=mqtt_port)
-    mqtt_client.loop_start()
-    mqtt_client.publish(topic=availability_topic, payload='offline', qos=0, retain=True)
-    mqtt_client.disconnect()
-    mqtt_client.loop_stop()
+    # Check if MQTT is defined
+    if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
+        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload=offline, retain=True)
     if rtltcp.returncode is None:
         rtltcp.terminate()
         try:
@@ -35,36 +66,45 @@ def shutdown(signum, frame):
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
 
+
 # DEBUG Mode
 # The DEBUG mode will run RTLAMR collecting all
 # signals and dump it to the stdout to make it easy
-# to find meters IDs and signals
-if str(os.environ.get('DEBUG')).lower() in ['yes', 'true']:
-    print('Starting in DEBUG Mode...', file=sys.stderr)
+# to find meters IDs and signals.
+# This mode WILL NOT read any configuration file
+if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
+    log_message('Starting in DEBUG Mode...')
+    log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
     msgtype = os.environ.get('RTL_MSGTYPE', 'all')
     rtltcp_cmd = ['/usr/bin/rtl_tcp']
-    rtltcp = subprocess.Popen(rtltcp_cmd, stderr=subprocess.DEVNULL)
+    rtltcp = subprocess.Popen(rtltcp_cmd, stdout=subprocess.STDERR, stderr=subprocess.STDERR)
     sleep(2)
     rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
-    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
+    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     # loop forever
     while True:
         for amrline in rtlamr.stdout:
-            print(amrline, file=sys.stderr)
+            log_message(amrline)
+
 
 ##################### BUILD CONFIGURATION #####################
 config_path = '/etc/rtlamr2mqtt.yaml' if len(sys.argv) != 2 else sys.argv[1]
-with open(config_path,'r') as config_file:
-  config = yaml.safe_load(config_file)
+try:
+    with open(config_path,'r') as config_file:
+      config = yaml.safe_load(config_file)
+except FileNotFoundError:
+    log_message('Configuration file cannot be found at "{}"'.format(config_path))
+    sys.exit(-1)
 
 sleep_for = 0
+verbosity = str(config['general'].get('verbosity', 'info')).lower()
 if 'general' in config:
     config_mode = config['general'].get('mode', 'normal')
     if config_mode != 'test':
         sleep_for = int(config['general'].get('sleep_for', 0))
 
 # Build MQTT configuration
-availability_topic = 'rtlamr/status' # Setting for LWT messages
+availability_topic = 'rtlamr/status'
 mqtt_host = config['mqtt'].get('host', '127.0.0.1')
 mqtt_port = int(config['mqtt'].get('port', 1883))
 mqtt_user = config['mqtt'].get('user', None)
@@ -74,15 +114,13 @@ ha_autodiscovery = False
 if 'ha_autodiscovery' in config['mqtt']:
     if str(config['mqtt']['ha_autodiscovery']).lower() in ['true', 'yes']:
         ha_autodiscovery = True
-mqtt_client = mqtt.Client(client_id='rtlamr2mqtt')
-if mqtt_user:
-    mqtt_client.username_pw_set(username=mqtt_user, password=mqtt_password)
 
 # Build Meter and RTLAMR config and send HA Auto-discover payload if enabled
 # TODO: Add a configuration section for rtlamr and rtl_tcp configuration parameters
 protocols = []
 meter_ids = []
 meter_readings = {}
+
 for idx,meter in enumerate(config['meters']):
     state_topic = 'rtlamr/{}/state'.format(str(meter['id']))
     config['meters'][idx]['name'] = str(meter.get('name', 'meter_{}'.format(meter['id'])))
@@ -93,7 +131,7 @@ for idx,meter in enumerate(config['meters']):
     meter_readings[str(meter['id'])] = 0
     # if HA Autodiscovery is enabled, send the MQTT payload
     if ha_autodiscovery:
-        print('Sending MQTT autodiscovery payload to Home Assistant...', file=sys.stderr)
+        log_message('Sending MQTT autodiscovery payload to Home Assistant...')
         discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, config['meters'][idx]['name'])
         discover_payload = {
             "name": config['meters'][idx]['name'],
@@ -103,12 +141,7 @@ for idx,meter in enumerate(config['meters']):
             "availability_topic": availability_topic,
             "state_topic": state_topic
         }
-        mqtt_client.will_set("stack/clientstatus", "offline", 1, True)
-        mqtt_client.connect(host=mqtt_host, port=mqtt_port)
-        mqtt_client.loop_start()
-        mqtt_client.publish(topic=discover_topic, payload=dumps(discover_payload), qos=0, retain=True)
-        mqtt_client.disconnect()
-        mqtt_client.loop_stop()
+        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=discover_topic, payload=dumps(discover_payload), retain=True)
 
 rtlamr_custom = []
 if 'custom_parameters' in config:
@@ -127,28 +160,32 @@ rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
 
 # Main loop
 while True:
-    mqtt_client.connect(host=mqtt_host, port=mqtt_port)
-    mqtt_client.loop_start()
-    mqtt_client.publish(topic=availability_topic, payload='online', qos=0, retain=True)
-    mqtt_client.disconnect()
-    mqtt_client.loop_stop()
+    publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload='online', qos=0, retain=True)
     # Is this the first time are we executing this loop? Or is rtltcp running?
+    if verbosity == 'debug':
+        stderr = subprocess.STDOUT
+    else:
+        stderr = subprocess.DEVNULL
     if 'rtltcp' not in locals() or rtltcp.poll() is not None:
         # start the rtl_tcp program
-        rtltcp = subprocess.Popen(rtltcp_cmd, stderr=subprocess.DEVNULL)
-        print('RTL_TCP started with PID {}'.format(rtltcp.pid), file=sys.stderr)
+        rtltcp = subprocess.Popen(rtltcp_cmd)
+        log_message('RTL_TCP started with PID {}'.format(rtltcp.pid))
         # Wait 2 seconds to settle
         sleep(2)
     # Is this the first time are we executing this loop? Or is rtlamr running?
     if 'rtlamr' not in locals() or rtlamr.poll() is not None:
         # start the rtlamr program.
-        rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, universal_newlines=True)
-        print('RTLAMR started with PID {}'.format(rtlamr.pid), file=sys.stderr)
+        rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=stderr, universal_newlines=True)
+        log_message('RTLAMR started with PID {}'.format(rtlamr.pid))
     for amrline in rtlamr.stdout:
-        try:
-            json_output = loads(amrline)
-        except json.decoder.JSONDecodeError:
-            json_output = None
+        if verbosity == 'debug':
+            log_message(amrline.strip('\n'))
+        json_output = None
+        if amrline[0] == '{':
+            try:
+                json_output = loads(amrline)
+            except JSONDecodeError:
+                json_output = None
         if json_output and 'Message' in json_output:
             if 'EndpointID' in json_output['Message']:
                 meter_id = str(json_output['Message']['EndpointID']).strip()
@@ -164,16 +201,12 @@ while True:
                 for meter in config['meters']: # We have a reading, but we don't know for which meter is it, let's check
                     if meter_id == str(meter['id']).strip():
                         if 'format' in meter:
-                            formated_reading = meter['format'].replace('#','{}').format(*raw_reading.zfill(meter['format'].count('#')))
+                            formated_reading = str(meter['format'].replace('#','{}').format(*raw_reading.zfill(meter['format'].count('#'))))
                         else:
-                            formated_reading = raw_reading
-                        print('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading), file=sys.stderr)
+                            formated_reading = str(raw_reading)
+                        log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading))
                         state_topic = 'rtlamr/{}/state'.format(meter_id)
-                        mqtt_client.connect(host=mqtt_host, port=mqtt_port)
-                        mqtt_client.loop_start()
-                        mqtt_client.publish(topic=state_topic, payload=str(formated_reading).encode('utf-8'), qos=0, retain=True)
-                        mqtt_client.disconnect()
-                        mqtt_client.loop_stop()
+                        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=state_topic, payload=formated_reading, retain=True)
                         meter_readings[meter_id] += 1
         if sleep_for > 0 or config_mode == 'test':
             # Check if we have readings for all meters
@@ -183,6 +216,8 @@ while True:
                 # Exit from the main for loop and stop reading the rtlamr output
                 break
     # Kill all process
+    log_message('Sleep_for defined, time to sleep!')
+    log_message('Terminating all subprocess...')
     if rtltcp.returncode is None:
         rtltcp.terminate()
         try:
@@ -190,6 +225,7 @@ while True:
         except subprocess.TimeoutExpired:
             rtltcp.kill()
             rtltcp.wait()
+        log_message('RTL_TCP terminated.')
     if rtlamr.returncode is None:
         rtlamr.terminate()
         try:
@@ -197,7 +233,9 @@ while True:
         except subprocess.TimeoutExpired:
             rtlamr.kill()
             rtlamr.wait()
+        log_message('RTLAMR terminated.')
     if config_mode == 'test':
         # If in test mode and reached this point, everything is fine
         sys.exit(0)
+    log_message('Sleeping for {} seconds, see you later...'.format(sleep_for))
     sleep(sleep_for)

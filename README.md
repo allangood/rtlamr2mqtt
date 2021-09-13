@@ -4,15 +4,19 @@
 This project was created to send readings made by RTLAMR to a MQTT broker.
 My user case is to integrate it with Home Assistant.
 
-***UPDATE***
-Two fields were deprecated from the configuration file and are not necessary anymore:
- - field_meterid
- - field_consumption
+### Latest Updates
+*2021-09-13:*
+ - A new configuration parameter has been added: *verbosity*
+ - Environment variable *DEBUG* has been renamed to *LISTEN_ONLY* to prevent confusion
+ - Better error handling and output (still work in progress)
 
+
+### How to run the container in LISTEN ALL METERS Mode:
 If you don't know your Meter ID or the protocol to listen, you can run the container in DEBUG mode to listen for everything.
-### How to run the container in DEBUG Mode:
+
+In this mode, rtlamr2mqtt will ***not read the configuration file***, this means that nothing is going to happen other than print all meter readings on screen!
 ```
-docker run --rm -ti -e DEBUG=yes -e RTL_MSGTYPE="scm+" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
+docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="scm+" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
 
 ### Home Assistant Utility:
@@ -53,6 +57,7 @@ general:
   # Sleep for this amount of seconds after one successful of every meter
   # Set this to 0 (default) to disable it
   sleep_for: 300
+  verbosity: debug # debug or info
 
 # (Required section)
 mqtt:
