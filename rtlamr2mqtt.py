@@ -11,6 +11,10 @@ from json import dumps, loads
 from paho.mqtt import MQTTException
 from json.decoder import JSONDecodeError
 
+# Environment variable to help with Travis tests
+# Set it to True if is set to 'yes' or 'true', false otherwise
+test_mode = True if str(os.environ.get('TEST')).lower() in ['yes', 'true'] else False
+
 # Publish message function
 def publish_message(**kwargs):
     if 'username' in kwargs:
@@ -80,11 +84,16 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
     rtltcp = subprocess.Popen(rtltcp_cmd)
     sleep(2)
     rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
+    if test_mode:
+        # Make sure the test will not hang forever during test
+        rtlamr_cmd.append('-duration=2s')
     rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     # loop forever
     while True:
         for amrline in rtlamr.stdout:
             log_message(amrline)
+        if test_mode:
+            break
 
 
 ##################### BUILD CONFIGURATION #####################
@@ -96,11 +105,11 @@ except FileNotFoundError:
     log_message('Configuration file cannot be found at "{}"'.format(config_path))
     sys.exit(-1)
 
-sleep_for = 0
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
 if 'general' in config:
-    config_mode = config['general'].get('mode', 'normal')
-    if config_mode != 'test':
+    if test_mode:
+        sleep_for = 0
+    else:
         sleep_for = int(config['general'].get('sleep_for', 0))
 
 # Build MQTT configuration
@@ -208,7 +217,7 @@ while True:
                         state_topic = 'rtlamr/{}/state'.format(meter_id)
                         publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=state_topic, payload=formated_reading, retain=True)
                         meter_readings[meter_id] += 1
-        if sleep_for > 0 or config_mode == 'test':
+        if sleep_for > 0 or test_mode:
             # Check if we have readings for all meters
             if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings):
                 # Set all meter readins values to 0
@@ -234,8 +243,8 @@ while True:
             rtlamr.kill()
             rtlamr.wait()
         log_message('RTLAMR terminated.')
-    if config_mode == 'test':
+    if test_mode:
         # If in test mode and reached this point, everything is fine
-        sys.exit(0)
+        break
     log_message('Sleeping for {} seconds, see you later...'.format(sleep_for))
     sleep(sleep_for)
