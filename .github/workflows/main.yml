@@ -58,13 +58,6 @@ jobs:
         with:
           buildx-version: latest
       -
-        name: Update repo description
-        uses: peter-evans/dockerhub-description@v2
-        with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: ${{ secrets.DOCKER_USERNAME }}/rtlamr2mqtt
-      -
         name: Build and push
         uses: docker/build-push-action@v2
         with:
