@@ -73,7 +73,7 @@ signal.signal(signal.SIGINT, shutdown)
 # to find meters IDs and signals.
 # This mode WILL NOT read any configuration file
 if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
-    log_message('Starting in DEBUG Mode...')
+    log_message('Starting in LISTEN ONLY Mode...')
     log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
     msgtype = os.environ.get('RTL_MSGTYPE', 'all')
     rtltcp_cmd = ['/usr/bin/rtl_tcp']
