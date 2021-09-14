@@ -67,7 +67,7 @@ signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
 
 
-# DEBUG Mode
+# LISTEN Mode
 # The DEBUG mode will run RTLAMR collecting all
 # signals and dump it to the stdout to make it easy
 # to find meters IDs and signals.
@@ -77,7 +77,7 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
     log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
     msgtype = os.environ.get('RTL_MSGTYPE', 'all')
     rtltcp_cmd = ['/usr/bin/rtl_tcp']
-    rtltcp = subprocess.Popen(rtltcp_cmd, stdout=subprocess.STDERR, stderr=subprocess.STDERR)
+    rtltcp = subprocess.Popen(rtltcp_cmd)
     sleep(2)
     rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
     rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
