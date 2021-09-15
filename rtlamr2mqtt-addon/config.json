@@ -51,7 +51,7 @@
     "schema": {
         "general": {
             "sleep_for": "int",
-            "debug": "false?"
+            "debug": "bool?"
         },
         "mqtt": {
             "host": "str?",
