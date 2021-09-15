@@ -2,10 +2,10 @@
 
 import json
 import os
-import signal
-import subprocess
 import sys
 import yaml
+import signal
+import subprocess
 import paho.mqtt.publish as publish
 from time import sleep
 from json import dumps, loads

@@ -1,6 +1,5 @@
 ### RTLAMR2MQTT
 [![Build Status](https://app.travis-ci.com/allangood/rtlamr2mqtt.svg?branch=main)](https://app.travis-ci.com/allangood/rtlamr2mqtt)
-[![Docker Pulls](https://img.shields.io/docker/pulls/allangood/rtlamr2mqtt)](https://hub.docker.com/r/allangood/rtlamr2mqtt)
 
 This project was created to send readings made by RTLAMR to a MQTT broker.
 My user case is to integrate it with Home Assistant.
@@ -58,47 +57,28 @@ general:
   # Sleep for this amount of seconds after one successful of every meter
   # Set this to 0 (default) to disable it
   sleep_for: 300
-  # Set the verbosity level. It can be debug or info
-  verbosity: debug
+  verbosity: debug # debug or info
 
 # (Required section)
-# MQTT configuration
 mqtt:
-  # MQTT host name or IP address
   host: 192.168.1.1
-  # MQTT user name if you have, remove if you don't use authentication
   user: mqtt
-  # MQTT user password if you use one, remove if you don't use authentication
   password: my very strong password
-  # Whether to use Home Assistant auto-discovery feature or not
   ha_autodiscovery: true
-  # Home Assistant auto-discovery topic
   ha_autodiscovery_topic: homeassistant
 
 # (Optional)
-# This entire section is optional.
-# If you don't need any custom parameter, don't use it.
-# ***DO NOT ADD -msgtype, -filterid nor -protocol parameters here***
 custom_parameters:
-  # Documentation for rtl_tcp: https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr
   rtltcp: "-s 2048000"
-  # Documentation for rtlamr: https://github.com/bemasher/rtlamr/wiki/Configuration
-  rtlamr: "-unique=true -symbollength=32"
+  # ***DO NOT ADD -msgtype, -filterid nor -protocol parameters here***
+  rtlamr: "-unique=true -symbollength=7"
 
-# (Required section)
-# Here is the place to define your meters
 meters:
-    # The ID of your meter
   - id: 7823010
-    # The protocol
     protocol: scm+
-    # A nice name to show on your Home Assistant/Node Red
     name: meter_water
-    # A number format to be used for your meter
     format: "#####.###"
-    # A measurement unit to be used by Home Assistant
     unit_of_measurement: "\u33A5"
-    # An icon to be used by Home Assistant
     icon: mdi:gauge
   - id: 6567984
     protocol: scm

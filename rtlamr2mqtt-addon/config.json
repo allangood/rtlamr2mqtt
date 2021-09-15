@@ -23,6 +23,7 @@
     "options": {
         "general": {
             "sleep_for": 300,
+            "mode": "normal",
             "debug": false
         },
         "mqtt": {
@@ -51,6 +52,7 @@
     "schema": {
         "general": {
             "sleep_for": "int",
+            "mode": "list(normal,test)?",
             "debug": "bool?"
         },
         "mqtt": {

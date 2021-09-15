@@ -1,5 +1,6 @@
 general:
   sleep_for: 0
+  mode: test
   verbosity: debug
 
 mqtt:
