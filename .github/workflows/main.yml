@@ -1,4 +1,4 @@
-name: 'Docker push to ARM'
+name: 'Docker build'
 
 on:
   push:
@@ -9,9 +9,8 @@ on:
       - 'examples/**'
     branches:
       - main
-    release:
-      types:
-        - created
+    tags:
+      - '*.*.*'
 
 env:
   IMAGE_NAME: rtlamr2mqtt
@@ -20,20 +19,52 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v1
-      - name: Log into registry
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ github.actor }} --password-stdin
-      - name: Set up Docker Buildx
-        id: buildx
-        uses: crazy-max/ghaction-docker-buildx@v1
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
         with:
-          buildx-version: latest
-      - name: Build dockerfile (with push)
-        run: |
-            docker buildx build \
-            --platform=linux/amd64,linux/arm/v7,linux/arm64 \
-            --output "type=image,push=true" \
-            --compress \
-            --file ./Dockerfile . \
-            --tag $(echo "${{ github.actor }}" | tr '[:upper:]' '[:lower:]')/${IMAGE_NAME}:latest
+          # list of Docker images to use as base name for tags
+          images: |
+            allangood/rtlamr2mqtt
+          # generate Docker tags based on the following events/attributes
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+      -
+        name: Set up QEMU
+        id: qemu
+        uses: docker/setup-qemu-action@v1
+        with:
+          image: tonistiigi/binfmt:latest
+          platforms: amd64,arm64,arm/v7
+      -
+        name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v1
+      -
+        name: Available platforms
+        run: echo ${{ steps.buildx.outputs.platforms }}
+      -
+        name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push:  ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

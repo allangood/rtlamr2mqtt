@@ -83,27 +83,6 @@ def load_yaml_config(config_path):
     """
     Load config from Home Assistant Add-On.
 
-    Args:
-        config_path (str): Path to yaml config file
-    """    
-    try:
-        with open(config_path,'r') as config_file:
-            return yaml.safe_load(config_file)
-    except FileNotFoundError:
-        log_message('Configuration file cannot be found at "{}"'.format(config_path))
-        sys.exit(-1)
-
-
-    with open(config_path,'r') as config_file:
-        return yaml.safe_load(config_file)
-
-
-def load_json_config():
-    """Load config from Home Assistant Add-On"""
-
-    current_config_file = os.path.join("/data/options.json")
-    return json.load(open(current_config_file))
-
 # LISTEN Mode
 # The DEBUG mode will run RTLAMR collecting all
 # signals and dump it to the stdout to make it easy

@@ -3,7 +3,7 @@ FROM python:rc-alpine3.12
 ARG BUILDARCH
 ARG BUILDPLATFORM
 
-ENV RTLAMR_VERSION=v0.9.1
+ENV RTLAMR_VER=v0.9.1
 
 COPY ./rtlamr2mqtt.py /usr/bin
 COPY ./requirements.txt /tmp
@@ -20,7 +20,7 @@ RUN apk update \
          "arm/v6") ARCH=arm    ;; \
          "386")    ARCH=i386   ;; \
     esac \
-    && wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VERSION}/rtlamr_linux_${ARCH}.tar.gz \
+    && wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VER}/rtlamr_linux_${ARCH}.tar.gz \
     && tar zxvf rtlamr_linux_${ARCH}.tar.gz \
     && chmod 755 rtlamr \
     && mv rtlamr /usr/bin \
