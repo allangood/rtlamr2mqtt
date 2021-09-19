@@ -1,4 +1,4 @@
-FROM python:alpine3.12
+FROM python:alpine3.14
 ARG BUILDPLATFORM
 ARG BUILDOS
 ARG BUILDARCH
@@ -15,6 +15,7 @@ COPY ./requirements.txt /tmp
 
 WORKDIR /tmp
 RUN echo "Building to: ${TARGETARCH}" \
+    && mv /usr/bin/lsb_release /usr/bin/lsb_release.bak \
     && apk update \
     && apk add rtl-sdr \
     && pip3 install -r /tmp/requirements.txt \
