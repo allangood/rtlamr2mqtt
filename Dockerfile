@@ -20,7 +20,7 @@ RUN echo "Building to: ${TARGETARCH}" \
     && pip3 install -r /tmp/requirements.txt \
     && chmod 755 /usr/bin/rtlamr2mqtt.py \
     && wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VER}/rtlamr_linux_${TARGETARCH}.tar.gz \
-    && tar zxvf rtlamr_linux_${ARCH}.tar.gz \
+    && tar zxvf rtlamr_linux_${TARGETARCH}.tar.gz \
     && chmod 755 rtlamr \
     && mv rtlamr /usr/bin \
     && rm -f /tmp/*
