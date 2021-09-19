@@ -15,7 +15,7 @@ COPY ./requirements.txt /tmp
 
 WORKDIR /tmp
 RUN echo "Building to: ${TARGETARCH}" \
-    && mv /usr/bin/lsb_release /usr/bin/lsb_release.bak \
+    && sed -i s/include_lsb=True/include_lsb=False/g /usr/local/lib/python3.*/site-packages/pip/_vendor/distro.py \
     && apk update \
     && apk add rtl-sdr \
     && pip3 install -r /tmp/requirements.txt \
