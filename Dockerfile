@@ -1,4 +1,4 @@
-FROM python:rc-alpine3.14
+FROM python:alpine3.12
 ARG BUILDPLATFORM
 ARG BUILDOS
 ARG BUILDARCH
