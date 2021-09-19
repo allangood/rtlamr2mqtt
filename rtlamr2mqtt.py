@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import sys
 import yaml
@@ -67,8 +68,37 @@ def shutdown(signum, frame):
             rtlamr.wait()
     sys.exit(0)
 
-signal.signal(signal.SIGTERM, shutdown)
-signal.signal(signal.SIGINT, shutdown)
+def load_config(argv):
+    """
+    Attempts to load config from json or yaml file
+    """
+    config_path = '/etc/rtlamr2mqtt.yaml' if len(argv) != 2 else argv[1]
+    if config_path[-4] == 'json':
+        return load_json_config()
+    else:
+        return load_yaml_config(config_path)
+
+def load_yaml_config(config_path):
+    """
+    Load config from Home Assistant Add-On.
+    Args:
+        config_path (str): Path to yaml config file
+    """
+    try:
+        with open(config_path,'r') as config_file:
+            return yaml.safe_load(config_file)
+    except FileNotFoundError:
+        log_message('Configuration file cannot be found at "{}"'.format(config_path))
+        sys.exit(-1)
+
+    with open(config_path,'r') as config_file:
+        return yaml.safe_load(config_file)
+
+def load_json_config():
+    """Load config from Home Assistant Add-On"""
+
+    current_config_file = os.path.join("/data/options.json")
+    return json.load(open(current_config_file))
 
 
 # LISTEN Mode
@@ -95,15 +125,11 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
         if test_mode:
             break
 
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
 
 ##################### BUILD CONFIGURATION #####################
-config_path = '/etc/rtlamr2mqtt.yaml' if len(sys.argv) != 2 else sys.argv[1]
-try:
-    with open(config_path,'r') as config_file:
-      config = yaml.safe_load(config_file)
-except FileNotFoundError:
-    log_message('Configuration file cannot be found at "{}"'.format(config_path))
-    sys.exit(-1)
+config = load_config(sys.argv)
 
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
 if 'general' in config:
