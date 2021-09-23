@@ -6,6 +6,11 @@ This project was created to send readings made by RTLAMR to a MQTT broker.
 My user case is to integrate it with Home Assistant.
 
 ### Latest Updates
+*2021-09-23:*
+ - New images are based on Alpine 3.14 *** IMPORTANT ***
+   - If this container stops to work after you upgrade, please read this: [https://docs.linuxserver.io/faq](https://docs.linuxserver.io/faq)
+ - We are working in a new image: HA-ADDON! Thanks to @AnthonyPluth ! Stay tuned for news about it!
+
 *2021-09-13:*
  - A new configuration parameter has been added: *verbosity*
  - Environment variable *DEBUG* has been renamed to *LISTEN_ONLY* to prevent confusion

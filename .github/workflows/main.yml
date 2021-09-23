@@ -10,6 +10,7 @@ on:
       - 'examples/**'
     branches:
       - main
+      - ha-addon
     tags:
       - '*.*.*'
 
