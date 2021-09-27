@@ -226,10 +226,14 @@ while True:
                 meter_id = str(json_output['Message']['EndpointID']).strip()
             elif 'ID' in json_output['Message']:
                 meter_id = str(json_output['Message']['ID']).strip()
+            elif 'ERTSerialNumber' in json_output['Message']:
+                meter_id = str(json_output['Message']['ERTSerialNumber']).strip()
             else:
                 meter_id = None
             if 'Consumption' in json_output['Message']:
                 raw_reading = str(json_output['Message']['Consumption']).strip()
+            elif 'LastConsumptionCount' in json_output['Message']:
+                raw_reading = str(json_output['Message']['LastConsumptionCount']).strip()
             else:
                 raw_reading = None
             if meter_id and raw_reading:
