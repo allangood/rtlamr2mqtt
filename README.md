@@ -66,6 +66,12 @@ general:
   # Set the verbosity level. It can be debug or info
   verbosity: debug
 
+# (Optional section) -- Use this to point to an externally running instance of rtl_tcp
+rtltcp:
+  use_external: true # set to true to enable external rtl_tcp
+  host: 127.0.0.1 # host running rtl_tcp
+  port: 1234 #port on host running rtl_tcp
+
 # (Required section)
 # MQTT configuration
 mqtt:
