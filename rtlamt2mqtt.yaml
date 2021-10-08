@@ -2,11 +2,6 @@ general:
   sleep_for: 0
   verbosity: debug
 
-rtltcp:
-  use_external: true
-  host: 127.0.0.1
-  port: 1234
-
 mqtt:
   host: 127.0.0.1
   user: test

@@ -181,13 +181,12 @@ for idx,meter in enumerate(config['meters']):
 rtlamr_custom = []
 if 'custom_parameters' in config:
     if 'rtlamr' in config['custom_parameters']:
+        if "-server" in config['custom_parameters']['rtlamr']:
+            external_rtl_tcp = True
+        else:
+            external_rtl_tcp = False
         rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
 rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
-if 'rtltcp' in config and 'use_external' in config['rtltcp'] and "-server" not in rtlamr_cmd:
-    rtlamr_cmd += ["-server", "{}:{}".format(config['rtltcp']['host'], config['rtltcp']['port'])]
-    external_rtl_tcp = True
-else:
-    external_rtl_tcp = False
 #################################################################
 
 # Build RTLTCP command
