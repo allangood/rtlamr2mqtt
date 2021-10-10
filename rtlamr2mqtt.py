@@ -51,8 +51,8 @@ def log_message(message):
 def shutdown(signum, frame):
     # Check if MQTT is defined
     if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
-        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload=offline, retain=True)
-    if rtltcp.returncode is None:
+        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload="offline", retain=True)
+    if not external_rtl_tcp and rtltcp.returncode is None:
         rtltcp.terminate()
         try:
             rtltcp.wait(timeout=5)
@@ -181,6 +181,10 @@ for idx,meter in enumerate(config['meters']):
 rtlamr_custom = []
 if 'custom_parameters' in config:
     if 'rtlamr' in config['custom_parameters']:
+        if "-server" in config['custom_parameters']['rtlamr']:
+            external_rtl_tcp = True
+        else:
+            external_rtl_tcp = False
         rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
 rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
 #################################################################
@@ -201,7 +205,8 @@ while True:
         stderr = subprocess.STDOUT
     else:
         stderr = subprocess.DEVNULL
-    if 'rtltcp' not in locals() or rtltcp.poll() is not None:
+    
+    if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
         # start the rtl_tcp program
         rtltcp = subprocess.Popen(rtltcp_cmd)
         log_message('RTL_TCP started with PID {}'.format(rtltcp.pid))
@@ -257,7 +262,7 @@ while True:
     # Kill all process
     log_message('Sleep_for defined, time to sleep!')
     log_message('Terminating all subprocess...')
-    if rtltcp.returncode is None:
+    if not external_rtl_tcp and rtltcp.returncode is None:
         rtltcp.terminate()
         try:
             rtltcp.wait(timeout=5)
