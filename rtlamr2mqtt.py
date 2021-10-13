@@ -155,6 +155,7 @@ if 'ha_autodiscovery' in config['mqtt']:
 protocols = []
 meter_ids = []
 meter_readings = {}
+external_rtl_tcp = False
 
 for idx,meter in enumerate(config['meters']):
     state_topic = 'rtlamr/{}/state'.format(str(meter['id']))
@@ -178,23 +179,21 @@ for idx,meter in enumerate(config['meters']):
         }
         publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=discover_topic, payload=dumps(discover_payload), retain=True)
 
+# Build RTLAMR and RTL_TCP commands
+rtltcp_custom = []
 rtlamr_custom = []
 if 'custom_parameters' in config:
+    # Build RTLTCP command
+    if 'rtltcp' in config['custom_parameters']:
+        rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
+    # Build RTLAMR command
     if 'rtlamr' in config['custom_parameters']:
         if "-server" in config['custom_parameters']['rtlamr']:
             external_rtl_tcp = True
-        else:
-            external_rtl_tcp = False
         rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
-rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
-#################################################################
 
-# Build RTLTCP command
-rtltcp_custom = []
-if 'custom_parameters' in config:
-    if 'rtltcp' in config['custom_parameters']:
-        rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
 rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
+rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
 #################################################################
 
 # Main loop
@@ -205,7 +204,7 @@ while True:
         stderr = subprocess.STDOUT
     else:
         stderr = subprocess.DEVNULL
-    
+
     if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
         # start the rtl_tcp program
         rtltcp = subprocess.Popen(rtltcp_cmd)
