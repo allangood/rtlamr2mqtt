@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import sys
 import yaml
@@ -50,8 +51,8 @@ def log_message(message):
 def shutdown(signum, frame):
     # Check if MQTT is defined
     if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
-        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload=offline, retain=True)
-    if rtltcp.returncode is None:
+        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload="offline", retain=True)
+    if not external_rtl_tcp and rtltcp.returncode is None:
         rtltcp.terminate()
         try:
             rtltcp.wait(timeout=5)
@@ -67,8 +68,37 @@ def shutdown(signum, frame):
             rtlamr.wait()
     sys.exit(0)
 
-signal.signal(signal.SIGTERM, shutdown)
-signal.signal(signal.SIGINT, shutdown)
+def load_config(argv):
+    """
+    Attempts to load config from json or yaml file
+    """
+    config_path = '/etc/rtlamr2mqtt.yaml' if len(argv) != 2 else argv[1]
+    if config_path[-4] == 'json':
+        return load_json_config()
+    else:
+        return load_yaml_config(config_path)
+
+def load_yaml_config(config_path):
+    """
+    Load config from Home Assistant Add-On.
+    Args:
+        config_path (str): Path to yaml config file
+    """
+    try:
+        with open(config_path,'r') as config_file:
+            return yaml.safe_load(config_file)
+    except FileNotFoundError:
+        log_message('Configuration file cannot be found at "{}"'.format(config_path))
+        sys.exit(-1)
+
+    with open(config_path,'r') as config_file:
+        return yaml.safe_load(config_file)
+
+def load_json_config():
+    """Load config from Home Assistant Add-On"""
+
+    current_config_file = os.path.join("/data/options.json")
+    return json.load(open(current_config_file))
 
 
 # LISTEN Mode
@@ -95,15 +125,11 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
         if test_mode:
             break
 
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
 
 ##################### BUILD CONFIGURATION #####################
-config_path = '/etc/rtlamr2mqtt.yaml' if len(sys.argv) != 2 else sys.argv[1]
-try:
-    with open(config_path,'r') as config_file:
-      config = yaml.safe_load(config_file)
-except FileNotFoundError:
-    log_message('Configuration file cannot be found at "{}"'.format(config_path))
-    sys.exit(-1)
+config = load_config(sys.argv)
 
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
 if 'general' in config:
@@ -129,6 +155,7 @@ if 'ha_autodiscovery' in config['mqtt']:
 protocols = []
 meter_ids = []
 meter_readings = {}
+external_rtl_tcp = False
 
 for idx,meter in enumerate(config['meters']):
     state_topic = 'rtlamr/{}/state'.format(str(meter['id']))
@@ -152,19 +179,21 @@ for idx,meter in enumerate(config['meters']):
         }
         publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=discover_topic, payload=dumps(discover_payload), retain=True)
 
+# Build RTLAMR and RTL_TCP commands
+rtltcp_custom = []
 rtlamr_custom = []
 if 'custom_parameters' in config:
-    if 'rtlamr' in config['custom_parameters']:
-        rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
-rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
-#################################################################
-
-# Build RTLTCP command
-rtltcp_custom = []
-if 'custom_parameters' in config:
+    # Build RTLTCP command
     if 'rtltcp' in config['custom_parameters']:
         rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
+    # Build RTLAMR command
+    if 'rtlamr' in config['custom_parameters']:
+        if "-server" in config['custom_parameters']['rtlamr']:
+            external_rtl_tcp = True
+        rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
+
 rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
+rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
 #################################################################
 
 # Main loop
@@ -175,7 +204,8 @@ while True:
         stderr = subprocess.STDOUT
     else:
         stderr = subprocess.DEVNULL
-    if 'rtltcp' not in locals() or rtltcp.poll() is not None:
+
+    if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
         # start the rtl_tcp program
         rtltcp = subprocess.Popen(rtltcp_cmd)
         log_message('RTL_TCP started with PID {}'.format(rtltcp.pid))
@@ -200,10 +230,14 @@ while True:
                 meter_id = str(json_output['Message']['EndpointID']).strip()
             elif 'ID' in json_output['Message']:
                 meter_id = str(json_output['Message']['ID']).strip()
+            elif 'ERTSerialNumber' in json_output['Message']:
+                meter_id = str(json_output['Message']['ERTSerialNumber']).strip()
             else:
                 meter_id = None
             if 'Consumption' in json_output['Message']:
                 raw_reading = str(json_output['Message']['Consumption']).strip()
+            elif 'LastConsumptionCount' in json_output['Message']:
+                raw_reading = str(json_output['Message']['LastConsumptionCount']).strip()
             else:
                 raw_reading = None
             if meter_id and raw_reading:
@@ -227,7 +261,7 @@ while True:
     # Kill all process
     log_message('Sleep_for defined, time to sleep!')
     log_message('Terminating all subprocess...')
-    if rtltcp.returncode is None:
+    if not external_rtl_tcp and rtltcp.returncode is None:
         rtltcp.terminate()
         try:
             rtltcp.wait(timeout=5)
