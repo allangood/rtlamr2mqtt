@@ -52,7 +52,7 @@
     "schema": {
         "general": {
             "sleep_for": "int",
-            "mode": "list(normal,test)?",
+            "mode": "list(normal|test)?",
             "debug": "bool?"
         },
         "mqtt": {
