@@ -170,12 +170,13 @@ for idx,meter in enumerate(config['meters']):
         log_message('Sending MQTT autodiscovery payload to Home Assistant...')
         discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, config['meters'][idx]['name'])
         discover_payload = {
-            "name": config['meters'][idx]['name'],
-            "unique_id": str(meter['id']),
-            "unit_of_measurement": config['meters'][idx]['unit_of_measurement'],
-            "icon": config['meters'][idx]['icon'],
-            "availability_topic": availability_topic,
-            "state_topic": state_topic
+            'name': config['meters'][idx]['name'],
+            'unique_id': str(meter['id']),
+            'unit_of_measurement': config['meters'][idx]['unit_of_measurement'],
+            'icon': config['meters'][idx]['icon'],
+            'availability_topic': availability_topic,
+            'state_class': 'total_increasing',
+            'state_topic': state_topic
         }
         publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=discover_topic, payload=dumps(discover_payload), retain=True)
 
