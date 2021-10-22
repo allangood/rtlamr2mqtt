@@ -18,7 +18,7 @@ test_mode = True if str(os.environ.get('TEST')).lower() in ['yes', 'true'] else 
 
 # Publish message function
 def publish_message(**kwargs):
-    if 'username' in kwargs:
+    if 'username' in kwargs and len(kwargs['username']) != 0:
         auth = { 'username': kwargs['username'], 'password': kwargs['password'] }
     else:
         auth = None
