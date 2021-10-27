@@ -82,7 +82,7 @@ def shutdown(signum, frame):
             rtlamr.kill()
             rtlamr.wait()
             log_message('Killed.')
-    if signum == frame == 0:
+    if signum != 0 and frame != 0:
         log_message('Graceful shutdown.')
         # Are we running in LISTEN_ONLY mode?
         if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
