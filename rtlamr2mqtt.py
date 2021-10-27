@@ -12,16 +12,27 @@ from json import dumps, loads
 from paho.mqtt import MQTTException
 from json.decoder import JSONDecodeError
 
+# I have been experiencing some problems with my Radio (geeting old, maybe?)
+# and the number of messages fills up my HDD very quickly.
+
+# Function to log messages to STDERR
+def log_message(message):
+    print(message, file=sys.stderr)
+
 # Environment variable to help with Travis tests
 # Set it to True if is set to 'yes' or 'true', false otherwise
-test_mode = True if str(os.environ.get('TEST')).lower() in ['yes', 'true'] else False
+if str(os.environ.get('TEST')).lower() in ['yes', 'true']:
+    test_mode = True
+    log_message('Running in test mode!')
+else:
+    test_mode = False
 
 # Publish message function
 def publish_message(**kwargs):
-    if 'username' in kwargs:
-        auth = { 'username': kwargs['username'], 'password': kwargs['password'] }
-    else:
-        auth = None
+    auth = None
+    if 'username' in kwargs and 'password' in kwargs:
+        if kwargs['username'] is not None and kwargs['password'] is not None:
+            auth = { 'username': kwargs['username'], 'password': kwargs['password'] }
     topic = kwargs.get('topic')
     payload = kwargs.get('payload', None)
     qos = int(kwargs.get('qos', 0))
@@ -44,29 +55,32 @@ def publish_message(**kwargs):
     except MQTTException as e:
         log_message('Error connecting to MQTT broker: {}'.format(e))
 
-def log_message(message):
-    print(message, file=sys.stderr)
-
 # uses signal to shutdown and hard kill opened processes and self
 def shutdown(signum, frame):
+    log_message('Shutdown detected, killing process...')
     # Check if MQTT is defined
     if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
         publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload="offline", retain=True)
     if not external_rtl_tcp and rtltcp.returncode is None:
+        log_message('Killing RTL_TCP...')
         rtltcp.terminate()
         try:
             rtltcp.wait(timeout=5)
+            log_message('Killed in the first attempt.')
         except subprocess.TimeoutExpired:
             rtltcp.kill()
             rtltcp.wait()
+            log_message('Killed.')
     if rtlamr.returncode is None:
+        log_message('Killing RTLAMR...')
         rtlamr.terminate()
         try:
             rtlamr.wait(timeout=5)
+            log_message('Killed in the first attempt.')
         except subprocess.TimeoutExpired:
             rtlamr.kill()
             rtlamr.wait()
-    sys.exit(0)
+            log_message('Killed.')
 
 def load_config(argv):
     """
@@ -100,6 +114,16 @@ def load_json_config():
     current_config_file = os.path.join("/data/options.json")
     return json.load(open(current_config_file))
 
+# This is a helper function to flag any error message from rtlamr
+def is_an_error_message(message):
+    if 'Error reading samples:' in message:
+        return True
+    else:
+        return False
+
+# Signal handlers
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
 
 # LISTEN Mode
 # The DEBUG mode will run RTLAMR collecting all
@@ -124,9 +148,6 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
             log_message(amrline)
         if test_mode:
             break
-
-signal.signal(signal.SIGTERM, shutdown)
-signal.signal(signal.SIGINT, shutdown)
 
 ##################### BUILD CONFIGURATION #####################
 config = load_config(sys.argv)
@@ -201,32 +222,48 @@ rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-fo
 while True:
     publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload='online', qos=0, retain=True)
     # Is this the first time are we executing this loop? Or is rtltcp running?
-    if verbosity == 'debug':
-        stderr = subprocess.STDOUT
-    else:
-        stderr = subprocess.DEVNULL
 
     if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
+        log_message('Trying to start RTL_TCP: {}'.format(' '.join(rtltcp_cmd)))
         # start the rtl_tcp program
-        rtltcp = subprocess.Popen(rtltcp_cmd)
+        rtltcp = subprocess.Popen(rtltcp_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
         log_message('RTL_TCP started with PID {}'.format(rtltcp.pid))
-        # Wait 2 seconds to settle
-        sleep(2)
+        # Wait until it is ready to receive connections
+        for rtlline in rtltcp.stdout:
+            log_message(rtlline.strip('\n'))
+            if 'listening...' in rtlline:
+                log_message('RTL_TCP is ready to receive connections!')
+                break
+
     # Is this the first time are we executing this loop? Or is rtlamr running?
     if 'rtlamr' not in locals() or rtlamr.poll() is not None:
+        log_message('Trying to start RTLAMR: {}'.format(' '.join(rtlamr_cmd)))
         # start the rtlamr program.
-        rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=stderr, universal_newlines=True)
+        rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
         log_message('RTLAMR started with PID {}'.format(rtlamr.pid))
+
+    # This is a counter to count the number of duplicate error messages
+    error_count = 0
     for amrline in rtlamr.stdout:
-        if verbosity == 'debug':
+        if is_an_error_message(amrline):
+            if error_count < 1:
+                log_message('Error reading samples from RTL_TCP.')
+            error_count += 1
+        # Error messages are flooding the Docker logs when an error happens
+        # Try to not show everything but the necessary for debuging
+        if verbosity == 'debug' and not is_an_error_message(amrline):
             log_message(amrline.strip('\n'))
+
+        # Check if the output line is a valid JSON output
         json_output = None
         if amrline[0] == '{':
             try:
                 json_output = loads(amrline)
             except JSONDecodeError:
                 json_output = None
-        if json_output and 'Message' in json_output:
+
+        if json_output and 'Message' in json_output: # If it is a valid JSON and is not empty then...
+            # Extract the Meter ID
             if 'EndpointID' in json_output['Message']:
                 meter_id = str(json_output['Message']['EndpointID']).strip()
             elif 'ID' in json_output['Message']:
@@ -235,49 +272,41 @@ while True:
                 meter_id = str(json_output['Message']['ERTSerialNumber']).strip()
             else:
                 meter_id = None
+
+            # Extract the consumption
             if 'Consumption' in json_output['Message']:
                 raw_reading = str(json_output['Message']['Consumption']).strip()
             elif 'LastConsumptionCount' in json_output['Message']:
                 raw_reading = str(json_output['Message']['LastConsumptionCount']).strip()
             else:
                 raw_reading = None
+
+            # If we could extract the Meter ID and the consumption, then...
             if meter_id and raw_reading:
                 for meter in config['meters']: # We have a reading, but we don't know for which meter is it, let's check
                     if meter_id == str(meter['id']).strip():
-                        if 'format' in meter:
+                        if 'format' in meter: # We have a "format" parameter, let's format the number!
                             formated_reading = str(meter['format'].replace('#','{}').format(*raw_reading.zfill(meter['format'].count('#'))))
                         else:
-                            formated_reading = str(raw_reading)
+                            formated_reading = str(raw_reading) # Nope, no formating, just the raw number
                         log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading))
                         state_topic = 'rtlamr/{}/state'.format(meter_id)
                         publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=state_topic, payload=formated_reading, retain=True)
                         meter_readings[meter_id] += 1
-        if sleep_for > 0 or test_mode:
+
+        if sleep_for > 0 or test_mode: # We have a sleep_for parameter. Let's go to sleep!
             # Check if we have readings for all meters
-            if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings):
-                # Set all meter readins values to 0
+            if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings): # If we have readings for all meters, then...
+                # Set all meter readings values to 0
                 meter_readings = dict.fromkeys(meter_readings, 0)
-                # Exit from the main for loop and stop reading the rtlamr output
+                # Exit from the main "for loop" and stop reading the rtlamr output
                 break
+
     # Kill all process
     log_message('Sleep_for defined, time to sleep!')
     log_message('Terminating all subprocess...')
     if not external_rtl_tcp and rtltcp.returncode is None:
-        rtltcp.terminate()
-        try:
-            rtltcp.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            rtltcp.kill()
-            rtltcp.wait()
-        log_message('RTL_TCP terminated.')
-    if rtlamr.returncode is None:
-        rtlamr.terminate()
-        try:
-            rtlamr.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            rtlamr.kill()
-            rtlamr.wait()
-        log_message('RTLAMR terminated.')
+        shutdown(0,0)
     if test_mode:
         # If in test mode and reached this point, everything is fine
         break
