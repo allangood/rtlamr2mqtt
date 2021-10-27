@@ -7,7 +7,7 @@ My user case is to integrate it with Home Assistant.
 
 ### Latest Updates
 *2021-10-27*
- - Many fixed regarding error handling
+ - Many fixes regarding error handling
  - More comments inside the code
  - Some code cleanup
  - Fix a bug for MQTT anonymous message publishing discovered by @jeffeb3
