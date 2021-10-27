@@ -6,8 +6,14 @@ This project was created to send readings made by RTLAMR to a MQTT broker.
 My user case is to integrate it with Home Assistant.
 
 ### Latest Updates
+*2021-10-27*
+ - Many fixes regarding error handling
+ - More comments inside the code
+ - Some code cleanup
+ - Fix a bug for MQTT anonymous message publishing discovered by @jeffeb3
+ - Using latest code for both rtl-sdr and rtamr in the Dockerfile
 *2021-10-12*
- - The HA-ADDON is working now! A shout-out to @AnthonyPluth and for his hard work!!! \o/
+ - The HA-ADDON is working now! A shout-out to @AnthonyPluth for his hard work!!! \o/
  - New feature to allow this container to run with a remote rtl_tcp. Thanks to @jonbloom
  - A bug was introduced by #28 and has been fixed.
 
