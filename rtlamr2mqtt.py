@@ -57,10 +57,11 @@ def publish_message(**kwargs):
 
 # uses signal to shutdown and hard kill opened processes and self
 def shutdown(signum, frame):
-    log_message('Shutdown detected, killing process...')
-    # Check if MQTT is defined
-    if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
-        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload="offline", retain=True)
+    # When signum and frame == 0, it is me calling the function
+    if signum == frame == 0:
+        log_message('Kill process called.')
+    else:
+        log_message('Shutdown detected, killing process.')
     if not external_rtl_tcp and rtltcp.returncode is None:
         log_message('Killing RTL_TCP...')
         rtltcp.terminate()
@@ -81,6 +82,13 @@ def shutdown(signum, frame):
             rtlamr.kill()
             rtlamr.wait()
             log_message('Killed.')
+    if signum == frame == 0:
+        log_message('Graceful shutdown.')
+        # Are we running in LISTEN_ONLY mode?
+        if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
+            publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload="offline", retain=True)
+        # Graceful termination
+        sys.exit(0)
 
 def load_config(argv):
     """
@@ -121,7 +129,7 @@ def is_an_error_message(message):
     else:
         return False
 
-# Signal handlers
+# Signal handlers/call back
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
 
