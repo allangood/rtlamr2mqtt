@@ -12,6 +12,7 @@ My user case is to integrate it with Home Assistant.
  - Some code cleanup
  - Fix a bug for MQTT anonymous message publishing discovered by @jeffeb3
  - Using latest code for both rtl-sdr and rtamr in the Dockerfile
+
 *2021-10-12*
  - The HA-ADDON is working now! A shout-out to @AnthonyPluth for his hard work!!! \o/
  - New feature to allow this container to run with a remote rtl_tcp. Thanks to @jonbloom
