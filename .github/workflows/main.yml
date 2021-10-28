@@ -5,6 +5,8 @@ on:
   push:
     paths-ignore:
       - '**.md'
+      - '**.json'
+      - '**.yaml'
       - 'LICENSE'
       - '.github/workflows/**'
       - 'examples/**'
