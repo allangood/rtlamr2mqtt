@@ -129,6 +129,30 @@ def is_an_error_message(message):
     else:
         return False
 
+def send_ha_autodiscovery(meter, consumptionKey):
+    """
+    Build and send HA Auto Discovery message for a meter
+    """
+    log_message('Sending MQTT autodiscovery payload to Home Assistant...')
+    discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, meter['name'])
+    divisor = 1 
+    if 'format' in meter and '.' in meter['format']:
+        divisor = 10 ** len((meter['format'].split('.',1))[1]) 
+    discover_payload = {
+        'name': meter['name'],
+        'unique_id': str(meter['id']),
+        'unit_of_measurement': meter['unit_of_measurement'],
+        'icon': meter['icon'],
+        'availability_topic': availability_topic,
+        'state_class': 'total_increasing',
+        'state_topic': meter['state_topic'],
+        'value_template': '{{{{ value_json.Message.{} | float / {} }}}}'.format(consumptionKey, divisor),
+        'json_attributes_topic': meter['state_topic'],
+        'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
+    }
+    publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, 
+                    topic=discover_topic, payload=dumps(discover_payload), retain=True)
+
 # Signal handlers/call back
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
@@ -186,28 +210,26 @@ meter_ids = []
 meter_readings = {}
 external_rtl_tcp = False
 
+# Build dict of meter configs 
+meters = {}
 for idx,meter in enumerate(config['meters']):
-    state_topic = 'rtlamr/{}/state'.format(str(meter['id']))
-    config['meters'][idx]['name'] = str(meter.get('name', 'meter_{}'.format(meter['id'])))
-    config['meters'][idx]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
-    config['meters'][idx]['icon'] = str(meter.get('icon', 'mdi:gauge'))
+    id = str(meter['id']).strip()
+    meter_name = str(meter.get('name', 'meter_{}'.format(id)))
+    for k in meters:
+        if (meters[k]['name'] == meter_name) or (meters[k]['id'] == id):
+            log_message('Error: Duplicate meter name ({}) or id ({}) found in config. Exiting.'.format(meter_name, id))
+            sys.exit(1)
+
+    meters[id] = meter.copy()
+    meters[id]['state_topic'] = 'rtlamr/{}/state'.format(id)
+    meters[id]['name'] = meter_name
+    meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
+    meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
+    meters[id]['sent_HA_discovery'] = False
     protocols.append(meter['protocol'])
-    meter_ids.append(str(meter['id']))
-    meter_readings[str(meter['id'])] = 0
-    # if HA Autodiscovery is enabled, send the MQTT payload
-    if ha_autodiscovery:
-        log_message('Sending MQTT autodiscovery payload to Home Assistant...')
-        discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, config['meters'][idx]['name'])
-        discover_payload = {
-            'name': config['meters'][idx]['name'],
-            'unique_id': str(meter['id']),
-            'unit_of_measurement': config['meters'][idx]['unit_of_measurement'],
-            'icon': config['meters'][idx]['icon'],
-            'availability_topic': availability_topic,
-            'state_class': 'total_increasing',
-            'state_topic': state_topic
-        }
-        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=discover_topic, payload=dumps(discover_payload), retain=True)
+    meter_ids.append(id)
+    meter_readings[id] = 0
+    
 
 # Build RTLAMR and RTL_TCP commands
 rtltcp_custom = []
@@ -272,35 +294,41 @@ while True:
 
         if json_output and 'Message' in json_output: # If it is a valid JSON and is not empty then...
             # Extract the Meter ID
-            if 'EndpointID' in json_output['Message']:
-                meter_id = str(json_output['Message']['EndpointID']).strip()
-            elif 'ID' in json_output['Message']:
-                meter_id = str(json_output['Message']['ID']).strip()
-            elif 'ERTSerialNumber' in json_output['Message']:
-                meter_id = str(json_output['Message']['ERTSerialNumber']).strip()
-            else:
-                meter_id = None
+            meter_id = None
+            for key in ['EndpointID', 'ID', 'ERTSerialNumber']:
+                if key in json_output['Message']:
+                    meter_id = str(json_output['Message'][key]).strip()
 
             # Extract the consumption
-            if 'Consumption' in json_output['Message']:
-                raw_reading = str(json_output['Message']['Consumption']).strip()
-            elif 'LastConsumptionCount' in json_output['Message']:
-                raw_reading = str(json_output['Message']['LastConsumptionCount']).strip()
-            else:
-                raw_reading = None
+            raw_reading = consumptionKey = None
+            for key in ['Consumption', 'LastConsumptionCount']:
+                if key in json_output['Message']:
+                    raw_reading = str(json_output['Message'][key]).strip()
+                    consumptionKey = key
 
             # If we could extract the Meter ID and the consumption, then...
             if meter_id and raw_reading:
-                for meter in config['meters']: # We have a reading, but we don't know for which meter is it, let's check
-                    if meter_id == str(meter['id']).strip():
-                        if 'format' in meter: # We have a "format" parameter, let's format the number!
-                            formated_reading = str(meter['format'].replace('#','{}').format(*raw_reading.zfill(meter['format'].count('#'))))
-                        else:
-                            formated_reading = str(raw_reading) # Nope, no formating, just the raw number
-                        log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading))
-                        state_topic = 'rtlamr/{}/state'.format(meter_id)
-                        publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=state_topic, payload=formated_reading, retain=True)
-                        meter_readings[meter_id] += 1
+                if meter_id in meters:
+                     if 'format' in meters[meter_id]: # We have a "format" parameter, let's format the number!
+                         formated_reading = str(meters[meter_id]['format'].replace('#','{}').format(*raw_reading.zfill(meters[meter_id]['format'].count('#'))))
+                     else:
+                         formated_reading = str(raw_reading) # Nope, no formating, just the raw number
+
+                     log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading))
+                     state_topic = 'rtlamr/{}/state'.format(meter_id)
+                     if ha_autodiscovery:
+                          # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter
+                          if not meters[meter_id]['sent_HA_discovery']:
+                              send_ha_autodiscovery(meters[meter_id], consumptionKey)
+                              meters[meter_id]['sent_HA_discovery'] = True
+
+                          msg_payload=json.dumps(json_output)
+                     else:
+                          msg_payload = formatted_reading
+
+                     publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, 
+                                     topic=state_topic, payload=msg_payload, retain=True)
+                     meter_readings[meter_id] += 1
 
         if sleep_for > 0 or test_mode: # We have a sleep_for parameter. Let's go to sleep!
             # Check if we have readings for all meters
