@@ -6,6 +6,7 @@ import sys
 import yaml
 import signal
 import subprocess
+import shutil
 import paho.mqtt.publish as publish
 from time import sleep
 from json import dumps, loads
@@ -166,10 +167,10 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
     log_message('Starting in LISTEN ONLY Mode...')
     log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
     msgtype = os.environ.get('RTL_MSGTYPE', 'all')
-    rtltcp_cmd = ['/usr/bin/rtl_tcp']
+    rtltcp_cmd = [shutil.which('rtl_tcp')]
     rtltcp = subprocess.Popen(rtltcp_cmd)
     sleep(2)
-    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
+    rtlamr_cmd = [shutil.which('rtlamr'), '-msgtype={}'.format(msgtype), '-format=json']
     if test_mode:
         # Make sure the test will not hang forever during test
         rtlamr_cmd.append('-duration=2s')
@@ -244,8 +245,8 @@ if 'custom_parameters' in config:
             external_rtl_tcp = True
         rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
 
-rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
-rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
+rtltcp_cmd = [shutil.which('rtl_tcp')] + rtltcp_custom
+rtlamr_cmd = [shutil.which('rtlamr'), '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
 #################################################################
 
 # Main loop
