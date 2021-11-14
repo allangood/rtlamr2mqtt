@@ -135,9 +135,6 @@ def load_yaml_config(config_path):
         log_message('Configuration file cannot be found at "{}"'.format(config_path))
         sys.exit(-1)
 
-    with open(config_path,'r') as config_file:
-        return yaml.safe_load(config_file)
-
 def load_json_config():
     """Load config from Home Assistant Add-On"""
 
