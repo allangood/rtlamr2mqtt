@@ -33,33 +33,48 @@ def list_intersection(a, b):
     result = list(set(a).intersection(set(b)))
     return result[0] if result else None
 
-# Publish message function
-def publish_message(**kwargs):
-    auth = None
-    if 'username' in kwargs and 'password' in kwargs:
-        if kwargs['username'] is not None and kwargs['password'] is not None:
-            auth = { 'username': kwargs['username'], 'password': kwargs['password'] }
-    topic = kwargs.get('topic')
-    payload = kwargs.get('payload', None)
-    qos = int(kwargs.get('qos', 0))
-    retain = kwargs.get('retain', False)
-    client_id = 'rtlamr2mqtt'
-    hostname = kwargs.get('hostname', 'localhost')
-    port = int(kwargs.get('port', 1883))
-    will = { 'topic': availability_topic, 'payload':'offline', 'qos': 1, 'retain': True }
-    if verbosity == 'debug':
+class MqttSender:
+    def __init__(self, hostname, port, username, password):
+        log_message('Configured MQTT sender:')
+        self.d = {}
+        self.d['hostname'] = hostname if hostname else 'localhost'
+        self.d['port'] = int(port) if port else 1883
+        self.d['username'] = username
+        self.d['password'] = password
+        self.d['client_id'] = 'rtlamr2mqtt'
+        self.__log_mqtt_params(**self.d)
+
+    def __get_auth(self):
+        if self.d['username'] and self.d['password']:
+            return { 'username':self.d['username'], 'password': self.d['password'] }
+        else:
+            return None
+
+    def publish(self, **kwargs):
         log_message('Sending message to MQTT:')
-        for k,v in kwargs.items():
-            if k == 'password':
-                v = '*** REDACTED ***'
+        self.__log_mqtt_params(**kwargs)
+        topic = kwargs.get('topic')
+        payload = kwargs.get('payload', None)
+        qos = int(kwargs.get('qos', 0))
+        retain = kwargs.get('retain', False)
+        will = { 'topic': availability_topic, 'payload':'offline', 'qos': 1, 'retain': True }
+        try:
+            publish.single(
+                topic=topic, payload=payload, qos=qos, retain=retain, hostname=self.d['hostname'], port=self.d['port'],
+                client_id=self.d['client_id'], keepalive=60, will=will, auth=self.__get_auth(), tls=None
+            )
+        except MQTTException as e:
+            log_message('MQTTException connecting to MQTT broker: {}'.format(e))
+            return False
+        except Exception as e:
+            log_message('Unknown exception connecting to MQTT broker: {}'.format(e))
+            return False
+        return True
+
+    def __log_mqtt_params(self, **kwargs):
+        for k,v in ((k,v) for (k,v) in kwargs.items() if k not in ['password']):
             log_message(' > {} => {}'.format(k,v))
-    try:
-        publish.single(
-            topic=topic, payload=payload, qos=qos, retain=retain, hostname=hostname,
-            port=port, client_id=client_id, keepalive=60, will=will, auth=auth, tls=None
-        )
-    except MQTTException as e:
-        log_message('Error connecting to MQTT broker: {}'.format(e))
+
 
 # uses signal to shutdown and hard kill opened processes and self
 def shutdown(signum, frame):
@@ -92,7 +107,8 @@ def shutdown(signum, frame):
         log_message('Graceful shutdown.')
         # Are we running in LISTEN_ONLY mode?
         if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
-            publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload="offline", retain=True)
+            if mqtt_sender:
+               mqtt_sender.publish(topic=availability_topic, payload='offline', retain=True)
         # Graceful termination
         sys.exit(0)
 
@@ -162,8 +178,7 @@ def send_ha_autodiscovery(meter, consumption_key):
         'json_attributes_topic': meter['state_topic'],
         'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
     }
-    publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, 
-                    topic=discover_topic, payload=dumps(discover_payload), retain=True)
+    mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
 
 # Signal handlers/call back
 signal.signal(signal.SIGTERM, shutdown)
@@ -205,10 +220,11 @@ if 'general' in config:
 
 # Build MQTT configuration
 availability_topic = 'rtlamr/status'
-mqtt_host = config['mqtt'].get('host', '127.0.0.1')
-mqtt_port = int(config['mqtt'].get('port', 1883))
-mqtt_user = config['mqtt'].get('user', None)
-mqtt_password = config['mqtt'].get('password', None)
+params = []
+for k in ['host', 'port', 'user', 'password']:
+  params.append(config['mqtt'].get(k, None))
+mqtt_sender = MqttSender(*params)
+
 ha_autodiscovery_topic = config['mqtt'].get('ha_autodiscovery_topic', 'homeassistant')
 ha_autodiscovery = False
 if 'ha_autodiscovery' in config['mqtt']:
@@ -241,7 +257,6 @@ for idx,meter in enumerate(config['meters']):
     protocols.append(meter['protocol'])
     meter_ids.append(id)
     meter_readings[id] = 0
-    
 
 # Build RTLAMR and RTL_TCP commands
 rtltcp_custom = []
@@ -262,7 +277,8 @@ rtlamr_cmd = [shutil.which('rtlamr'), '-msgtype={}'.format(','.join(protocols)),
 
 # Main loop
 while True:
-    publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, topic=availability_topic, payload='online', qos=0, retain=True)
+    mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
+
     # Is this the first time are we executing this loop? Or is rtltcp running?
 
     if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
@@ -333,8 +349,7 @@ while True:
                      else:
                           msg_payload = formatted_reading
 
-                     publish_message(hostname=mqtt_host, port=mqtt_port, username=mqtt_user, password=mqtt_password, 
-                                     topic=state_topic, payload=msg_payload, retain=True)
+                     mqtt_sender.publish(topic=state_topic, payload=msg_payload, retain=True)
                      meter_readings[meter_id] += 1
 
         if sleep_for > 0 or test_mode: # We have a sleep_for parameter. Let's go to sleep!
