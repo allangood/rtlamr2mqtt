@@ -22,11 +22,16 @@ def log_message(message):
 
 # Environment variable to help with Travis tests
 # Set it to True if is set to 'yes' or 'true', false otherwise
-if str(os.environ.get('TEST')).lower() in ['yes', 'true']:
-    test_mode = True
+test_mode =  str(os.environ.get('TEST')).lower() in ['yes', 'true']
+if test_mode:
     log_message('Running in test mode!')
-else:
-    test_mode = False
+
+def list_intersection(a, b):
+    """
+    Find the first element in the intersection of two lists
+    """
+    result = list(set(a).intersection(set(b)))
+    return result[0] if result else None
 
 # Publish message function
 def publish_message(**kwargs):
@@ -130,7 +135,7 @@ def is_an_error_message(message):
     else:
         return False
 
-def send_ha_autodiscovery(meter, consumptionKey):
+def send_ha_autodiscovery(meter, consumption_key):
     """
     Build and send HA Auto Discovery message for a meter
     """
@@ -138,7 +143,13 @@ def send_ha_autodiscovery(meter, consumptionKey):
     discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, meter['name'])
     divisor = 1 
     if 'format' in meter and '.' in meter['format']:
-        divisor = 10 ** len((meter['format'].split('.',1))[1]) 
+        """
+        'format' parameter is in the form ######.### 
+        Raise 10 to a power corresponding to the number of # characters in format 
+        parameter that occur after the decimal. HA will divide the raw consumption 
+        value by this amount.
+        """
+        divisor = 10 ** len((meter['format'].split('.',1))[1])
     discover_payload = {
         'name': meter['name'],
         'unique_id': str(meter['id']),
@@ -147,7 +158,7 @@ def send_ha_autodiscovery(meter, consumptionKey):
         'availability_topic': availability_topic,
         'state_class': 'total_increasing',
         'state_topic': meter['state_topic'],
-        'value_template': '{{{{ value_json.Message.{} | float / {} }}}}'.format(consumptionKey, divisor),
+        'value_template': '{{{{ value_json.Message.{} | float / {} }}}}'.format(consumption_key, divisor),
         'json_attributes_topic': meter['state_topic'],
         'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
     }
@@ -295,17 +306,12 @@ while True:
 
         if json_output and 'Message' in json_output: # If it is a valid JSON and is not empty then...
             # Extract the Meter ID
-            meter_id = None
-            for key in ['EndpointID', 'ID', 'ERTSerialNumber']:
-                if key in json_output['Message']:
-                    meter_id = str(json_output['Message'][key]).strip()
+            meter_id_key = list_intersection(json_output['Message'], ['EndpointID', 'ID', 'ERTSerialNumber'])
+            meter_id = str(json_output['Message'][meter_id_key]).strip() if meter_id_key else None
 
             # Extract the consumption
-            raw_reading = consumptionKey = None
-            for key in ['Consumption', 'LastConsumptionCount']:
-                if key in json_output['Message']:
-                    raw_reading = str(json_output['Message'][key]).strip()
-                    consumptionKey = key
+            consumption_key = list_intersection(json_output['Message'], ['Consumption', 'LastConsumptionCount'])
+            raw_reading = str(json_output['Message'][consumption_key]).strip() if consumption_key else None
 
             # If we could extract the Meter ID and the consumption, then...
             if meter_id and raw_reading:
@@ -320,7 +326,7 @@ while True:
                      if ha_autodiscovery:
                           # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter
                           if not meters[meter_id]['sent_HA_discovery']:
-                              send_ha_autodiscovery(meters[meter_id], consumptionKey)
+                              send_ha_autodiscovery(meters[meter_id], consumption_key)
                               meters[meter_id]['sent_HA_discovery'] = True
 
                           msg_payload=json.dumps(json_output)
@@ -333,7 +339,7 @@ while True:
 
         if sleep_for > 0 or test_mode: # We have a sleep_for parameter. Let's go to sleep!
             # Check if we have readings for all meters
-            if len({k:v for (k,v) in meter_readings.items() if v > 0}) >= len(meter_readings): # If we have readings for all meters, then...
+            if all(list(meter_readings.values())):
                 # Set all meter readings values to 0
                 meter_readings = dict.fromkeys(meter_readings, 0)
                 # Exit from the main "for loop" and stop reading the rtlamr output
