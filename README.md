@@ -34,7 +34,7 @@ If you don't know your Meter ID or the protocol to listen, you can run the conta
 
 In this mode, rtlamr2mqtt will ***not read the configuration file***, this means that nothing is going to happen other than print all meter readings on screen!
 ```
-docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="scm+" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
+docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
 
 ### Home Assistant Utility:
@@ -137,6 +137,14 @@ services:
       - /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
 ```
 
+### Thanks to
+A big thank you for all kind contributions!
+[AnthonyPluth](https://github.com/AnthonyPluth)
+[jonbloom](https://github.com/jonbloom)
+[jeffeb3](https://github.com/jeffeb3)
+[irakhlin](https://github.com/irakhlin)
+[ericthomas](https://github.com/ericthomas)
+[b0naf1de](https://github.com/b0naf1de)
 
 ### Credits to:
 
