@@ -8,6 +8,10 @@ import signal
 import subprocess
 import shutil
 import paho.mqtt.publish as publish
+import socket
+import struct
+import time
+import random
 from time import sleep
 from json import dumps, loads
 from paho.mqtt import MQTTException
@@ -135,9 +139,6 @@ def load_yaml_config(config_path):
         log_message('Configuration file cannot be found at "{}"'.format(config_path))
         sys.exit(-1)
 
-    with open(config_path,'r') as config_file:
-        return yaml.safe_load(config_file)
-
 def load_json_config():
     """Load config from Home Assistant Add-On"""
 
@@ -179,6 +180,35 @@ def send_ha_autodiscovery(meter, consumption_key):
         'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
     }
     mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
+
+def tickle_rtl_tcp(remote_server):
+    """
+    Connect to rtl_tcp and change some tuner settings. This has proven to
+    reset some receivers that are blocked and producing errors.
+    """
+    SET_FREQUENCY = 0x01
+    SET_SAMPLERATE = 0x02
+
+    # extract host and port from remote_server string
+    parts = remote_server.split(':',1)
+    remote_host=parts[0]
+    remote_port=int(parts[1]) if parts[1:] else 1234
+
+    log_message("server: {}, host: {}, port: {}".format(remote_server, remote_host, remote_port))
+
+    log_message("Attempting to tune rtl_tcp to a different freq to shake things up")
+    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn.settimeout(5) # 5 seconds
+    send_cmd = lambda c, command, parameter: c.send(struct.pack(">BI", int(command), int(parameter)))
+    try:
+       conn.connect((remote_host, remote_port))
+       send_cmd(conn, SET_FREQUENCY, 88e6+random.randrange(0,20)*1e6) # random freq
+       time.sleep(0.2)
+       send_cmd(conn, SET_SAMPLERATE, 2048000)
+       log_message("Successfully tickled rtl_tcp")
+    except socket.error as err:
+       log_message("Error connecting to rtl_tcp : {}".format(err))
+    conn.close()
 
 # Signal handlers/call back
 signal.signal(signal.SIGTERM, shutdown)
@@ -237,6 +267,7 @@ protocols = []
 meter_ids = []
 meter_readings = {}
 external_rtl_tcp = False
+rtltcp_server = '127.0.0.1:1234'
 
 # Build dict of meter configs 
 meters = {}
@@ -267,9 +298,11 @@ if 'custom_parameters' in config:
         rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
     # Build RTLAMR command
     if 'rtlamr' in config['custom_parameters']:
-        if "-server" in config['custom_parameters']['rtlamr']:
-            external_rtl_tcp = True
         rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
+        for arg in rtlamr_custom:
+            if '-server=' in arg:
+               external_rtl_tcp = True
+               rtltcp_server = arg.split('=')[1]   # value of -server= parameter in rtlamr customer params
 
 rtltcp_cmd = [shutil.which('rtl_tcp')] + rtltcp_custom
 rtlamr_cmd = [shutil.which('rtlamr'), '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
@@ -295,6 +328,7 @@ while True:
 
     # Is this the first time are we executing this loop? Or is rtlamr running?
     if 'rtlamr' not in locals() or rtlamr.poll() is not None:
+        tickle_rtl_tcp(rtltcp_server)
         log_message('Trying to start RTLAMR: {}'.format(' '.join(rtlamr_cmd)))
         # start the rtlamr program.
         rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
