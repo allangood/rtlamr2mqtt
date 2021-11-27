@@ -158,12 +158,12 @@ def send_ha_autodiscovery(meter, consumption_key):
     """
     log_message('Sending MQTT autodiscovery payload to Home Assistant...')
     discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, meter['name'])
-    divisor = 1 
+    divisor = 1
     if 'format' in meter and '.' in meter['format']:
         """
-        'format' parameter is in the form ######.### 
-        Raise 10 to a power corresponding to the number of # characters in format 
-        parameter that occur after the decimal. HA will divide the raw consumption 
+        'format' parameter is in the form ######.###
+        Raise 10 to a power corresponding to the number of # characters in format
+        parameter that occur after the decimal. HA will divide the raw consumption
         value by this amount.
         """
         divisor = 10 ** len((meter['format'].split('.',1))[1])
@@ -269,7 +269,7 @@ meter_readings = {}
 external_rtl_tcp = False
 rtltcp_server = '127.0.0.1:1234'
 
-# Build dict of meter configs 
+# Build dict of meter configs
 meters = {}
 for idx,meter in enumerate(config['meters']):
     id = str(meter['id']).strip()
@@ -367,11 +367,11 @@ while True:
             if meter_id and raw_reading:
                 if meter_id in meters:
                      if 'format' in meters[meter_id]: # We have a "format" parameter, let's format the number!
-                         formated_reading = str(meters[meter_id]['format'].replace('#','{}').format(*raw_reading.zfill(meters[meter_id]['format'].count('#'))))
+                         formatted_reading = str(meters[meter_id]['format'].replace('#','{}').format(*raw_reading.zfill(meters[meter_id]['format'].count('#'))))
                      else:
-                         formated_reading = str(raw_reading) # Nope, no formating, just the raw number
+                         formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
 
-                     log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formated_reading))
+                     log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formatted_reading))
                      state_topic = 'rtlamr/{}/state'.format(meter_id)
                      if ha_autodiscovery:
                           # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter
@@ -397,8 +397,7 @@ while True:
     # Kill all process
     log_message('Sleep_for defined, time to sleep!')
     log_message('Terminating all subprocess...')
-    if not external_rtl_tcp and rtltcp.returncode is None:
-        shutdown(0,0)
+    shutdown(0,0)
     if test_mode:
         # If in test mode and reached this point, everything is fine
         break
