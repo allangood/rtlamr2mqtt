@@ -1,4 +1,4 @@
-FROM golang:alpine3.14 as builder
+FROM golang:alpine3.15 as builder
 
 WORKDIR /go/src/app
 
@@ -12,7 +12,7 @@ RUN go get github.com/bemasher/rtlamr \
     && make \
     && make install
 
-FROM python:alpine3.14
+FROM python:alpine
 COPY --from=builder /go/bin/rtlamr* /usr/bin/
 COPY --from=builder /usr/local/bin/rtl* /usr/bin/
 COPY --from=builder /usr/local/lib/librtl* /lib/
@@ -20,8 +20,17 @@ COPY ./rtlamr2mqtt.py /usr/bin
 COPY ./requirements.txt /tmp
 
 RUN apk update \
-    && apk add --no-cache libusb \
+    && apk add --no-cache libusb gfortran \
+    && apk add --no-cache --virtual .build \
+      musl-dev \
+      gcc \
+      g++ \
+      lapack-dev \
+      libffi-dev \
+      libressl-dev \
+      musl-dev \
     && pip3 install -r /tmp/requirements.txt \
+    && apk del .build \
     && chmod 755 /usr/bin/rtlamr2mqtt.py
 
 STOPSIGNAL SIGTERM
