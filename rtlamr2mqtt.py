@@ -311,7 +311,7 @@ rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-fo
 #################################################################
 
 # TinyDB
-db = TinyDB('/var/lib/history.json')
+db = TinyDB('/var/lib/rtlamr2mqtt/history.json')
 history = Query()
 
 # Main loop
