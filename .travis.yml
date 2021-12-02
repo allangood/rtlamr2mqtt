@@ -16,13 +16,14 @@ services:
 # execute commands before install
 before_install:
   - docker build -t rtlamr2mqtt:travis .
-#   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-#   - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-#   - sudo apt-get update
+   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+   - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+   - sudo apt-get update
 #   - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
 # command to install dependencies
 # install:
 #   - pip install -r requirements.txt
+
 # command to run tests
 script:
   - docker run --rm -e TEST=yes rtlamr2mqtt:travis
