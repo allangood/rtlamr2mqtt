@@ -1,5 +1,7 @@
 language: python
-
+env:
+  - TEST=yes RTLAMR_VER=v0.9.1
+  - TEST=yes RTLAMR_VER=v0.9.1 LISTEN_ONLY=yes
 # distro to be used
 dist: focal
 # command to install packages
@@ -8,21 +10,19 @@ addons:
     packages:
       - mosquitto
       - rtl-sdr
-
-services:
-  - docker
-
+python:
+  - "3.9"
 # execute commands before install
 before_install:
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-  - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-  - sudo apt-get update
-  - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-  - docker build -t rtlamr2mqtt:travis .
+  - wget https://github.com/bemasher/rtlamr/releases/download/${RTLAMR_VER}/rtlamr_linux_amd64.tar.gz
+  - tar zxvf rtlamr_linux_amd64.tar.gz
+  - chmod 755 rtlamr
+  - sudo mv rtlamr /usr/bin
+  - sudo mkdir /var/lib/rtlamr2mqtt/
+  - sudo chmod 777 /var/lib/rtlamr2mqtt/
 # command to install dependencies
-# install:
-#   - pip install -r requirements.txt
-
+install:
+  - pip install -r requirements.txt
 # command to run tests
 script:
-  - docker run --rm -e TEST=yes rtlamr2mqtt:travis
+  - python3 rtlamr2mqtt.py rtlamr2mqtt.yaml || python rtlamr2mqtt.py rtlamr2mqtt.yaml
