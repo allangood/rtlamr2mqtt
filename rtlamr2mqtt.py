@@ -6,16 +6,18 @@ import sys
 import yaml
 import signal
 import subprocess
-import shutil
 import paho.mqtt.publish as publish
 import socket
-import struct
-import time
-import random
-from time import sleep
+from struct import pack
+from random import randrange
+from time import sleep, time
 from json import dumps, loads
 from paho.mqtt import MQTTException
 from json.decoder import JSONDecodeError
+from tinydb import TinyDB, Query
+import numpy as np
+from sklearn.linear_model import LinearRegression
+
 
 # I have been experiencing some problems with my Radio (geeting old, maybe?)
 # and the number of messages fills up my HDD very quickly.
@@ -199,10 +201,10 @@ def tickle_rtl_tcp(remote_server):
     log_message("Attempting to tune rtl_tcp to a different freq to shake things up")
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.settimeout(5) # 5 seconds
-    send_cmd = lambda c, command, parameter: c.send(struct.pack(">BI", int(command), int(parameter)))
+    send_cmd = lambda c, command, parameter: c.send(pack(">BI", int(command), int(parameter)))
     try:
        conn.connect((remote_host, remote_port))
-       send_cmd(conn, SET_FREQUENCY, 88e6+random.randrange(0,20)*1e6) # random freq
+       send_cmd(conn, SET_FREQUENCY, 88e6 + randrange(0,20)*1e6) # random freq
        time.sleep(0.2)
        send_cmd(conn, SET_SAMPLERATE, 2048000)
        log_message("Successfully tickled rtl_tcp")
@@ -223,10 +225,10 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
     log_message('Starting in LISTEN ONLY Mode...')
     log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
     msgtype = os.environ.get('RTL_MSGTYPE', 'all')
-    rtltcp_cmd = [shutil.which('rtl_tcp')]
+    rtltcp_cmd = '/usr/bin/rtl_tcp'
     rtltcp = subprocess.Popen(rtltcp_cmd)
     sleep(2)
-    rtlamr_cmd = [shutil.which('rtlamr'), '-msgtype={}'.format(msgtype), '-format=json']
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
     if test_mode:
         # Make sure the test will not hang forever during test
         rtlamr_cmd.append('-duration=2s')
@@ -304,16 +306,19 @@ if 'custom_parameters' in config:
                external_rtl_tcp = True
                rtltcp_server = arg.split('=')[1]   # value of -server= parameter in rtlamr customer params
 
-rtltcp_cmd = [shutil.which('rtl_tcp')] + rtltcp_custom
-rtlamr_cmd = [shutil.which('rtlamr'), '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
+rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
+rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
 #################################################################
+
+# TinyDB
+db = TinyDB('/var/lib/rtlamr2mqtt/history.json')
+history = Query()
 
 # Main loop
 while True:
     mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
 
     # Is this the first time are we executing this loop? Or is rtltcp running?
-
     if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
         log_message('Trying to start RTL_TCP: {}'.format(' '.join(rtltcp_cmd)))
         # start the rtl_tcp program
@@ -372,6 +377,33 @@ while True:
                          formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
 
                      log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formatted_reading))
+                     current_timestamp = int(time())
+
+                     ### History and Linear Regression Logic
+                     # Delete records older than 30 days
+                     month_ago = int(time()) - (60 * 60 * 24 * 30)
+                     db.remove( (History.timestamp < month_ago) & (History.meter_id == meter_id) )
+
+                     # Big thanks to this site: https://realpython.com/linear-regression-in-python/
+                     # X is our inut or predictor variable
+                     # Y is our output or the variable we want to predict.
+                     # In this project, X is the timestamp and Y is the meter reading
+                     # We want to predict the next reading and check if it is withing an acceptable range
+                     # before flagging it as an anomaly
+                     timestamps = np.array([x["timestamp"] for x in db.search(History.meter_id == meter_id)]).reshape((-1, 1))
+                     readings = np.array([x["reading"] for x in db.search(History.meter_id == meter_id)])
+
+                     # Fit variables into linear regression model
+                     model = LinearRegression().fit(timestamps, readings)
+
+                     # Get prediction
+                     predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))
+                     log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, raw_reading))
+
+                     # Add latest reading to the history TinyDB
+                     db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(raw_reading)})
+                     ######
+
                      state_topic = 'rtlamr/{}/state'.format(meter_id)
                      if ha_autodiscovery:
                           # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter

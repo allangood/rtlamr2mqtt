@@ -5,28 +5,11 @@
 This project was created to send readings made by RTLAMR to a MQTT broker.
 My user case is to integrate it with Home Assistant.
 
-### Latest Updates
-*2021-10-27*
- - Many fixes regarding error handling
- - More comments inside the code
- - Some code cleanup
- - Fix a bug for MQTT anonymous message publishing discovered by @jeffeb3
- - Using latest code for both rtl-sdr and rtamr in the Dockerfile
-
-*2021-10-12*
- - The HA-ADDON is working now! A shout-out to @AnthonyPluth for his hard work!!! \o/
- - New feature to allow this container to run with a remote rtl_tcp. Thanks to @jonbloom
- - A bug was introduced by #28 and has been fixed.
-
-*2021-09-23:*
- - New images are based on Alpine 3.14 *** IMPORTANT ***
-   - If this container stops to work after you upgrade, please read this: [https://docs.linuxserver.io/faq](https://docs.linuxserver.io/faq)
- - We are working in a new image: HA-ADDON! Thanks to @AnthonyPluth ! Stay tuned for news about it!
-
-*2021-09-13:*
- - A new configuration parameter has been added: *verbosity*
- - Environment variable *DEBUG* has been renamed to *LISTEN_ONLY* to prevent confusion
- - Better error handling and output (still work in progress)
+### Noteworthy Updates
+*2021-12-01*
+ - Lots of changes!!!!
+ - Using Debian bullseye instead of Alpine. Here is why: https://pythonspeed.com/articles/alpine-docker-python/
+ - Added Machine Learn (Linear Regression) to detect potential leaks in the meter usage/readings
 
 
 ### How to run the container in LISTEN ALL METERS Mode:
@@ -138,16 +121,16 @@ services:
 ```
 
 ### Thanks to
-A big thank you for all kind contributions!
-[AnthonyPluth](https://github.com/AnthonyPluth)
-[jonbloom](https://github.com/jonbloom)
-[jeffeb3](https://github.com/jeffeb3)
-[irakhlin](https://github.com/irakhlin)
-[ericthomas](https://github.com/ericthomas)
-[b0naf1de](https://github.com/b0naf1de)
+A big thank you for all kind contributions! And a even bigger thanks to these kind contributors:
+- [AnthonyPluth](https://github.com/AnthonyPluth)
+- [jonbloom](https://github.com/jonbloom)
+- [jeffeb3](https://github.com/jeffeb3)
+- [irakhlin](https://github.com/irakhlin)
+- [ericthomas](https://github.com/ericthomas)
+- [b0naf1de](https://github.com/b0naf1de)
 
 ### Credits to:
 
-https://github.com/bemasher/rtlamr
+RTLAMR - https://github.com/bemasher/rtlamr
 
-https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr
+RTL_TCP - https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr

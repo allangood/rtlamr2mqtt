@@ -1,10 +1,10 @@
-FROM golang:alpine3.14 as builder
+FROM golang:bullseye as go-builder
 
 WORKDIR /go/src/app
 
 RUN go get github.com/bemasher/rtlamr \
-    && apk update \
-    && apk add --no-cache libtool libusb-dev autoconf cmake git make gcc musl-dev \
+    && apt update \
+    && apt install -y libusb-1.0-0-dev build-essential git cmake \
     && git clone git://git.osmocom.org/rtl-sdr.git \
     && cd rtl-sdr \
     && mkdir build && cd build \
@@ -12,17 +12,27 @@ RUN go get github.com/bemasher/rtlamr \
     && make \
     && make install
 
-FROM python:alpine3.14
-COPY --from=builder /go/bin/rtlamr* /usr/bin/
-COPY --from=builder /usr/local/bin/rtl* /usr/bin/
-COPY --from=builder /usr/local/lib/librtl* /lib/
-COPY ./rtlamr2mqtt.py /usr/bin
+FROM python:slim as python-builder
 COPY ./requirements.txt /tmp
-
-RUN apk update \
-    && apk add --no-cache libusb \
+RUN apt update \
+    && apt install -y gfortran build-essential \
     && pip3 install -r /tmp/requirements.txt \
+    && pip cache purge
+
+FROM python:slim
+COPY --from=go-builder /go/bin/rtlamr* /usr/bin/
+COPY --from=go-builder /usr/local/bin/rtl* /usr/bin/
+COPY --from=go-builder /usr/local/lib/librtl* /lib/
+COPY --from=python-builder /usr/local/ /usr/local/
+COPY ./rtlamr2mqtt.py /usr/bin
+
+RUN apt update \
+    && apt install -y libusb-1.0-0 gfortran \
+    && apt clean \
+    && find /var/lib/apt/lists/ -type f -delete \
+    && mkdir /var/lib/rtlamr2mqtt \
     && chmod 755 /usr/bin/rtlamr2mqtt.py
 
 STOPSIGNAL SIGTERM
+
 CMD ["/usr/bin/rtlamr2mqtt.py"]
