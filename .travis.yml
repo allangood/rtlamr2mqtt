@@ -10,6 +10,10 @@ addons:
     packages:
       - mosquitto
       - rtl-sdr
+      - python3-paho-mqtt
+      - python3-yaml
+      - python3-tinydb
+      - python3-sklearn
 python:
   - "3.9"
 # execute commands before install
@@ -21,8 +25,8 @@ before_install:
   - sudo mkdir /var/lib/rtlamr2mqtt/
   - sudo chmod 777 /var/lib/rtlamr2mqtt/
 # command to install dependencies
-install:
-  - pip install -r requirements.txt
+# install:
+#   - pip install -r requirements.txt
 # command to run tests
 script:
   - python3 rtlamr2mqtt.py rtlamr2mqtt.yaml || python rtlamr2mqtt.py rtlamr2mqtt.yaml
