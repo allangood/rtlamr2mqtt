@@ -205,7 +205,7 @@ def tickle_rtl_tcp(remote_server):
     try:
        conn.connect((remote_host, remote_port))
        send_cmd(conn, SET_FREQUENCY, 88e6 + randrange(0,20)*1e6) # random freq
-       time.sleep(0.2)
+       sleep(0.2)
        send_cmd(conn, SET_SAMPLERATE, 2048000)
        log_message("Successfully tickled rtl_tcp")
     except socket.error as err:
@@ -312,7 +312,7 @@ rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-fo
 
 # TinyDB
 db = TinyDB('/var/lib/rtlamr2mqtt/history.json')
-history = Query()
+History = Query()
 
 # Main loop
 while True:
@@ -325,11 +325,13 @@ while True:
         rtltcp = subprocess.Popen(rtltcp_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
         log_message('RTL_TCP started with PID {}'.format(rtltcp.pid))
         # Wait until it is ready to receive connections
-        for rtlline in rtltcp.stdout:
-            log_message(rtlline.strip('\n'))
-            if 'listening...' in rtlline:
-                log_message('RTL_TCP is ready to receive connections!')
-                break
+        try:
+            outs, errs = rtltcp.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            outs = None
+        log_message('RTL_TCP is ready to receive connections!')
+        if outs is not None:
+            log_message(outs)
 
     # Is this the first time are we executing this loop? Or is rtlamr running?
     if 'rtlamr' not in locals() or rtlamr.poll() is not None:
@@ -381,8 +383,10 @@ while True:
 
                      ### History and Linear Regression Logic
                      # Delete records older than 30 days
-                     month_ago = int(time()) - (60 * 60 * 24 * 30)
+                     month_ago = int(time()) - 2592000 # (60 * 60 * 24 * 30)
                      db.remove( (History.timestamp < month_ago) & (History.meter_id == meter_id) )
+                     # Add latest reading to the history
+                     db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(raw_reading)})
 
                      # Big thanks to this site: https://realpython.com/linear-regression-in-python/
                      # X is our inut or predictor variable
@@ -397,11 +401,9 @@ while True:
                      model = LinearRegression().fit(timestamps, readings)
 
                      # Get prediction
-                     predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))
+                     predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))[0]
                      log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, raw_reading))
 
-                     # Add latest reading to the history TinyDB
-                     db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(raw_reading)})
                      ######
 
                      state_topic = 'rtlamr/{}/state'.format(meter_id)
