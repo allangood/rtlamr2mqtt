@@ -9,7 +9,8 @@ My user case is to integrate it with Home Assistant.
 *2021-12-01*
  - Lots of changes!!!!
  - Using Debian bullseye instead of Alpine. Here is why: https://pythonspeed.com/articles/alpine-docker-python/
- - Added Machine Learn (Linear Regression) to detect potential leaks in the meter usage/readings
+ - Added Machine Learn (Linear Regression) to detect potential leaks in the meter usage/readings (WiP)
+   - This is still experimental. When I have it stabilized a new binary_sensor for every meter will be created to expose this information
 
 
 ### How to run the container in LISTEN ALL METERS Mode:

@@ -12,7 +12,7 @@ on:
       - 'examples/**'
     branches:
       - main
-      - ha-addon
+      - dev
     tags:
       - '*.*.*'
 

@@ -3,6 +3,7 @@
  - Changed Docker container to use Debian Bullseye instead of Alpine
  - Added TinyDB to store past readings
  - Added Linear Regression to flag anomaly usage
+ - Problems with the official python docker base image :(
 
 ### 2021-10-27
  - Many fixes regarding error handling
