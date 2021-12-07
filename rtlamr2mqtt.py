@@ -160,7 +160,6 @@ def send_ha_autodiscovery(meter, consumption_key):
     """
     log_message('Sending MQTT autodiscovery payload to Home Assistant...')
     discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, meter['name'])
-    divisor = 1
     if 'format' in meter and '.' in meter['format']:
         """
         'format' parameter is in the form ######.###
@@ -177,7 +176,7 @@ def send_ha_autodiscovery(meter, consumption_key):
         'availability_topic': availability_topic,
         'state_class': 'total_increasing',
         'state_topic': meter['state_topic'],
-        'value_template': '{{{{ value_json.Message.{} | float / {} }}}}'.format(consumption_key, divisor),
+        'value_template': '{{{{ value_json.Message.{} | float }}}}'.format(consumption_key),
         'json_attributes_topic': meter['state_topic'],
         'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
     }
@@ -415,6 +414,7 @@ while True:
                               send_ha_autodiscovery(meters[meter_id], consumption_key)
                               meters[meter_id]['sent_HA_discovery'] = True
 
+                          json_output['Message'][consumption_key] = formatted_reading
                           msg_payload=json.dumps(json_output)
                      else:
                           msg_payload = formatted_reading
