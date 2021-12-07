@@ -414,7 +414,8 @@ while True:
                               send_ha_autodiscovery(meters[meter_id], consumption_key)
                               meters[meter_id]['sent_HA_discovery'] = True
 
-                          msg_payload=json.dumps(json_output['Message'][consumption_key] = formatted_reading)
+                          json_output['Message'][consumption_key] = formatted_reading
+                          msg_payload=json.dumps(json_output)
                      else:
                           msg_payload = formatted_reading
 
