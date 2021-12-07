@@ -1,6 +1,6 @@
 {
     "name": "rtlamr2mqtt",
-    "version": "1.3.3",
+    "version": "1.5.0",
     "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
     "description": "RTLAMR to MQTT Bridge",
@@ -9,7 +9,7 @@
     "map": [
         "config:rw"
     ],
-    "url": "https://gitlab.com/abpluth/rtlamr2mqtt",
+    "url": "https://github.com/allangood/rtlamr2mqtt",
     "uart": true,
     "udev": true,
     "usb": true,
@@ -23,8 +23,7 @@
     "options": {
         "general": {
             "sleep_for": 300,
-            "mode": "normal",
-            "debug": false
+            "verbosity": "debug"
         },
         "mqtt": {
             "host": "hassio.local",
@@ -52,7 +51,7 @@
     "schema": {
         "general": {
             "sleep_for": "int",
-            "debug": "bool?"
+            "verbosity": "list(debug|normal)?"
         },
         "mqtt": {
             "host": "str?",
@@ -63,8 +62,8 @@
             "ha_autodiscovery_topic": "str?"
         },
         "custom_parameters": {
-            "rtltcp": "str",
-            "rtlamr": "str"
+            "rtltcp": "str?",
+            "rtlamr": "str?"
         },
         "meters": [
             {

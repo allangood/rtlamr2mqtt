@@ -403,6 +403,8 @@ while True:
                      # Get prediction
                      predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))[0]
                      log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, raw_reading))
+                     # Readings has a big footprint. Let's release it from memory
+                     del readings
 
                      ######
 
