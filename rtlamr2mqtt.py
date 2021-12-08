@@ -154,6 +154,9 @@ def is_an_error_message(message):
     else:
         return False
 
+def format_number(number, format):
+    return str(format.replace('#','{}').format(*number.zfill(format.count('#'))))
+
 def send_ha_autodiscovery(meter, consumption_key):
     """
     Build and send HA Auto Discovery message for a meter
@@ -373,7 +376,7 @@ while True:
             if meter_id and raw_reading:
                 if meter_id in meters:
                      if 'format' in meters[meter_id]: # We have a "format" parameter, let's format the number!
-                         formatted_reading = str(meters[meter_id]['format'].replace('#','{}').format(*raw_reading.zfill(meters[meter_id]['format'].count('#'))))
+                         formatted_reading = format_number(raw_reading, meters[meter_id]['format'])
                      else:
                          formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
 
@@ -385,7 +388,7 @@ while True:
                      month_ago = int(time()) - 2592000 # (60 * 60 * 24 * 30)
                      db.remove( (History.timestamp < month_ago) & (History.meter_id == meter_id) )
                      # Add latest reading to the history
-                     db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(raw_reading)})
+                     db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(formatted_reading)})
 
                      # Big thanks to this site: https://realpython.com/linear-regression-in-python/
                      # X is our inut or predictor variable
@@ -401,7 +404,7 @@ while True:
 
                      # Get prediction
                      predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))[0]
-                     log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, raw_reading))
+                     log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, formatted_reading))
                      # Readings has a big footprint. Let's release it from memory
                      del readings
 
@@ -415,6 +418,7 @@ while True:
                               meters[meter_id]['sent_HA_discovery'] = True
 
                           json_output['Message'][consumption_key] = formatted_reading
+                          json_output['Message']['Predicted'] = predicted_reading
                           msg_payload=json.dumps(json_output)
                      else:
                           msg_payload = formatted_reading
