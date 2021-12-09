@@ -16,6 +16,7 @@ from paho.mqtt import MQTTException
 from json.decoder import JSONDecodeError
 from tinydb import TinyDB, Query
 import numpy as np
+import warnings
 from sklearn.linear_model import LinearRegression
 
 
@@ -215,11 +216,14 @@ def tickle_rtl_tcp(remote_server):
     conn.close()
 
 def sliding_mean(series):
+    rate = 0
     dedup_series = np.array(list(dict.fromkeys(series)))
-    r = []
-    for i in range(1,len(dedup_series)):
-        r.append((dedup_series[i] - dedup_series[i-1]))
-    return np.mean(r)
+    if len(dedup_series) > 2:
+        r = []
+        for i in range(1,len(dedup_series)):
+            r.append((dedup_series[i] - dedup_series[i-1]))
+        rate = np.mean(r)
+    return rate
 
 # Signal handlers/call back
 signal.signal(signal.SIGTERM, shutdown)
