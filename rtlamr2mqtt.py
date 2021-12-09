@@ -214,6 +214,13 @@ def tickle_rtl_tcp(remote_server):
        log_message("Error connecting to rtl_tcp : {}".format(err))
     conn.close()
 
+def sliding_mean(series):
+    dedup_series = np.array(list(dict.fromkeys(series)))
+    r = []
+    for i in range(1,len(dedup_series)):
+        r.append((dedup_series[i] - dedup_series[i-1]))
+    return np.mean(r)
+
 # Signal handlers/call back
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
@@ -405,6 +412,18 @@ while True:
                      # Get prediction
                      predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))[0]
                      log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, formatted_reading))
+                     # Is this reading an anomaly?
+                     anomaly = False
+                     if len(readings) > 2:
+                         grow_avg = sliding_mean(readings)
+                         variation_limit = float(predicted_reading) + grow_avg
+                         log_message('Grow rate avg: {}'.format(grow_avg))
+                         if float(formatted_reading) > variation_limit:
+                             log_message('Possible anomaly detected!')
+                             anomaly = True
+                         log_message('Distance from prediction: {}'.format(float(formatted_reading) - float(predicted_reading)))
+                         log_message('Threshold for anomaly: {}'.format(variation_limit))
+
                      # Readings has a big footprint. Let's release it from memory
                      del readings
 
@@ -419,6 +438,7 @@ while True:
 
                           json_output['Message'][consumption_key] = formatted_reading
                           json_output['Message']['Predicted'] = predicted_reading
+                          json_output['Message']['Anomaly'] = anomaly
                           msg_payload=json.dumps(json_output)
                      else:
                           msg_payload = formatted_reading

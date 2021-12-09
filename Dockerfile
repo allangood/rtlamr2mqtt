@@ -35,4 +35,6 @@ RUN apt-get update \
 
 STOPSIGNAL SIGTERM
 
+VOLUME ["/var/lib/rtlamr2mqtt"]
+
 ENTRYPOINT ["/usr/bin/rtlamr2mqtt.py"]
