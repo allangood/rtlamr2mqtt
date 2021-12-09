@@ -11,6 +11,8 @@ My user case is to integrate it with Home Assistant.
  - Using Debian bullseye instead of Alpine. Here is why: https://pythonspeed.com/articles/alpine-docker-python/
  - Added Machine Learn (Linear Regression) to detect potential leaks in the meter usage/readings (WiP)
    - This is still experimental. When I have it stabilized a new binary_sensor for every meter will be created to expose this information
+   - A new attribute "Anomaly" is available for every meter. It will return "true" if an anomaly is detected.
+   - ***IMPORTANT*** A new volume is necessary if you want to keep your history! See the compose/docker run command for more info.
 
 
 ### How to run the container in LISTEN ALL METERS Mode:
@@ -119,6 +121,7 @@ services:
       - /dev/bus/usb
     volumes:
       - /etc/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
+      - /var/lib/rtlamr2mqtt:/var/lib/rtlamr2mqtt
 ```
 
 ### Thanks to
