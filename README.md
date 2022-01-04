@@ -100,13 +100,19 @@ meters:
     # A number format to be used for your meter
     format: "#####.###"
     # A measurement unit to be used by Home Assistant
+    # Typical values are ft³ and m³ (use the superscript) for water/gas meters
+    # and kWh or Wh for electric meters
     unit_of_measurement: "\u33A5"
     # An icon to be used by Home Assistant
     icon: mdi:gauge
+    # A device_class to define what the sensor is measuring for use in the Energy panel
+    # Typical values are "gas" or "energy". Default is blank.
+    device_class:
   - id: 6567984
     protocol: scm
     name: meter_hydro
     unit_of_measurement: kWh
+    device_class: energy
 ```
 
 ### Docker compose configuration:
