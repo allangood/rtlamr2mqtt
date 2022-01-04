@@ -20,3 +20,4 @@ meters:
     format: "######.###"
     unit_of_measurement: "\u33A5"
     icon: mdi:gauge
+    device_class: energy
