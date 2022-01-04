@@ -177,6 +177,7 @@ def send_ha_autodiscovery(meter, consumption_key):
         'unique_id': str(meter['id']),
         'unit_of_measurement': meter['unit_of_measurement'],
         'icon': meter['icon'],
+        'device_class': meter['device_class'],
         'availability_topic': availability_topic,
         'state_class': 'total_increasing',
         'state_topic': meter['state_topic'],
@@ -299,6 +300,7 @@ for idx,meter in enumerate(config['meters']):
     meters[id]['name'] = meter_name
     meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
     meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
+    meters[id]['device_class'] = str(meter.get('device_class', ''))
     meters[id]['sent_HA_discovery'] = False
     protocols.append(meter['protocol'])
     meter_ids.append(id)
