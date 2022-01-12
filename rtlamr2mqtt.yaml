@@ -1,6 +1,7 @@
 general:
   sleep_for: 0
   verbosity: debug
+  tickle_rtl_tcp: false
 
 mqtt:
   host: 127.0.0.1

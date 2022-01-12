@@ -1,6 +1,6 @@
 {
     "name": "rtlamr2mqtt",
-    "version": "1.5.2",
+    "version": "1.5.4",
     "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
     "description": "RTLAMR to MQTT Bridge",
@@ -23,7 +23,8 @@
     "options": {
         "general": {
             "sleep_for": 300,
-            "verbosity": "debug"
+            "verbosity": "debug",
+            "tickle_rtl_tcp": false
         },
         "mqtt": {
             "host": "hassio.local",
@@ -44,14 +45,16 @@
                 "name": "gas_meter",
                 "format": "####.###",
                 "unit_of_measurement": "m³",
-                "icon": "mdi:gas_canister"
+                "icon": "mdi:gas_canister",
+                "device_class": "gas"
             }
         ]
     },
     "schema": {
         "general": {
             "sleep_for": "int",
-            "verbosity": "list(debug|normal)?"
+            "verbosity": "list(debug|normal)?",
+            "tickle_rtl_tcp": "bool?"
         },
         "mqtt": {
             "host": "str?",
@@ -72,7 +75,8 @@
                 "name": "str",
                 "format": "str?",
                 "unit_of_measurement": "str",
-                "icon": "str"
+                "icon": "str",
+                "device_class": "list(none|aqi|battery|carbon_dioxide|carbon_monoxide|current|date|energy|frequency|gas|humidity|illuminance|monetary|nitrogen_dioxide|nitrogen_monoxide|nitrous_oxide|ozone|pm1|pm10|pm25|power_factor|power|pressure|signal_strength|sulphur_dioxide|temperature|timestamp|volatile_organic_compounds|voltag)?"
             }
         ]
     }
