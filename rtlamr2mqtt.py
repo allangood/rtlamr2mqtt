@@ -10,6 +10,7 @@ import paho.mqtt.publish as publish
 import socket
 from struct import pack
 from random import randrange
+from datetime import datetime
 from time import sleep, time
 from json import dumps, loads
 from paho.mqtt import MQTTException
@@ -19,13 +20,14 @@ import numpy as np
 import warnings
 from sklearn.linear_model import LinearRegression
 
-
 # I have been experiencing some problems with my Radio (geeting old, maybe?)
 # and the number of messages fills up my HDD very quickly.
 
 # Function to log messages to STDERR
 def log_message(message):
-    print(message, file=sys.stderr)
+    now = datetime.now()
+    dt_string = now.strftime("%Y-%m-%d %H:%M:%S")
+    print('[{}] {}'.format(dt_string, message), file=sys.stderr)
 
 # Environment variable to help with Travis tests
 # Set it to True if is set to 'yes' or 'true', false otherwise
@@ -257,12 +259,12 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
 ##################### BUILD CONFIGURATION #####################
 config = load_config(sys.argv)
 
+# Set some defaults:
+sleep_for = int(config['general'].get('sleep_for', 0))
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
-if 'general' in config:
-    if test_mode:
-        sleep_for = 0
-    else:
-        sleep_for = int(config['general'].get('sleep_for', 0))
+use_tickle_rtl_tcp = (config['general'].get('tickle_rtl_tcp', False))
+if test_mode:
+    sleep_for = 0
 
 # Build MQTT configuration
 availability_topic = 'rtlamr/status'
@@ -350,7 +352,8 @@ while True:
 
     # Is this the first time are we executing this loop? Or is rtlamr running?
     if 'rtlamr' not in locals() or rtlamr.poll() is not None:
-        tickle_rtl_tcp(rtltcp_server)
+        if use_tickle_rtl_tcp:
+            tickle_rtl_tcp(rtltcp_server)
         log_message('Trying to start RTLAMR: {}'.format(' '.join(rtlamr_cmd)))
         # start the rtlamr program.
         rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
