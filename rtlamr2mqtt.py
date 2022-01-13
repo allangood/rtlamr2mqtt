@@ -302,7 +302,9 @@ for idx,meter in enumerate(config['meters']):
     meters[id]['name'] = meter_name
     meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
     meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
-    meters[id]['device_class'] = str(meter.get('device_class', ''))
+    meters[id]['device_class'] = meter.get('device_class', None)
+    if ( str(meters[id]['device_class']).lower() in ['none', 'null'] ):
+        meters[id]['device_class'] = None
     meters[id]['sent_HA_discovery'] = False
     protocols.append(meter['protocol'])
     meter_ids.append(id)
