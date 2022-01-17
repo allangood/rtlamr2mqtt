@@ -187,7 +187,7 @@ def send_ha_autodiscovery(meter, consumption_key):
         'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
     }
     if (meter['device_class'] is not None):
-        discover_payload['device_class'] = meter['device_class'],
+        discover_payload['device_class'] = meter['device_class']
     mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
 
 def tickle_rtl_tcp(remote_server):
@@ -303,8 +303,8 @@ for idx,meter in enumerate(config['meters']):
     meters[id]['name'] = meter_name
     meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
     meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
-    meters[id]['device_class'] = meter.get('device_class', None)
-    if ( str(meters[id]['device_class']).lower() in ['none', 'null'] ):
+    meters[id]['device_class'] = str(meter.get('device_class', None))
+    if ( meters[id]['device_class'].lower() in ['none', 'null'] ):
         meters[id]['device_class'] = None
     meters[id]['sent_HA_discovery'] = False
     protocols.append(meter['protocol'])
