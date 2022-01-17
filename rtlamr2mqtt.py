@@ -179,7 +179,6 @@ def send_ha_autodiscovery(meter, consumption_key):
         'unique_id': str(meter['id']),
         'unit_of_measurement': meter['unit_of_measurement'],
         'icon': meter['icon'],
-        'device_class': meter['device_class'],
         'availability_topic': availability_topic,
         'state_class': 'total_increasing',
         'state_topic': meter['state_topic'],
@@ -187,6 +186,8 @@ def send_ha_autodiscovery(meter, consumption_key):
         'json_attributes_topic': meter['state_topic'],
         'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
     }
+    if (meter['device_class'] is not None):
+        discover_payload['device_class'] = meter['device_class'],
     mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
 
 def tickle_rtl_tcp(remote_server):
