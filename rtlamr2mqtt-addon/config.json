@@ -14,6 +14,7 @@
     "udev": true,
     "usb": true,
     "host_network": false,
+    "hassio_api": true,
     "arch": [
         "amd64",
         "armv7",
@@ -27,10 +28,6 @@
             "tickle_rtl_tcp": false
         },
         "mqtt": {
-            "host": "hassio.local",
-            "port": 1883,
-            "user": "",
-            "password": "",
             "ha_autodiscovery": true,
             "ha_autodiscovery_topic": "homeassistant"
         },
