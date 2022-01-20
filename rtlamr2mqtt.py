@@ -166,25 +166,17 @@ def send_ha_autodiscovery(meter, consumption_key):
     """
     log_message('Sending MQTT autodiscovery payload to Home Assistant...')
     discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, meter['name'])
-    if 'format' in meter and '.' in meter['format']:
-        """
-        'format' parameter is in the form ######.###
-        Raise 10 to a power corresponding to the number of # characters in format
-        parameter that occur after the decimal. HA will divide the raw consumption
-        value by this amount.
-        """
-        divisor = 10 ** len((meter['format'].split('.',1))[1])
     discover_payload = {
         'name': meter['name'],
         'unique_id': str(meter['id']),
         'unit_of_measurement': meter['unit_of_measurement'],
         'icon': meter['icon'],
         'availability_topic': availability_topic,
-        'state_class': 'total_increasing',
+        'state_class': meter.get('state_class', 'total_increasing'),
         'state_topic': meter['state_topic'],
         'value_template': '{{{{ value_json.Message.{} | float }}}}'.format(consumption_key),
         'json_attributes_topic': meter['state_topic'],
-        'json_attributes_template': '{{{{ value_json.Message | tojson }}}}'.format()
+        'json_attributes_template': '{{ value_json.Message | tojson }}'
     }
     if (meter['device_class'] is not None):
         discover_payload['device_class'] = meter['device_class']
@@ -283,33 +275,36 @@ if 'ha_autodiscovery' in config['mqtt']:
 # Build Meter and RTLAMR config and send HA Auto-discover payload if enabled
 # TODO: Add a configuration section for rtlamr and rtl_tcp configuration parameters
 protocols = []
-meter_ids = []
 meter_readings = {}
 external_rtl_tcp = False
 rtltcp_server = '127.0.0.1:1234'
 
 # Build dict of meter configs
 meters = {}
-for idx,meter in enumerate(config['meters']):
+meter_names = set()
+for meter in config['meters']:
     id = str(meter['id']).strip()
     meter_name = str(meter.get('name', 'meter_{}'.format(id)))
-    for k in meters:
-        if (meters[k]['name'] == meter_name) or (meters[k]['id'] == id):
-            log_message('Error: Duplicate meter name ({}) or id ({}) found in config. Exiting.'.format(meter_name, id))
-            sys.exit(1)
+
+    if id in meters or meter_name in meter_names:
+        log_message('Error: Duplicate meter name ({}) or id ({}) found in config. Exiting.'.format(meter_name, id))
+        sys.exit(1)
 
     meters[id] = meter.copy()
+    meter_names.add(meter_name)
+    meter_readings[id] = 0
+
     meters[id]['state_topic'] = 'rtlamr/{}/state'.format(id)
     meters[id]['name'] = meter_name
     meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
     meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
     meters[id]['device_class'] = str(meter.get('device_class', None))
-    if ( meters[id]['device_class'].lower() in ['none', 'null'] ):
+    if meters[id]['device_class'].lower() in ['none', 'null']:
         meters[id]['device_class'] = None
     meters[id]['sent_HA_discovery'] = False
+
     protocols.append(meter['protocol'])
-    meter_ids.append(id)
-    meter_readings[id] = 0
+
 
 # Build RTLAMR and RTL_TCP commands
 rtltcp_custom = []
@@ -327,7 +322,7 @@ if 'custom_parameters' in config:
                rtltcp_server = arg.split('=')[1]   # value of -server= parameter in rtlamr customer params
 
 rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
-rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meter_ids))] + rtlamr_custom
+rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meters.keys()))] + rtlamr_custom
 #################################################################
 
 # TinyDB
