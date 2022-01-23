@@ -25,6 +25,7 @@ RUN apt-get update \
       python3-yaml \
       python3-tinydb \
       python3-sklearn \
+      python3-requests \
       libusb-1.0-0 \
     && apt-get --purge autoremove -y perl \
     && apt-get clean \

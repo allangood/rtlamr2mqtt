@@ -2,23 +2,25 @@
 
 import json
 import os
-import sys
-import yaml
-import signal
-import subprocess
-import paho.mqtt.publish as publish
-import socket
-from struct import pack
-from random import randrange
-from datetime import datetime
-from time import sleep, time
-from json import dumps, loads
-from paho.mqtt import MQTTException
-from json.decoder import JSONDecodeError
-from tinydb import TinyDB, Query
 import numpy as np
+import paho.mqtt.publish as publish
+import requests
+import signal
+import sys
+import subprocess
+import socket
 import warnings
+import yaml
+
+from datetime import datetime
+from json import dumps, loads
+from json.decoder import JSONDecodeError
+from paho.mqtt import MQTTException
+from random import randrange
 from sklearn.linear_model import LinearRegression
+from struct import pack
+from time import sleep, time
+from tinydb import TinyDB, Query
 
 # I have been experiencing some problems with my Radio (geeting old, maybe?)
 # and the number of messages fills up my HDD very quickly.
@@ -46,8 +48,8 @@ class MqttSender:
     def __init__(self, hostname, port, username, password):
         log_message('Configured MQTT sender:')
         self.d = {}
-        self.d['hostname'] = hostname if hostname else 'localhost'
-        self.d['port'] = int(port) if port else 1883
+        self.d['hostname'] = hostname
+        self.d['port'] = int(port)
         self.d['username'] = username
         self.d['password'] = password
         self.d['client_id'] = 'rtlamr2mqtt'
@@ -269,10 +271,35 @@ if test_mode:
 
 # Build MQTT configuration
 availability_topic = 'rtlamr/status'
-params = []
-for k in ['host', 'port', 'user', 'password']:
-  params.append(config['mqtt'].get(k, None))
-mqtt_sender = MqttSender(*params)
+
+if (config['mqtt'].get('host')
+        or config['mqtt'].get('port')
+        or config['mqtt'].get('user')
+        or config['mqtt'].get('password')):
+    host = config['mqtt'].get('host', 'localhost')
+    port = config['mqtt'].get('port', 1883)
+    user = config['mqtt'].get('user')
+    password = config['mqtt'].get('password')
+else:
+    api_url = "http://supervisor/services/mqtt"
+    headers = {"Authorization": "Bearer " + os.getenv("SUPERVISOR_TOKEN")}
+    log_message("Fetching default MQTT configuration from %s" % api_url)
+    try:
+        resp = requests.get(api_url, headers=headers)
+        resp.raise_for_status()
+
+        d = resp.json()['data']
+        host = d.get('host')
+        port = d.get('port')
+        user = d.get('username')
+        password = d.get('password')
+    except e:
+        log_message("Could not fetch default MQTT configuration: %s" % e)
+        host = 'localhost'
+        port = 1883
+        user = None
+        password = None
+mqtt_sender = MqttSender(host, port, user, password)
 
 ha_autodiscovery_topic = config['mqtt'].get('ha_autodiscovery_topic', 'homeassistant')
 ha_autodiscovery = False

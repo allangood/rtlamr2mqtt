@@ -59,19 +59,24 @@ general:
   # For me, this started to cause the rtl_tcp to refuse connections and miss the readings.
   tickle_rtl_tcp: false
 
-# (Required section)
-# MQTT configuration
+# MQTT configuration.
 mqtt:
-  # MQTT host name or IP address
-  host: 192.168.1.1
-  # MQTT user name if you have, remove if you don't use authentication
-  user: mqtt
-  # MQTT user password if you use one, remove if you don't use authentication
-  password: my-very-strong-password
   # Whether to use Home Assistant auto-discovery feature or not
   ha_autodiscovery: true
   # Home Assistant auto-discovery topic
   ha_autodiscovery_topic: homeassistant
+
+  # By default, leaving host, port, user, and password unset will tell
+  # rtlamr2mqtt to use the default home assistant mqtt settings for those
+  # options. If needed, you can override these default settings:
+  # MQTT host name or IP address.
+  host: 192.168.1.1
+  # MQTT port.
+  port: 1883
+  # MQTT user name if you have, remove if you don't use authentication
+  user: mqtt
+  # MQTT user password if you use one, remove if you don't use authentication
+  password: my-very-strong-password
 
 # (Optional)
 # This entire section is optional.
