@@ -73,7 +73,8 @@
                 "format": "str?",
                 "unit_of_measurement": "str",
                 "icon": "str",
-                "device_class": "list(none|aqi|battery|carbon_dioxide|carbon_monoxide|current|date|energy|frequency|gas|humidity|illuminance|monetary|nitrogen_dioxide|nitrogen_monoxide|nitrous_oxide|ozone|pm1|pm10|pm25|power_factor|power|pressure|signal_strength|sulphur_dioxide|temperature|timestamp|volatile_organic_compounds|voltag)?"
+                "device_class": "list(none|aqi|battery|carbon_dioxide|carbon_monoxide|current|date|energy|frequency|gas|humidity|illuminance|monetary|nitrogen_dioxide|nitrogen_monoxide|nitrous_oxide|ozone|pm1|pm10|pm25|power_factor|power|pressure|signal_strength|sulphur_dioxide|temperature|timestamp|volatile_organic_compounds|voltag)?",
+                "state_class": "list(measurement|total|total_increasing)?"
             }
         ]
     }

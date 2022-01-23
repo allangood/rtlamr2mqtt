@@ -109,6 +109,9 @@ meters:
     # A device_class to define what the sensor is measuring for use in the Energy panel
     # Typical values are "gas" or "energy". Default is blank.
     device_class:
+    # "total_increasing" for most meters, "total" for meters that might go
+    # backwards (net energy meters). Defaults to "total_increasing" if unset.
+    state_class:
   - id: 6567984
     protocol: scm
     name: meter_hydro
