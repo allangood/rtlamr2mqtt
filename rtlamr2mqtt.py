@@ -162,7 +162,7 @@ def is_an_error_message(message):
 def format_number(number, format):
     return str(format.replace('#','{}').format(*number.zfill(format.count('#'))))
 
-def send_ha_autodiscovery(meter, consumption_key):
+def send_ha_autodiscovery(meter):
     """
     Build and send HA Auto Discovery message for a meter
     """
@@ -176,9 +176,7 @@ def send_ha_autodiscovery(meter, consumption_key):
         'availability_topic': availability_topic,
         'state_class': meter.get('state_class', 'total_increasing'),
         'state_topic': meter['state_topic'],
-        'value_template': '{{{{ value_json.Message.{} | float }}}}'.format(consumption_key),
-        'json_attributes_topic': meter['state_topic'],
-        'json_attributes_template': '{{ value_json.Message | tojson }}'
+        'json_attributes_topic': meter['attribute_topic']
     }
     if (meter['device_class'] is not None):
         discover_payload['device_class'] = meter['device_class']
@@ -322,6 +320,7 @@ for meter in config['meters']:
     meter_readings[id] = 0
 
     meters[id]['state_topic'] = 'rtlamr/{}/state'.format(id)
+    meters[id]['attribute_topic'] = 'rtlamr/{}/attributes'.format(id)
     meters[id]['name'] = meter_name
     meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
     meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
@@ -416,69 +415,70 @@ while True:
             # If we could extract the Meter ID and the consumption, then...
             if meter_id and raw_reading:
                 if meter_id in meters:
-                     if 'format' in meters[meter_id]: # We have a "format" parameter, let's format the number!
-                         formatted_reading = format_number(raw_reading, meters[meter_id]['format'])
-                     else:
-                         formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
+                    if 'format' in meters[meter_id]: # We have a "format" parameter, let's format the number!
+                        formatted_reading = format_number(raw_reading, meters[meter_id]['format'])
+                    else:
+                        formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
 
-                     log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formatted_reading))
-                     current_timestamp = int(time())
+                    log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formatted_reading))
+                    current_timestamp = int(time())
 
-                     ### History and Linear Regression Logic
-                     # Delete records older than 30 days
-                     month_ago = int(time()) - 2592000 # (60 * 60 * 24 * 30)
-                     db.remove( (History.timestamp < month_ago) & (History.meter_id == meter_id) )
-                     # Add latest reading to the history
-                     db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(formatted_reading)})
+                    ### History and Linear Regression Logic
+                    # Delete records older than 30 days
+                    month_ago = int(time()) - 2592000 # (60 * 60 * 24 * 30)
+                    db.remove( (History.timestamp < month_ago) & (History.meter_id == meter_id) )
+                    # Add latest reading to the history
+                    db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(formatted_reading)})
 
-                     # Big thanks to this site: https://realpython.com/linear-regression-in-python/
-                     # X is our inut or predictor variable
-                     # Y is our output or the variable we want to predict.
-                     # In this project, X is the timestamp and Y is the meter reading
-                     # We want to predict the next reading and check if it is withing an acceptable range
-                     # before flagging it as an anomaly
-                     timestamps = np.array([x["timestamp"] for x in db.search(History.meter_id == meter_id)]).reshape((-1, 1))
-                     readings = np.array([x["reading"] for x in db.search(History.meter_id == meter_id)])
+                    # Big thanks to this site: https://realpython.com/linear-regression-in-python/
+                    # X is our inut or predictor variable
+                    # Y is our output or the variable we want to predict.
+                    # In this project, X is the timestamp and Y is the meter reading
+                    # We want to predict the next reading and check if it is withing an acceptable range
+                    # before flagging it as an anomaly
+                    timestamps = np.array([x["timestamp"] for x in db.search(History.meter_id == meter_id)]).reshape((-1, 1))
+                    readings = np.array([x["reading"] for x in db.search(History.meter_id == meter_id)])
 
-                     # Fit variables into linear regression model
-                     model = LinearRegression().fit(timestamps, readings)
+                    # Fit variables into linear regression model
+                    model = LinearRegression().fit(timestamps, readings)
 
-                     # Get prediction
-                     predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))[0]
-                     log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, formatted_reading))
-                     # Is this reading an anomaly?
-                     anomaly = False
-                     if len(readings) > 2:
-                         grow_avg = sliding_mean(readings)
-                         variation_limit = float(predicted_reading) + grow_avg
-                         log_message('Grow rate avg: {}'.format(grow_avg))
-                         if float(formatted_reading) > variation_limit:
-                             log_message('Possible anomaly detected!')
-                             anomaly = True
-                         log_message('Distance from prediction: {}'.format(float(formatted_reading) - float(predicted_reading)))
-                         log_message('Threshold for anomaly: {}'.format(variation_limit))
+                    # Get prediction
+                    predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))[0]
+                    log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, formatted_reading))
+                    # Is this reading an anomaly?
+                    anomaly = False
+                    if len(readings) > 2:
+                        grow_avg = sliding_mean(readings)
+                        variation_limit = float(predicted_reading) + grow_avg
+                        log_message('Grow rate avg: {}'.format(grow_avg))
+                        if float(formatted_reading) > variation_limit:
+                            log_message('Possible anomaly detected!')
+                            anomaly = True
+                        log_message('Distance from prediction: {}'.format(float(formatted_reading) - float(predicted_reading)))
+                        log_message('Threshold for anomaly: {}'.format(variation_limit))
 
-                     # Readings has a big footprint. Let's release it from memory
-                     del readings
+                    # Readings has a big footprint. Let's release it from memory
+                    del readings
 
-                     ######
+                    ######
 
-                     state_topic = 'rtlamr/{}/state'.format(meter_id)
-                     if ha_autodiscovery:
-                          # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter
-                          if not meters[meter_id]['sent_HA_discovery']:
-                              send_ha_autodiscovery(meters[meter_id], consumption_key)
-                              meters[meter_id]['sent_HA_discovery'] = True
+                    attributes = {}
+                    if ha_autodiscovery:
+                        # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter
+                        if not meters[meter_id]['sent_HA_discovery']:
+                            send_ha_autodiscovery(meters[meter_id])
+                            meters[meter_id]['sent_HA_discovery'] = True
+                    else:
+                        msg_payload = formatted_reading
 
-                          json_output['Message'][consumption_key] = formatted_reading
-                          json_output['Message']['Predicted'] = predicted_reading
-                          json_output['Message']['Anomaly'] = anomaly
-                          msg_payload=json.dumps(json_output)
-                     else:
-                          msg_payload = formatted_reading
-
-                     mqtt_sender.publish(topic=state_topic, payload=msg_payload, retain=True)
-                     meter_readings[meter_id] += 1
+                    attributes['Message Type'] = json_output['Type']
+                    attributes['Predicted'] = predicted_reading
+                    attributes['Anomaly'] = anomaly
+                    attribute_topic = meters[meter_id]['attribute_topic']
+                    state_topic = meters[meter_id]['state_topic']
+                    mqtt_sender.publish(topic=attribute_topic, payload=json.dumps(attributes), retain=True)
+                    mqtt_sender.publish(topic=state_topic, payload=formatted_reading, retain=True)
+                    meter_readings[meter_id] += 1
 
         if sleep_for > 0 or test_mode: # We have a sleep_for parameter. Let's go to sleep!
             # Check if we have readings for all meters
