@@ -7,6 +7,11 @@ This project was created to send readings made by RTLAMR + RTL_TCP to a MQTT bro
 My user case is to integrate it with Home Assistant.
 
 ### Noteworthy Updates
+*2022-02-11*
+ - New configuration parameter: `state_class` (thanks to @JeffreyFalgout)
+ - Automatic MQTT configuration when using the Addon (thanks to @JeffreyFalgout)
+ - Fixed 255 characters limit for state value #86
+
 *2022-01-11*
  - Happy new year! :)
  - Added "tickle_rtl_tcp" parameter to enable/disable the feature (explained below)
@@ -14,14 +19,6 @@ My user case is to integrate it with Home Assistant.
  - Added device_class configuration option #66 (thanks to @phidauex)
  - Some clean up in the README file!
  - Machine Learning to detect leaks still experimental and needs a lot of love to work properly
-
-*2021-12-01*
- - Lots of changes!!!!
- - Using Debian bullseye instead of Alpine. Here is why: https://pythonspeed.com/articles/alpine-docker-python/
- - Added Machine Learn (Linear Regression) to detect potential leaks in the meter usage/readings (WiP)
-   - This is still experimental. When I have it stabilized a new binary_sensor for every meter will be created to expose this information
-   - A new attribute "Anomaly" is available for every meter. It will return "true" if an anomaly is detected.
-   - ***IMPORTANT*** A new volume is necessary if you want to keep your history! See the compose/docker run command for more info.
 
 # Readme starts here
 
@@ -188,6 +185,7 @@ A big thank you for all kind contributions! And a even bigger thanks to these ki
 - [irakhlin](https://github.com/irakhlin)
 - [ericthomas](https://github.com/ericthomas)
 - [b0naf1de](https://github.com/b0naf1de)
+- [JeffreyFalgout](https://github.com/JeffreyFalgout)
 
 ### Credits to:
 
