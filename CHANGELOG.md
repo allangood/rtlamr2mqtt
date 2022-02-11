@@ -1,3 +1,16 @@
+### 2022-02-11
+ - New configuration parameter: `state_class` (thanks to @JeffreyFalgout)
+ - Automatic MQTT configuration when using the Addon (thanks to @JeffreyFalgout)
+ - Fixed 255 characters limit for state value #86
+
+### 2022-01-11
+ - Happy new year! :)
+ - Added "tickle_rtl_tcp" parameter to enable/disable the feature (explained below)
+ - Added date/time to the log output
+ - Added device_class configuration option #66 (thanks to @phidauex)
+ - Some clean up in the README file!
+ - Machine Learning to detect leaks still experimental and needs a lot of love to work properly
+
 ### 2021-12-01
  - Lots of changes!
  - Changed Docker container to use Debian Bullseye instead of Alpine
