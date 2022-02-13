@@ -8,7 +8,7 @@ on:
       - '**.json'
       - '**.yaml'
       - 'LICENSE'
-      - '.github/workflows/**'
+      - '.github/**'
       - 'examples/**'
     branches:
       - main
