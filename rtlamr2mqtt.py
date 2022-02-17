@@ -474,6 +474,7 @@ while True:
                     attributes['Message Type'] = json_output['Type']
                     attributes['Predicted'] = predicted_reading
                     attributes['Anomaly'] = anomaly
+                    attributes.update(json_output['Message'])
                     attribute_topic = meters[meter_id]['attribute_topic']
                     state_topic = meters[meter_id]['state_topic']
                     mqtt_sender.publish(topic=attribute_topic, payload=json.dumps(attributes), retain=True)
