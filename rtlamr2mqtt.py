@@ -21,6 +21,19 @@ from sklearn.linear_model import LinearRegression
 from struct import pack
 from time import sleep, time
 from tinydb import TinyDB, Query
+from fcntl import ioctl
+
+# From:
+# https://stackoverflow.com/questions/14626395/how-to-properly-convert-a-c-ioctl-call-to-a-python-fcntl-ioctl-call
+def reset_usb_device(usbdev):
+    busnum, devnum = usbdev.split(':')
+    filename = "/dev/bus/usb/{:03d}/{:03d}".format(int(busnum), int(devnum))
+    log_message('Reseting USB device: {}'.format(filename))
+    #define USBDEVFS_RESET             _IO('U', 20)
+    USBDEVFS_RESET = ord('U') << (4*2) | 20
+    fd = open(filename, "wb")
+    ioctl(fd, USBDEVFS_RESET, 0)
+    fd.close()
 
 # I have been experiencing some problems with my Radio (geeting old, maybe?)
 # and the number of messages fills up my HDD very quickly.
@@ -254,6 +267,7 @@ config = load_config(sys.argv)
 
 # Set some defaults:
 sleep_for = int(config['general'].get('sleep_for', 0))
+reset_usb = config['general'].get('reset_usb', None)
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
 use_tickle_rtl_tcp = (config['general'].get('tickle_rtl_tcp', False))
 if test_mode:
@@ -357,6 +371,9 @@ History = Query()
 
 # Main loop
 while True:
+    if reset_usb is not None:
+        reset_usb_device(reset_usb)
+
     mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
 
     # Is this the first time are we executing this loop? Or is rtltcp running?
