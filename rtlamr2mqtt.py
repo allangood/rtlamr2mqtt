@@ -32,7 +32,10 @@ def reset_usb_device(usbdev):
     #define USBDEVFS_RESET             _IO('U', 20)
     USBDEVFS_RESET = ord('U') << (4*2) | 20
     fd = open(filename, "wb")
-    ioctl(fd, USBDEVFS_RESET, 0)
+    if int(ioctl(fd, USBDEVFS_RESET, 0)) != 0:
+        log_message('Error reseting USB device!!!')
+    else:
+        log_message('Reset sucessful.')
     fd.close()
 
 # I have been experiencing some problems with my Radio (geeting old, maybe?)
