@@ -249,8 +249,14 @@ signal.signal(signal.SIGINT, shutdown)
 if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
     log_message('Starting in LISTEN ONLY Mode...')
     log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
-    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
-    rtltcp_cmd = '/usr/bin/rtl_tcp'
+    msgtype = os.environ.get('RTL_MSGTYPE', 'all')    
+    rtltcp_cmd = ['/usr/bin/rtl_tcp']
+    # While DEBUG mode doesn't read a config, it's still helpful to specify a specific rtl_tcp device.
+    # If it exists, this reads the environment variable RTL_TCP_ARGS and appends it to rtl_tcp command line. 
+    # For example, RTL-SDR serial number 777: docker run -e LISTEN_ONLY=yes -e RTL_TCP_ARGS="-d 777" ...       
+    if os.environ.get('RTL_TCP_ARGS'):
+        rtltcp_cmd.extend(os.environ.get('RTL_TCP_ARGS').split(' '))
+    log_message('Starting rtl_tcp with ' + str(rtltcp_cmd))
     rtltcp = subprocess.Popen(rtltcp_cmd)
     sleep(2)
     rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
