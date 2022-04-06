@@ -61,7 +61,7 @@ def list_intersection(a, b):
     return result[0] if result else None
 
 class MqttSender:
-    def __init__(self, hostname, port, username, password, tls):
+    def __init__(self, hostname, port, username, password, tls = None):
         log_message('Configured MQTT sender:')
         self.d = {}
         self.d['hostname'] = hostname
