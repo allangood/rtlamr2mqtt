@@ -7,18 +7,14 @@ This project was created to send readings made by RTLAMR + RTL_TCP to a MQTT bro
 My user case is to integrate it with Home Assistant.
 
 ### Noteworthy Updates
+*2022-04-04*
+ - New TLS parameters to MQTT connection
+ - New parameter: USB_RESET to address problem mentioned on #98
+
 *2022-02-11*
  - New configuration parameter: `state_class` (thanks to @JeffreyFalgout)
  - Automatic MQTT configuration when using the Addon (thanks to @JeffreyFalgout)
  - Fixed 255 characters limit for state value #86
-
-*2022-01-11*
- - Happy new year! :)
- - Added "tickle_rtl_tcp" parameter to enable/disable the feature (explained below)
- - Added date/time to the log output
- - Added device_class configuration option #66 (thanks to @phidauex)
- - Some clean up in the README file!
- - Machine Learning to detect leaks still experimental and needs a lot of love to work properly
 
 # Readme starts here
 
@@ -55,6 +51,8 @@ general:
   # Enable/disable the tickle_rtl_tcp. This is used to "shake" rtl_tcp to wake it up.
   # For me, this started to cause the rtl_tcp to refuse connections and miss the readings.
   tickle_rtl_tcp: false
+  # USB Reset. Use lsusb to get dev and bus number
+  usb_reset: '005:001'
 
 # MQTT configuration.
 mqtt:
@@ -70,6 +68,12 @@ mqtt:
   host: 192.168.1.1
   # MQTT port.
   port: 1883
+  # TLS CA certificate
+  tls_ca: "/etc/ssl/certs/ca-certificates.crt"
+  # TLS server certificate
+  tls_cert: "/etc/ssl/my_server_cert.crt"
+  # TLS self-signed certificate/insecure certificate
+  tls_insecure: true
   # MQTT user name if you have, remove if you don't use authentication
   user: mqtt
   # MQTT user password if you use one, remove if you don't use authentication

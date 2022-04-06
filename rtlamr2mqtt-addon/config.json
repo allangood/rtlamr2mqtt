@@ -1,6 +1,6 @@
 {
     "name": "rtlamr2mqtt",
-    "version": "1.6.2",
+    "version": "1.7.0",
     "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
     "description": "RTLAMR to MQTT Bridge",
@@ -25,11 +25,16 @@
         "general": {
             "sleep_for": 300,
             "verbosity": "debug",
-            "tickle_rtl_tcp": false
+            "tickle_rtl_tcp": false,
+            "usb_reset": "005:002"
         },
         "mqtt": {
             "ha_autodiscovery": true,
-            "ha_autodiscovery_topic": "homeassistant"
+            "ha_autodiscovery_topic": "homeassistant",
+            "tls_ca": "/etc/ssl/certs/ca-certificates.crt",
+            "tls_cert": "/etc/ssl/my_self_signed_cert.crt",
+            "tls_keyfile": "/etc/ssl/my_self_signed_cert_key.key",
+            "tls_insecure": true
         },
         "custom_parameters": {
             "rtltcp": "-s 2048000",
@@ -51,11 +56,16 @@
         "general": {
             "sleep_for": "int",
             "verbosity": "list(debug|normal)?",
-            "tickle_rtl_tcp": "bool?"
+            "tickle_rtl_tcp": "bool?",
+            "usb_reset": "bool?"
         },
         "mqtt": {
             "host": "str?",
             "port": "int?",
+            "tls_ca": "str?",
+            "tls_cert": "str?",
+            "tls_keyfile": "str?",
+            "tls_insecure": "bool?",
             "user": "str?",
             "password": "str?",
             "ha_autodiscovery": "bool?",

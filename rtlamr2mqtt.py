@@ -61,7 +61,7 @@ def list_intersection(a, b):
     return result[0] if result else None
 
 class MqttSender:
-    def __init__(self, hostname, port, username, password):
+    def __init__(self, hostname, port, username, password, tls):
         log_message('Configured MQTT sender:')
         self.d = {}
         self.d['hostname'] = hostname
@@ -69,6 +69,7 @@ class MqttSender:
         self.d['username'] = username
         self.d['password'] = password
         self.d['client_id'] = 'rtlamr2mqtt'
+        self.d['tls'] = tls
         self.__log_mqtt_params(**self.d)
 
     def __get_auth(self):
@@ -88,7 +89,7 @@ class MqttSender:
         try:
             publish.single(
                 topic=topic, payload=payload, qos=qos, retain=retain, hostname=self.d['hostname'], port=self.d['port'],
-                client_id=self.d['client_id'], keepalive=60, will=will, auth=self.__get_auth(), tls=None
+                client_id=self.d['client_id'], keepalive=60, will=will, auth=self.__get_auth(), tls=self.d['tls']
             )
         except MQTTException as e:
             log_message('MQTTException connecting to MQTT broker: {}'.format(e))
@@ -285,6 +286,17 @@ if (config['mqtt'].get('host')
         or config['mqtt'].get('password')):
     host = config['mqtt'].get('host', 'localhost')
     port = config['mqtt'].get('port', 1883)
+    if 'tls_ca' in config['mqtt']:
+        tls_ca = config['mqtt'].get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
+        tls_cert = config['mqtt'].get('tls_cert', None)
+        tls_keyfile = config['mqtt'].get('tls_keyfile', None)
+        # ToDo: Create a easy interface for these parameters
+        tls_version = config['mqtt'].get('tls_version', None)
+        tls_ciphers = config['mqtt'].get('tls_ciphers', None)
+        tls_insecure = config['mqtt'].get('tls_insecure', False)
+        tls = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'insecure': tls_insecure, 'keyfile': tls_keyfile, 'tls_version': tls_version, 'ciphers': tls_ciphers }
+    else:
+        tls = None
     user = config['mqtt'].get('user')
     password = config['mqtt'].get('password')
 else:
