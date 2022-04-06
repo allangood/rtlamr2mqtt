@@ -2,9 +2,18 @@ general:
   sleep_for: 0
   verbosity: debug
   tickle_rtl_tcp: false
+  usb_reset: '005:001'
 
 mqtt:
   host: 127.0.0.1
+  # Path to CA certificate to use. Mandatory
+  tls_ca: '/etc/ssl/certs/ca-certificates.crt'
+  # Path to certificate file to use. Optional
+  tls_cert: '/etc/ssl/my_self_signed_cert.crt'
+  # TLS insecure: defaults to False
+  tls_insecure: true
+  # Certificate key file to use. Optional
+  tls_keyfile: '/etc/ssl/my_self_signed_cert_key.key'
   user: test
   password: testpassword
   ha_autodiscovery: true
