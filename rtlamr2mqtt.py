@@ -318,7 +318,7 @@ else:
         port = 1883
         user = None
         password = None
-mqtt_sender = MqttSender(host, port, user, password)
+mqtt_sender = MqttSender(host, port, user, password, tls)
 
 ha_autodiscovery_topic = config['mqtt'].get('ha_autodiscovery_topic', 'homeassistant')
 ha_autodiscovery = False
