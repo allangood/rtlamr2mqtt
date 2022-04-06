@@ -57,7 +57,7 @@
             "sleep_for": "int",
             "verbosity": "list(debug|normal)?",
             "tickle_rtl_tcp": "bool?",
-            "usb_reset": "bool?"
+            "usb_reset": "str?"
         },
         "mqtt": {
             "host": "str?",
