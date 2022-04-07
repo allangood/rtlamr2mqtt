@@ -277,7 +277,7 @@ config = load_config(sys.argv)
 
 # Set some defaults:
 sleep_for = int(config['general'].get('sleep_for', 0))
-reset_usb = config['general'].get('reset_usb', None)
+usb_reset = config['general'].get('usb_reset', None)
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
 use_tickle_rtl_tcp = (config['general'].get('tickle_rtl_tcp', False))
 if test_mode:
@@ -395,8 +395,8 @@ History = Query()
 
 # Main loop
 while True:
-    if reset_usb is not None:
-        reset_usb_device(reset_usb)
+    if usb_reset:
+        reset_usb_device(usb_reset)
 
     mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
 
