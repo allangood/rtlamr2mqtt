@@ -286,6 +286,11 @@ if test_mode:
 # Build MQTT configuration
 availability_topic = 'rtlamr/status'
 
+host = None
+port = None
+user = None
+password = None
+tls = None
 if (config['mqtt'].get('host')
         or config['mqtt'].get('port')
         or config['mqtt'].get('user')
@@ -301,8 +306,6 @@ if (config['mqtt'].get('host')
         tls_ciphers = config['mqtt'].get('tls_ciphers', None)
         tls_insecure = config['mqtt'].get('tls_insecure', False)
         tls = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'insecure': tls_insecure, 'keyfile': tls_keyfile, 'tls_version': tls_version, 'ciphers': tls_ciphers }
-    else:
-        tls = None
     user = config['mqtt'].get('user')
     password = config['mqtt'].get('password')
 else:
