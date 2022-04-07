@@ -392,7 +392,7 @@ History = Query()
 
 # Main loop
 while True:
-    if reset_usb is not None:
+    if usb_reset is not None:
         reset_usb_device(usb_reset)
 
     mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
