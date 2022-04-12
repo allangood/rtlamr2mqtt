@@ -7,6 +7,10 @@ This project was created to send readings made by RTLAMR + RTL_TCP to a MQTT bro
 My user case is to integrate it with Home Assistant.
 
 ### Noteworthy Updates
+*2022-04-12*
+ - New `tls_enabled` parameter to avoid confusions
+ - Some fixes for the Add-On regarding the TLS configuration
+
 *2022-04-04*
  - New TLS parameters to MQTT connection
  - New parameter: USB_RESET to address problem mentioned on #98
@@ -68,6 +72,8 @@ mqtt:
   host: 192.168.1.1
   # MQTT port.
   port: 1883
+  # TLS Enabled? (False by default)
+  tls_enabled: false
   # TLS CA certificate
   tls_ca: "/etc/ssl/certs/ca-certificates.crt"
   # TLS server certificate
