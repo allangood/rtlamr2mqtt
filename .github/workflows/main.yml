@@ -1,7 +1,10 @@
 name: 'Docker build'
 
 on:
-  workflow_dispatch: []
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Manual trigger'
   push:
     paths-ignore:
       - '**.md'
