@@ -31,6 +31,7 @@
         "mqtt": {
             "ha_autodiscovery": true,
             "ha_autodiscovery_topic": "homeassistant",
+            "tls_enabled": false,
             "tls_ca": "/etc/ssl/certs/ca-certificates.crt",
             "tls_cert": "/etc/ssl/my_self_signed_cert.crt",
             "tls_keyfile": "/etc/ssl/my_self_signed_cert_key.key",
@@ -62,6 +63,7 @@
         "mqtt": {
             "host": "str?",
             "port": "int?",
+            "tls_enabled": "bool?",
             "tls_ca": "str?",
             "tls_cert": "str?",
             "tls_keyfile": "str?",
