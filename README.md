@@ -186,6 +186,11 @@ In this mode, rtlamr2mqtt will ***not read the configuration file***, this means
 ```
 docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
+If you have multiple RTL-SDRs and wish to start the LISTEN ALL METERS mode on a specific device ID (or use other custom RTL_TCP arguments), add the argument: `-e RTL_TCP_ARGS="-d <serial-number>"`. For example: 
+```
+docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" -e RTL_TCP_ARGS="-d 777" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
+```
+ 
 
 ### Thanks to
 A big thank you for all kind contributions! And a even bigger thanks to these kind contributors:
