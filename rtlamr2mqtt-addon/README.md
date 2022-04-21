@@ -9,4 +9,4 @@
 [armv7-shield]: https://img.shields.io/badge/armv7-yes-green.svg
 [i386-shield]: https://img.shields.io/badge/i386-yes-green.svg
 
-[How to run the add-on?[(https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons)
+[How to run the add-on?](https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons)
