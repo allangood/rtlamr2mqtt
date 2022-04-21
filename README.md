@@ -38,7 +38,7 @@ I am using this one: [NooElec NESDR Mini USB](https://www.amazon.ca/NooElec-NESD
 ![image](https://user-images.githubusercontent.com/757086/117556120-207bd200-b02b-11eb-9149-58eaf9c6c4ea.png)
 ### How to run and configure?
 Docker and Docker-compose are the most indicated way.
-If you are not [running the add-on[(https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons), you must write the **rtlamr2mqtt.yaml** configuration file.
+If you are not [running the add-on](https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons), you must write the **rtlamr2mqtt.yaml** configuration file.
 
 Create the config file on `/opt/rtlamr2mqtt/rtlamr2mqtt.yaml` for instance.
 The configuration must looks like this:
