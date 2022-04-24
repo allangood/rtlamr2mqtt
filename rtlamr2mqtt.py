@@ -27,11 +27,10 @@ from stat import S_ISCHR
 # From:
 # https://stackoverflow.com/questions/14626395/how-to-properly-convert-a-c-ioctl-call-to-a-python-fcntl-ioctl-call
 def reset_usb_device(usbdev):
-    busnum, devnum = usbdev.split(':')
-    filename = "/dev/bus/usb/{:03d}/{:03d}".format(int(busnum), int(devnum))
-    if os.path.exists(filename):
-        mode = os.stat(filename).st_mode
-        if S_ISCHR(mode):
+    if usbdev is not None and ':' in usbdev:
+        busnum, devnum = usbdev.split(':')
+        filename = "/dev/bus/usb/{:03d}/{:03d}".format(int(busnum), int(devnum))
+        if os.path.exists(filename) and S_ISCHR(os.stat(filename).st_mode):
             log_message('Reseting USB device: {}'.format(filename))
             #define USBDEVFS_RESET             _IO('U', 20)
             USBDEVFS_RESET = ord('U') << (4*2) | 20
