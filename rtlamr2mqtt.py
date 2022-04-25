@@ -306,7 +306,6 @@ config = load_config(sys.argv)
 
 # Set some defaults:
 sleep_for = int(config['general'].get('sleep_for', 0))
-usb_reset = config['general'].get('usb_reset', None)
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
 use_tickle_rtl_tcp = (config['general'].get('tickle_rtl_tcp', False))
 if test_mode:
@@ -324,6 +323,8 @@ if re.match(r"(^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$)", usb_device_id) is 
     usb_device_index = '-d {}'.format(str(usb_devices[usb_device_id]['index']))
 else:
     log_message('No USB device specified in the config file, using the first found.')
+    usb_device_id = list(usb_devices.keys())[0]
+usb_port = str(usb_devices[usb_device_id]['bus_address'])
 
 # Build MQTT configuration
 availability_topic = 'rtlamr/status'
@@ -437,8 +438,7 @@ rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-fo
 
 # Main loop
 while True:
-    if usb_reset is not None:
-        reset_usb_device(usb_reset)
+    reset_usb_device(usb_port)
 
     mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
 
