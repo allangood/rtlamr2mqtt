@@ -1,8 +1,14 @@
 general:
+  # Sleep for this amount of seconds
   sleep_for: 0
+  # Verbose output
   verbosity: debug
+  # Should "shake" rtl_tcp before connecting? Useful when the daemon get stuck
   tickle_rtl_tcp: false
-  usb_reset: '005:001'
+  # USB device id to use. Get the ID from lsusb
+  # If you only have one, set it to "single"
+  # usb_device: 'single'
+  device_id: '0bda:2838'
 
 mqtt:
   host: 127.0.0.1
@@ -18,18 +24,30 @@ mqtt:
   tls_keyfile: '/etc/ssl/my_self_signed_cert_key.key'
   user: test
   password: testpassword
+  # Use HA autodiscovery feature?
   ha_autodiscovery: true
+  # Which topic for the auto discover to use?
   ha_autodiscovery_topic: homeassistant
 
+# Optional section
+# If you need to pass parameters to rtl_tcp or rtlamr
 custom_parameters:
   rtltcp: "-s 2048000"
   rtlamr: "-unique=true -symbollength=32"
 
+# Mandatory section: Meters definition
 meters:
+  # Meter ID
   - id: 12345678
+    # Protocol: scm, scm+, idm, netidm, r900 and r900bcd
     protocol: scm+
+    # A nice name to show on HA
     name: test_meter
+    # Format of you meter
     format: "######.###"
+    # Unit of measurement to show on HA
     unit_of_measurement: "\u33A5"
+    # Icon to show on HA
     icon: mdi:gauge
+    # device_class on HA
     device_class: energy

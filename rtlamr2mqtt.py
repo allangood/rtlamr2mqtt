@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import re
 import json
 import os
-import numpy as np
 import paho.mqtt.publish as publish
 import requests
 import signal
@@ -11,16 +11,15 @@ import subprocess
 import socket
 import warnings
 import yaml
+import usb.core
 
 from datetime import datetime
 from json import dumps, loads
 from json.decoder import JSONDecodeError
 from paho.mqtt import MQTTException
 from random import randrange
-from sklearn.linear_model import LinearRegression
 from struct import pack
 from time import sleep, time
-from tinydb import TinyDB, Query
 from fcntl import ioctl
 from stat import S_ISCHR
 
@@ -40,6 +39,41 @@ def reset_usb_device(usbdev):
             else:
                 log_message('Reset sucessful.')
             fd.close()
+
+# Find RTL SDR device
+def find_rtl_sdr_device():
+    # List of all known RTL SDR devices
+    DEVICE_IDS = [
+      '0bda:2832',
+      '0bda:2838',
+      '0ccd:00a9',
+      '0ccd:00b3',
+      '0ccd:00d3',
+      '0ccd:00e0',
+      '185b:0620',
+      '185b:0650',
+      '1f4d:b803',
+      '1f4d:c803',
+      '1b80:d3a4',
+      '1d19:1101',
+      '1d19:1102',
+      '1d19:1103',
+      '0458:707f',
+      '1b80:d393',
+      '1b80:d394',
+      '1b80:d395',
+      '1b80:d39d',
+    ]
+    devices_found = {}
+    index = -1
+    for dev in usb.core.find(find_all=True):
+        for known_dev in DEVICE_IDS:
+            id,vendor = known_dev.split(':')
+            if dev.idVendor == int(id,16) and dev.idProduct == int(vendor,16):
+                index += 1
+                devices_found[known_dev] = { 'bus_address': '{:03d}:{:03d}'.format(dev.bus, dev.address), 'index': index}
+                log_message('RTL SDR Device {} found on USB port {:03d}:{:03d} - Index: {}'.format(known_dev, dev.bus, dev.address, index))
+    return devices_found
 
 # I have been experiencing some problems with my Radio (geeting old, maybe?)
 # and the number of messages fills up my HDD very quickly.
@@ -231,16 +265,6 @@ def tickle_rtl_tcp(remote_server):
        log_message("Error connecting to rtl_tcp : {}".format(err))
     conn.close()
 
-def sliding_mean(series):
-    rate = 0
-    dedup_series = np.array(list(dict.fromkeys(series)))
-    if len(dedup_series) > 2:
-        r = []
-        for i in range(1,len(dedup_series)):
-            r.append((dedup_series[i] - dedup_series[i-1]))
-        rate = np.mean(r)
-    return rate
-
 # Signal handlers/call back
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
@@ -276,6 +300,8 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
             break
 
 ##################### BUILD CONFIGURATION #####################
+log_message('RTLAMR2MQTT Starting...')
+
 config = load_config(sys.argv)
 
 # Set some defaults:
@@ -285,6 +311,19 @@ verbosity = str(config['general'].get('verbosity', 'info')).lower()
 use_tickle_rtl_tcp = (config['general'].get('tickle_rtl_tcp', False))
 if test_mode:
     sleep_for = 0
+
+# Find USB Devices
+usb_device_index = ''
+usb_devices = find_rtl_sdr_device()
+if len(usb_devices) < 1:
+    log_message('No RTL-SDR USB devices found. Exiting...')
+    sys.exit(1)
+
+usb_device_id = str(config['general'].get('device_id', 'single')).lower()
+if re.match(r"(^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$)", usb_device_id) is not None:
+    usb_device_index = '-d {}'.format(str(usb_devices[usb_device_id]['index']))
+else:
+    log_message('No USB device specified in the config file, using the first found.')
 
 # Build MQTT configuration
 availability_topic = 'rtlamr/status'
@@ -392,13 +431,9 @@ if 'custom_parameters' in config:
                external_rtl_tcp = True
                rtltcp_server = arg.split('=')[1]   # value of -server= parameter in rtlamr customer params
 
-rtltcp_cmd = ['/usr/bin/rtl_tcp'] + rtltcp_custom
+rtltcp_cmd = ['/usr/bin/rtl_tcp'] + [usb_device_index] + rtltcp_custom
 rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meters.keys()))] + rtlamr_custom
 #################################################################
-
-# TinyDB
-db = TinyDB('/var/lib/rtlamr2mqtt/history.json')
-History = Query()
 
 # Main loop
 while True:
@@ -469,46 +504,6 @@ while True:
                         formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
 
                     log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formatted_reading))
-                    current_timestamp = int(time())
-
-                    ### History and Linear Regression Logic
-                    # Delete records older than 30 days
-                    month_ago = int(time()) - 2592000 # (60 * 60 * 24 * 30)
-                    db.remove( (History.timestamp < month_ago) & (History.meter_id == meter_id) )
-                    # Add latest reading to the history
-                    db.insert({'meter_id': meter_id, 'timestamp': current_timestamp, 'reading': float(formatted_reading)})
-
-                    # Big thanks to this site: https://realpython.com/linear-regression-in-python/
-                    # X is our inut or predictor variable
-                    # Y is our output or the variable we want to predict.
-                    # In this project, X is the timestamp and Y is the meter reading
-                    # We want to predict the next reading and check if it is withing an acceptable range
-                    # before flagging it as an anomaly
-                    timestamps = np.array([x["timestamp"] for x in db.search(History.meter_id == meter_id)]).reshape((-1, 1))
-                    readings = np.array([x["reading"] for x in db.search(History.meter_id == meter_id)])
-
-                    # Fit variables into linear regression model
-                    model = LinearRegression().fit(timestamps, readings)
-
-                    # Get prediction
-                    predicted_reading = model.predict(np.array([current_timestamp]).reshape((-1, 1)))[0]
-                    log_message('Predicted reading: {} - Actual reading: {}'.format(predicted_reading, formatted_reading))
-                    # Is this reading an anomaly?
-                    anomaly = False
-                    if len(readings) > 2:
-                        grow_avg = sliding_mean(readings)
-                        variation_limit = float(predicted_reading) + grow_avg
-                        log_message('Grow rate avg: {}'.format(grow_avg))
-                        if float(formatted_reading) > variation_limit:
-                            log_message('Possible anomaly detected!')
-                            anomaly = True
-                        log_message('Distance from prediction: {}'.format(float(formatted_reading) - float(predicted_reading)))
-                        log_message('Threshold for anomaly: {}'.format(variation_limit))
-
-                    # Readings has a big footprint. Let's release it from memory
-                    del readings
-
-                    ######
 
                     attributes = {}
                     if ha_autodiscovery:
@@ -520,8 +515,6 @@ while True:
                         msg_payload = formatted_reading
 
                     attributes['Message Type'] = json_output['Type']
-                    attributes['Predicted'] = predicted_reading
-                    attributes['Anomaly'] = anomaly
                     attributes.update(json_output['Message'])
                     attribute_topic = meters[meter_id]['attribute_topic']
                     state_topic = meters[meter_id]['state_topic']

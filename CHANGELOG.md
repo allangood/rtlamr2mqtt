@@ -1,3 +1,17 @@
+### 2022-04-12
+ - **REMOVED PARAMETER** usb_reset
+ - **ADDED PARAMETER** device_id
+ - **Changed Dockerfile**: Much smaller docker container
+ - Deprecated Anomaly detection (looks like no one is using it and it's not very reliable)
+
+### 2022-04-12
+ - New `tls_enabled` parameter to avoid confusions
+ - Some fixes for the Add-On regarding the TLS configuration
+
+### 2022-04-04
+ - New TLS parameters to MQTT connection
+ - New parameter: USB_RESET to address problem mentioned on #98
+
 ### 2022-02-11
  - New configuration parameter: `state_class` (thanks to @JeffreyFalgout)
  - Automatic MQTT configuration when using the Addon (thanks to @JeffreyFalgout)

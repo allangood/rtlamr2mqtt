@@ -26,7 +26,7 @@
             "sleep_for": 300,
             "verbosity": "debug",
             "tickle_rtl_tcp": false,
-            "usb_reset": "005:002"
+            "device_id": "single"
         },
         "mqtt": {
             "ha_autodiscovery": true,
@@ -58,7 +58,7 @@
             "sleep_for": "int",
             "verbosity": "list(debug|normal)?",
             "tickle_rtl_tcp": "bool?",
-            "usb_reset": "str?"
+            "device_id": "str?"
         },
         "mqtt": {
             "host": "str?",
