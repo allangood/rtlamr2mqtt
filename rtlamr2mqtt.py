@@ -50,7 +50,7 @@ def load_id_file(sdl_ids_file):
     return device_ids
 
 # Find RTL SDR device
-def find_rtl_sdr_device():
+def find_rtl_sdr_devices():
     # Load the list of all supported device ids
     DEVICE_IDS = load_id_file('/var/lib/sdl_ids.txt')
     devices_found = {}
@@ -62,6 +62,7 @@ def find_rtl_sdr_device():
                 index += 1
                 devices_found[known_dev] = { 'bus_address': '{:03d}:{:03d}'.format(dev.bus, dev.address), 'index': index}
                 log_message('RTL SDR Device {} found on USB port {:03d}:{:03d} - Index: {}'.format(known_dev, dev.bus, dev.address, index))
+                break
     return devices_found
 
 # I have been experiencing some problems with my Radio (geeting old, maybe?)
@@ -302,7 +303,7 @@ if test_mode:
 
 # Find USB Devices
 usb_device_index = ''
-usb_devices = find_rtl_sdr_device()
+usb_devices = find_rtl_sdr_devices()
 if len(usb_devices) < 1:
     log_message('No RTL-SDR USB devices found. Exiting...')
     sys.exit(1)
