@@ -32,20 +32,22 @@ My user case is to integrate it with Home Assistant.
  **1) You need a smart meter**
 First and most important, you must have a "smart" water/gas/energy meter. You can find a list of compatible meters [here](https://github.com/bemasher/rtlamr/blob/master/meters.csv)
 
- **2) You need an USB RT-SDR device**
+ **2) You need an USB RTL-SDR device**
 I am using this one: [NooElec NESDR Mini USB](https://www.amazon.ca/NooElec-NESDR-Mini-Compatible-Packages/dp/B009U7WZCA/ref=sr_1_1_sspa?crid=JGS4RV7RXGQQ&keywords=rtl-sdr)
 
-**3) You need a MQTT broker** (Like Mosquitto)
+**3) You need a MQTT broker** (Like [Mosquitto](https://mosquitto.org/) )
 
-**4) Home assistant is optional, but highly recommended, because it is awesome!**
+**4) [Home Assistant](https://www.home-assistant.io/) is optional, but highly recommended, because it is awesome!**
 
 ### How it looks like?
 
 ![image](https://user-images.githubusercontent.com/757086/117556120-207bd200-b02b-11eb-9149-58eaf9c6c4ea.png)
+
 ### How to run and configure?
 Docker and Docker-compose are the most indicated way.
 If you are not [running the add-on](https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons), you must write the **rtlamr2mqtt.yaml** configuration file.
 
+#### Configuration file sample
 Create the config file on `/opt/rtlamr2mqtt/rtlamr2mqtt.yaml` for instance.
 The configuration must looks like this:
 ```
@@ -61,8 +63,8 @@ general:
   # Enable/disable the tickle_rtl_tcp. This is used to "shake" rtl_tcp to wake it up.
   # For me, this started to cause the rtl_tcp to refuse connections and miss the readings.
   tickle_rtl_tcp: false
-  # USB Reset. Use lsusb to get dev and bus number
-  usb_reset: '005:001'
+  # USB Device ID. Use lsusb to get the device ID
+  device_id: '005:001'
 
 # MQTT configuration.
 mqtt:
@@ -158,7 +160,7 @@ services:
       - /opt/rtlamr2mqtt/data:/var/lib/rtlamr2mqtt
 ```
 
-### Home Assistant configuration:
+### Home Assistant utility meter configuration (sample):
 To add your meters to Home Assistant, add a section like this:
 ```
 utility_meter:
@@ -172,6 +174,20 @@ utility_meter:
     source: sensor.<meter_name>
     cycle: monthly
 ```
+
+#### Finding USB Device ID
+
+Using lsusb to find USB Device ID:
+```
+$ lsusb
+Bus 008 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 005 Device 002: ID 0bda:2838 Realtek Semiconductor Corp. RTL2838 DVB-T
+Bus 005 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 007 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+```
+Device ID => **0bda:2838**
+
+#### Manual HA configuration (if ha_autodiscovery = false)
 If you have `ha_autodiscovery: false` in your configuration, you will need to manually add the sensors to your HA configuration.
 
 This is a sample for a water meter using the configuration from the sample configuration file:
