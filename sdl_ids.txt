@@ -1,6 +1,5 @@
-All supported USB SDR-RTL devices IDs:
-Source: https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr#Supported-Hardware
-
+# All supported USB SDR-RTL devices IDs:
+# Source: https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr#Supported-Hardware
 0bda:2832
 0bda:2838
 0ccd:00a9
@@ -21,9 +20,8 @@ Source: https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr#Supported-Hardware
 1b80:d395
 1b80:d39d
 
-These IDs are from Reddit
-source: https://www.reddit.com/r/RTLSDR/comments/s6ddo/rtlsdr_compatibility_list_v2_work_in_progress/
-
+# These IDs are from Reddit
+# Source: https://www.reddit.com/r/RTLSDR/comments/s6ddo/rtlsdr_compatibility_list_v2_work_in_progress/
 0bda:2838
 0ccd:00b3
 0ccd:00a9

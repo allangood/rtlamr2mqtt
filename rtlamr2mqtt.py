@@ -40,44 +40,19 @@ def reset_usb_device(usbdev):
                 log_message('Reset sucessful.')
             fd.close()
 
+def load_id_file(sdl_ids_file):
+    device_ids = []
+    with open(sdl_ids_file) as f:
+        for line in f:
+            li = line.strip()
+            if re.match(r"(^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$)", li) is not None:
+                device_ids.append(line.rstrip().lstrip().lower())
+    return device_ids
+
 # Find RTL SDR device
 def find_rtl_sdr_device():
-    # List of all known RTL SDR devices
-    DEVICE_IDS = [
-      '0bda:2832',
-      '0bda:2838',
-      '0ccd:00a9',
-      '0ccd:00b3',
-      '0ccd:00d3',
-      '0ccd:00e0',
-      '185b:0620',
-      '185b:0650',
-      '1f4d:b803',
-      '1f4d:c803',
-      '1b80:d3a4',
-      '1d19:1101',
-      '1d19:1102',
-      '1d19:1103',
-      '0458:707f',
-      '1b80:d393',
-      '1b80:d394',
-      '1b80:d395',
-      '1b80:d39d',
-      '0bda:2838',
-      '0ccd:00b3',
-      '0ccd:00a9',
-      '1f4d:b803',
-      '1b80:d395',
-      '1d19:1102',
-      '1d19:1101',
-      '1b80:d393',
-      '1f4d:c803',
-      '1d19:1101',
-      '1f4d:d803',
-      '0bda:2838',
-      '048d:9135',
-      '048d:9135',
-    ]
+    # Load the list of all supported device ids
+    DEVICE_IDS = load_id_file('/var/lib/sdl_ids.txt')
     devices_found = {}
     index = -1
     for dev in usb.core.find(find_all=True):

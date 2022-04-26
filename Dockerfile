@@ -19,6 +19,7 @@ COPY --from=go-builder /go/bin/rtlamr* /usr/bin/
 COPY --from=go-builder /usr/local/bin/rtl* /usr/bin/
 COPY ./rtlamr2mqtt.py /usr/bin
 COPY ./requirements.txt /tmp
+COPY ./sdl_ids.txt /var/lib/
 
 RUN apt-get update \
     && apt-get install -o Dpkg::Options::="--force-confnew" -y \
@@ -26,9 +27,9 @@ RUN apt-get update \
     && apt-get --purge autoremove -y \
     && apt-get clean \
     && find /var/lib/apt/lists/ -type f -delete \
-    && rm -rf /usr/share/doc \
     && pip install -r /tmp/requirements.txt \
-    && chmod 755 /usr/bin/rtlamr2mqtt.py
+    && chmod 755 /usr/bin/rtlamr2mqtt.py \
+    && rm -rf /usr/share/doc /tmp/requirements.txt
 
 STOPSIGNAL SIGTERM
 
