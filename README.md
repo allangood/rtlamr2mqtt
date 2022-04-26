@@ -29,15 +29,15 @@ My user case is to integrate it with Home Assistant.
 # Readme starts here
 
 ### What do I need?
- **1) You need a smart meter**
+**1) You need a smart meter**
 First and most important, you must have a "smart" water/gas/energy meter. You can find a list of compatible meters [here](https://github.com/bemasher/rtlamr/blob/master/meters.csv)
 
- **2) You need an USB RTL-SDR device**
+**2) You need an USB RTL-SDR device**
 I am using this one: [NooElec NESDR Mini USB](https://www.amazon.ca/NooElec-NESDR-Mini-Compatible-Packages/dp/B009U7WZCA/ref=sr_1_1_sspa?crid=JGS4RV7RXGQQ&keywords=rtl-sdr)
 
 **3) You need a MQTT broker** (Like [Mosquitto](https://mosquitto.org/) )
 
-**4) [Home Assistant](https://www.home-assistant.io/) is optional, but highly recommended, because it is awesome!**
+**4) [Home Assistant](https://www.home-assistant.io/)** is optional, but highly recommended, because it is awesome!
 
 ### How it looks like?
 
@@ -62,9 +62,12 @@ general:
   verbosity: debug
   # Enable/disable the tickle_rtl_tcp. This is used to "shake" rtl_tcp to wake it up.
   # For me, this started to cause the rtl_tcp to refuse connections and miss the readings.
+  # This may help with a remote rtl_tcp server.
   tickle_rtl_tcp: false
-  # USB Device ID. Use lsusb to get the device ID
-  device_id: '005:001'
+  # (Optional) USB Device ID. Use lsusb to get the device ID
+  # Use "single" (default) if you have only one device
+  # device_id: 'single'
+  device_id: '0bda:2838'
 
 # MQTT configuration.
 mqtt:
@@ -82,11 +85,11 @@ mqtt:
   port: 1883
   # TLS Enabled? (False by default)
   tls_enabled: false
-  # TLS CA certificate
+  # TLS CA certificate (mandatory if tls_enabled = true)
   tls_ca: "/etc/ssl/certs/ca-certificates.crt"
-  # TLS server certificate
+  # TLS server certificate (optional)
   tls_cert: "/etc/ssl/my_server_cert.crt"
-  # TLS self-signed certificate/insecure certificate
+  # TLS self-signed certificate/insecure certificate (optional, default true)
   tls_insecure: true
   # MQTT user name if you have, remove if you don't use authentication
   user: mqtt
@@ -97,6 +100,7 @@ mqtt:
 # This entire section is optional.
 # If you don't need any custom parameter, don't use it.
 # ***DO NOT ADD -msgtype, -filterid nor -protocol parameters here***
+# -d parameter is not necessary anymore if you use device_id
 custom_parameters:
   # Documentation for rtl_tcp: https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr
   rtltcp: "-s 2048000"
