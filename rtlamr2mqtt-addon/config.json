@@ -1,6 +1,6 @@
 {
     "name": "rtlamr2mqtt",
-    "version": "1.7.2",
+    "version": "2.0.0",
     "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
     "description": "RTLAMR to MQTT Bridge",
@@ -58,7 +58,7 @@
             "sleep_for": "int",
             "verbosity": "list(debug|normal)?",
             "tickle_rtl_tcp": "bool?",
-            "device_id": "str?"
+            "device_id": "match((^single|^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$))"
         },
         "mqtt": {
             "host": "str?",
