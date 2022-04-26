@@ -12,30 +12,25 @@ RUN go install github.com/bemasher/rtlamr@latest \
     && make \
     && make install
 
-FROM debian:bullseye-slim
+FROM python:3.9-slim
 
 COPY --from=go-builder /usr/local/lib/librtl* /lib/
 COPY --from=go-builder /go/bin/rtlamr* /usr/bin/
 COPY --from=go-builder /usr/local/bin/rtl* /usr/bin/
 COPY ./rtlamr2mqtt.py /usr/bin
+COPY ./requirements.txt /tmp
+COPY ./sdl_ids.txt /var/lib/
 
 RUN apt-get update \
     && apt-get install -o Dpkg::Options::="--force-confnew" -y \
-      python3-paho-mqtt \
-      python3-yaml \
-      python3-tinydb \
-      python3-sklearn \
-      python3-requests \
       libusb-1.0-0 \
-    && apt-get --purge autoremove -y perl \
+    && apt-get --purge autoremove -y \
     && apt-get clean \
     && find /var/lib/apt/lists/ -type f -delete \
-    && rm -rf /usr/share/doc \
-    && mkdir /var/lib/rtlamr2mqtt \
-    && chmod 755 /usr/bin/rtlamr2mqtt.py
+    && pip install -r /tmp/requirements.txt \
+    && chmod 755 /usr/bin/rtlamr2mqtt.py \
+    && rm -rf /usr/share/doc /tmp/requirements.txt
 
 STOPSIGNAL SIGTERM
-
-VOLUME ["/var/lib/rtlamr2mqtt"]
 
 ENTRYPOINT ["/usr/bin/rtlamr2mqtt.py"]

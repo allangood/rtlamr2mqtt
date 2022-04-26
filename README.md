@@ -7,6 +7,12 @@ This project was created to send readings made by RTLAMR + RTL_TCP to a MQTT bro
 My user case is to integrate it with Home Assistant.
 
 ### Noteworthy Updates
+### 2022-04-12
+ - **REMOVED PARAMETER** usb_reset
+ - **ADDED PARAMETER** device_id
+ - **DEPRECATED** Anomaly detection (looks like no one is using it and it's not very reliable)
+ - **Changed Dockerfile**: Much smaller docker container
+
 *2022-04-12*
  - New `tls_enabled` parameter to avoid confusions
  - Some fixes for the Add-On regarding the TLS configuration
@@ -23,23 +29,25 @@ My user case is to integrate it with Home Assistant.
 # Readme starts here
 
 ### What do I need?
- **1) You need a smart meter**
+**1) You need a smart meter**
 First and most important, you must have a "smart" water/gas/energy meter. You can find a list of compatible meters [here](https://github.com/bemasher/rtlamr/blob/master/meters.csv)
 
- **2) You need an USB RT-SDR device**
+**2) You need an USB RTL-SDR device**
 I am using this one: [NooElec NESDR Mini USB](https://www.amazon.ca/NooElec-NESDR-Mini-Compatible-Packages/dp/B009U7WZCA/ref=sr_1_1_sspa?crid=JGS4RV7RXGQQ&keywords=rtl-sdr)
 
-**3) You need a MQTT broker** (Like Mosquitto)
+**3) You need a MQTT broker** (Like [Mosquitto](https://mosquitto.org/) )
 
-**4) Home assistant is optional, but highly recommended, because it is awesome!**
+**4) [Home Assistant](https://www.home-assistant.io/)** is optional, but highly recommended, because it is awesome!
 
 ### How it looks like?
 
 ![image](https://user-images.githubusercontent.com/757086/117556120-207bd200-b02b-11eb-9149-58eaf9c6c4ea.png)
+
 ### How to run and configure?
 Docker and Docker-compose are the most indicated way.
 If you are not [running the add-on](https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons), you must write the **rtlamr2mqtt.yaml** configuration file.
 
+#### Configuration file sample
 Create the config file on `/opt/rtlamr2mqtt/rtlamr2mqtt.yaml` for instance.
 The configuration must looks like this:
 ```
@@ -54,9 +62,12 @@ general:
   verbosity: debug
   # Enable/disable the tickle_rtl_tcp. This is used to "shake" rtl_tcp to wake it up.
   # For me, this started to cause the rtl_tcp to refuse connections and miss the readings.
+  # This may help with a remote rtl_tcp server.
   tickle_rtl_tcp: false
-  # USB Reset. Use lsusb to get dev and bus number
-  usb_reset: '005:001'
+  # (Optional) USB Device ID. Use lsusb to get the device ID
+  # Use "single" (default) if you have only one device
+  # device_id: 'single'
+  device_id: '0bda:2838'
 
 # MQTT configuration.
 mqtt:
@@ -74,11 +85,11 @@ mqtt:
   port: 1883
   # TLS Enabled? (False by default)
   tls_enabled: false
-  # TLS CA certificate
+  # TLS CA certificate (mandatory if tls_enabled = true)
   tls_ca: "/etc/ssl/certs/ca-certificates.crt"
-  # TLS server certificate
+  # TLS server certificate (optional)
   tls_cert: "/etc/ssl/my_server_cert.crt"
-  # TLS self-signed certificate/insecure certificate
+  # TLS self-signed certificate/insecure certificate (optional, default true)
   tls_insecure: true
   # MQTT user name if you have, remove if you don't use authentication
   user: mqtt
@@ -89,6 +100,7 @@ mqtt:
 # This entire section is optional.
 # If you don't need any custom parameter, don't use it.
 # ***DO NOT ADD -msgtype, -filterid nor -protocol parameters here***
+# -d parameter is not necessary anymore if you use device_id
 custom_parameters:
   # Documentation for rtl_tcp: https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr
   rtltcp: "-s 2048000"
@@ -152,7 +164,7 @@ services:
       - /opt/rtlamr2mqtt/data:/var/lib/rtlamr2mqtt
 ```
 
-### Home Assistant configuration:
+### Home Assistant utility meter configuration (sample):
 To add your meters to Home Assistant, add a section like this:
 ```
 utility_meter:
@@ -166,6 +178,20 @@ utility_meter:
     source: sensor.<meter_name>
     cycle: monthly
 ```
+
+#### Finding USB Device ID
+
+Using lsusb to find USB Device ID:
+```
+$ lsusb
+Bus 008 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+Bus 005 Device 002: ID 0bda:2838 Realtek Semiconductor Corp. RTL2838 DVB-T
+Bus 005 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 007 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
+```
+Device ID => **0bda:2838**
+
+#### Manual HA configuration (if ha_autodiscovery = false)
 If you have `ha_autodiscovery: false` in your configuration, you will need to manually add the sensors to your HA configuration.
 
 This is a sample for a water meter using the configuration from the sample configuration file:
@@ -186,11 +212,11 @@ In this mode, rtlamr2mqtt will ***not read the configuration file***, this means
 ```
 docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
-If you have multiple RTL-SDRs and wish to start the LISTEN ALL METERS mode on a specific device ID (or use other custom RTL_TCP arguments), add the argument: `-e RTL_TCP_ARGS="-d <serial-number>"`. For example: 
+If you have multiple RTL-SDRs and wish to start the LISTEN ALL METERS mode on a specific device ID (or use other custom RTL_TCP arguments), add the argument: `-e RTL_TCP_ARGS="-d <serial-number>"`. For example:
 ```
 docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" -e RTL_TCP_ARGS="-d 777" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
- 
+
 
 ### Thanks to
 A big thank you for all kind contributions! And a even bigger thanks to these kind contributors:
