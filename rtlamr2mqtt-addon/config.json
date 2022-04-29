@@ -1,6 +1,6 @@
 {
     "name": "rtlamr2mqtt",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "slug": "rtlamr2mqtt",
     "panel_icon": "mdi:gauge",
     "description": "RTLAMR to MQTT Bridge",
@@ -17,8 +17,10 @@
     "hassio_api": true,
     "arch": [
         "amd64",
+        "i386",
         "armv7",
-        "i386"
+        "armv6",
+        "arm64"
     ],
     "services": ["mqtt:need"],
     "options": {
