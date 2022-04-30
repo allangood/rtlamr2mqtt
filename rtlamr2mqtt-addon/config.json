@@ -19,8 +19,8 @@
         "amd64",
         "i386",
         "armv7",
-        "armv6",
-        "arm64"
+        "armhf",
+        "aarch64"
     ],
     "services": ["mqtt:need"],
     "options": {
