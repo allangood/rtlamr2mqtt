@@ -23,6 +23,10 @@ from time import sleep, time
 from fcntl import ioctl
 from stat import S_ISCHR
 
+# Signal handlers/call back
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
+
 # From:
 # https://stackoverflow.com/questions/14626395/how-to-properly-convert-a-c-ioctl-call-to-a-python-fcntl-ioctl-call
 def reset_usb_device(usbdev):
@@ -76,9 +80,6 @@ def log_message(message):
 
 # Environment variable to help with Travis tests
 # Set it to True if is set to 'yes' or 'true', false otherwise
-test_mode =  str(os.environ.get('TEST')).lower() in ['yes', 'true']
-if test_mode:
-    log_message('Running in test mode!')
 
 def list_intersection(a, b):
     """
@@ -255,9 +256,6 @@ def tickle_rtl_tcp(remote_server):
        log_message("Error connecting to rtl_tcp : {}".format(err))
     conn.close()
 
-# Signal handlers/call back
-signal.signal(signal.SIGTERM, shutdown)
-signal.signal(signal.SIGINT, shutdown)
 
 # LISTEN Mode
 # The DEBUG mode will run RTLAMR collecting all
@@ -278,16 +276,11 @@ if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
     rtltcp = subprocess.Popen(rtltcp_cmd)
     sleep(2)
     rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
-    if test_mode:
-        # Make sure the test will not hang forever during test
-        rtlamr_cmd.append('-duration=2s')
     rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     # loop forever
     while True:
         for amrline in rtlamr.stdout:
             log_message(amrline)
-        if test_mode:
-            break
 
 ##################### BUILD CONFIGURATION #####################
 log_message('RTLAMR2MQTT Starting...')
@@ -298,8 +291,6 @@ config = load_config(sys.argv)
 sleep_for = int(config['general'].get('sleep_for', 0))
 verbosity = str(config['general'].get('verbosity', 'info')).lower()
 use_tickle_rtl_tcp = (config['general'].get('tickle_rtl_tcp', False))
-if test_mode:
-    sleep_for = 0
 
 # Find USB Devices
 usb_device_index = ''
@@ -512,7 +503,7 @@ while True:
                     mqtt_sender.publish(topic=state_topic, payload=formatted_reading, retain=True)
                     meter_readings[meter_id] += 1
 
-        if sleep_for > 0 or test_mode: # We have a sleep_for parameter. Let's go to sleep!
+        if sleep_for > 0: # We have a sleep_for parameter. Let's go to sleep!
             # Check if we have readings for all meters
             if all(list(meter_readings.values())):
                 # Set all meter readings values to 0
@@ -524,8 +515,5 @@ while True:
     log_message('Sleep_for defined, time to sleep!')
     log_message('Terminating all subprocess...')
     shutdown(0,0)
-    if test_mode:
-        # If in test mode and reached this point, everything is fine
-        break
     log_message('Sleeping for {} seconds, see you later...'.format(sleep_for))
     sleep(sleep_for)
