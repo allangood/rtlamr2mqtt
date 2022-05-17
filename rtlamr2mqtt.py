@@ -288,8 +288,8 @@ def load_config(argv):
             d = resp.json()['data']
             config['mqtt']['host'] = d.get('host')
             config['mqtt']['port'] = d.get('port')
-            config['mqtt']['user'] = d.get('user')
-            config['mqtt']['password'] = d.get('password')
+            config['mqtt']['user'] = d.get('username', None)
+            config['mqtt']['password'] = d.get('password', None)
             config['mqtt']['tls_enabled'] = d.get('ssl', False)
             if config['mqtt']['tls_enabled']:
                 config['mqtt']['tls_ca'] = '/etc/ssl/certs/ca-certificates.crt'
@@ -373,7 +373,7 @@ if __name__ == "__main__":
     # Is RTL_TCP external?
     if re.match('127\.0\.0\.|localhost', config['general']['rtltcp_server']) is None:
         external_rtl_tcp = True
-        log_message('Using an external RTL_TCP sessions on {}'.format(config['general']['rtltcp_server']))
+        log_message('Using an external RTL_TCP session at {}'.format(config['general']['rtltcp_server']))
 
     if not external_rtl_tcp:
         # Find USB Devices

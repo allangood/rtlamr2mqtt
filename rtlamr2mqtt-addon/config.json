@@ -19,8 +19,8 @@
         "amd64",
         "i386",
         "armv7",
-        "armv6",
-        "arm64"
+        "armhf",
+        "aarch64"
     ],
     "services": ["mqtt:need"],
     "options": {
@@ -71,7 +71,7 @@
             "tls_ca": "str?",
             "tls_cert": "str?",
             "tls_keyfile": "str?",
-            "tls_insecure": "bool?",
+            "tls_insecure": "bool?"
         },
         "custom_parameters": {
             "rtltcp": "str?",
