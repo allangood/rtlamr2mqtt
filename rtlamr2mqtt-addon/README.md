@@ -10,3 +10,10 @@
 [i386-shield]: https://img.shields.io/badge/i386-yes-green.svg
 
 [How to run the add-on?](https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons)
+
+- Navigate to your Add-Ons (Configuration > Add-ons, Backups, & Supervisor)
+- Click the Add-On Store button
+- Navigate to Repositories (3 dots in the top-right corner > Repositories)
+- Add this repository (https://github.com/allangood/rtlamr2mqtt) and click 'Add'
+- You should now see the 'rtlamr' Add-On at the bottom of your Add-On Store. Click to install and configure.
+
