@@ -329,7 +329,7 @@ def send_ha_autodiscovery(meter, mqtt_config):
     }
     if (meter['device_class'] is not None):
         discover_payload['device_class'] = meter['device_class']
-    mqtt_sender.publish(topic=mqtt_config['ha_autodiscovery_topic'], payload=dumps(discover_payload), qos=1, retain=True)
+    mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
 
 def tickle_rtl_tcp(remote_server):
     """
