@@ -14,7 +14,7 @@ mqtt:
   # Broker host
   host: 127.0.0.1
   # Broker port
-  port: 1833
+  port: 1883
   # Use TLS with MQTT?
   tls_enabled: false
   # Path to CA certificate to use. Mandatory if tls_enabled = true

@@ -296,9 +296,9 @@ def load_config(argv):
                 config['mqtt']['tls_insecure'] = True
         except e:
             log_message("Could not fetch default MQTT configuration: %s" % e)
-    for arg in config['custom_parameters']['rtlamr']:
+    for arg in config['custom_parameters']['rtlamr'].split():
         if '-server=' in arg:
-           config['general']['rtltcp'] = arg.split('=')[1]
+           config['general']['rtltcp_server'] = arg.split('=')[1]
     return config
 
 # This is a helper function to flag any error message from rtlamr
@@ -370,9 +370,11 @@ if __name__ == "__main__":
 
     external_rtl_tcp = False
     config = load_config(sys.argv)
-    if config['general']['rtltcp_server'] != '127.0.0.1:1234':
-        external_rtl_tcp = True
     # Is RTL_TCP external?
+    if re.match('127\.0\.0\.|localhost', config['general']['rtltcp_server']) is None:
+        external_rtl_tcp = True
+        log_message('Using an external RTL_TCP sessions on {}'.format(config['general']['rtltcp_server']))
+
     if not external_rtl_tcp:
         # Find USB Devices
         usb_device_index = ''
@@ -442,7 +444,7 @@ if __name__ == "__main__":
     mqtt_sender = MqttSender(config['mqtt'])
     availability_topic = '{}/status'.format(config['mqtt']['base_topic'])
     while True:
-        if external_rtl_tcp:
+        if not external_rtl_tcp:
             reset_usb_device(usb_port)
 
         mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
