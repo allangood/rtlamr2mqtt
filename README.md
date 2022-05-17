@@ -1,5 +1,5 @@
-
 ### RTLAMR2MQTT
+
 [![Build Status](https://app.travis-ci.com/allangood/rtlamr2mqtt.svg?branch=main)](https://app.travis-ci.com/allangood/rtlamr2mqtt)
 [![Docker Pulls](https://img.shields.io/docker/pulls/allangood/rtlamr2mqtt)](https://hub.docker.com/r/allangood/rtlamr2mqtt)
 
@@ -7,28 +7,34 @@ This project was created to send readings made by RTLAMR + RTL_TCP to a MQTT bro
 My user case is to integrate it with Home Assistant.
 
 ### Noteworthy Updates
+
+### 2022-05-17
+
+- Bug fixes for remote rtl_tcp and usb_reset logic #123
+- Code changes to load config file and merge defaults
+- Added vscode files to test the Addon development (finally!)
+
 ### 2022-04-12
- - **REMOVED PARAMETER** usb_reset
- - **ADDED PARAMETER** device_id
- - **DEPRECATED** Anomaly detection (looks like no one is using it and it's not very reliable)
- - **Changed Dockerfile**: Much smaller docker container
 
-*2022-04-12*
- - New `tls_enabled` parameter to avoid confusions
- - Some fixes for the Add-On regarding the TLS configuration
+- **REMOVED PARAMETER** usb_reset
+- **ADDED PARAMETER** device_id
+- **DEPRECATED** Anomaly detection (looks like no one is using it and it's not very reliable)
+- **Changed Dockerfile**: Much smaller docker container
 
-*2022-04-04*
- - New TLS parameters to MQTT connection
- - New parameter: USB_RESET to address problem mentioned on #98
+### 2022-04-12
 
-*2022-02-11*
- - New configuration parameter: `state_class` (thanks to @JeffreyFalgout)
- - Automatic MQTT configuration when using the Addon (thanks to @JeffreyFalgout)
- - Fixed 255 characters limit for state value #86
+- New `tls_enabled` parameter to avoid confusions
+- Some fixes for the Add-On regarding the TLS configuration
+
+### 2022-04-04
+
+- New TLS parameters to MQTT connection
+- New parameter: USB_RESET to address problem mentioned on #98
 
 # Readme starts here
 
 ### What do I need?
+
 **1) You need a smart meter**
 First and most important, you must have a "smart" water/gas/energy meter. You can find a list of compatible meters [here](https://github.com/bemasher/rtlamr/blob/master/meters.csv)
 
@@ -44,12 +50,15 @@ I am using this one: [NooElec NESDR Mini USB](https://www.amazon.ca/NooElec-NESD
 ![image](https://user-images.githubusercontent.com/757086/117556120-207bd200-b02b-11eb-9149-58eaf9c6c4ea.png)
 
 ### How to run and configure?
+
 Docker and Docker-compose are the most indicated way.
 If you are not [running the add-on](https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons), you must write the **rtlamr2mqtt.yaml** configuration file.
 
 #### Configuration file sample
+
 Create the config file on `/opt/rtlamr2mqtt/rtlamr2mqtt.yaml` for instance.
 The configuration must looks like this:
+
 ```
 # -- Configuration file starts here --
 # (Optional section)
@@ -138,8 +147,11 @@ meters:
     device_class: energy
 # -- End of configuration file --
 ```
+
 #### Run with docker
+
 If you want to run with docker alone, run this command:
+
 ```
 docker run --name rtlamr2mqtt \
   -v /opt/rtlamr2mqtt/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml \
@@ -148,8 +160,11 @@ docker run --name rtlamr2mqtt \
   --restart unless-stopped \
   allangood/rtlamr2mqtt
 ```
+
 #### Run with docker-compose
+
 If you use docker-compose (recommended), add this to your compose file:
+
 ```
 version: "3"
 services:
@@ -165,7 +180,9 @@ services:
 ```
 
 ### Home Assistant utility meter configuration (sample):
+
 To add your meters to Home Assistant, add a section like this:
+
 ```
 utility_meter:
   hourly_water:
@@ -182,6 +199,7 @@ utility_meter:
 #### Finding USB Device ID
 
 Using lsusb to find USB Device ID:
+
 ```
 $ lsusb
 Bus 008 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
@@ -189,12 +207,15 @@ Bus 005 Device 002: ID 0bda:2838 Realtek Semiconductor Corp. RTL2838 DVB-T
 Bus 005 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
 Bus 007 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
 ```
+
 Device ID => **0bda:2838**
 
 #### Manual HA configuration (if ha_autodiscovery = false)
+
 If you have `ha_autodiscovery: false` in your configuration, you will need to manually add the sensors to your HA configuration.
 
 This is a sample for a water meter using the configuration from the sample configuration file:
+
 ```
 sensor:
   - platform: mqtt
@@ -202,24 +223,30 @@ sensor:
     state_topic: rtlamr/meter_water/state
     unit_of_measurement: "\u33A5"
 ```
+
 You must change `meter_water` with the name you have configured in the configuration YAML file (below)
 
 ### I don't know my meters ID, what can I do?
+
 **How to run the container in LISTEN ALL METERS Mode:**
 If you don't know your Meter ID or the protocol to listen, you can run the container in DEBUG mode to listen for everything.
 
-In this mode, rtlamr2mqtt will ***not read the configuration file***, this means that nothing is going to happen other than print all meter readings on screen!
+In this mode, rtlamr2mqtt will **_not read the configuration file_**, this means that nothing is going to happen other than print all meter readings on screen!
+
 ```
 docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
+
 If you have multiple RTL-SDRs and wish to start the LISTEN ALL METERS mode on a specific device ID (or use other custom RTL_TCP arguments), add the argument: `-e RTL_TCP_ARGS="-d <serial-number>"`. For example:
+
 ```
 docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" -e RTL_TCP_ARGS="-d 777" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
 
-
 ### Thanks to
+
 A big thank you for all kind contributions! And a even bigger thanks to these kind contributors:
+
 - [AnthonyPluth](https://github.com/AnthonyPluth)
 - [jonbloom](https://github.com/jonbloom)
 - [jeffeb3](https://github.com/jeffeb3)
