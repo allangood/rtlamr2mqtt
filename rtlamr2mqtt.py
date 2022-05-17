@@ -23,6 +23,37 @@ from time import sleep, time
 from fcntl import ioctl
 from stat import S_ISCHR
 
+# Global flags:
+## Running as Add-on?
+addon = False
+if os.getenv("SUPERVISOR_TOKEN") is not None:
+    addon = True
+
+# LISTEN Mode
+# The DEBUG mode will run RTLAMR collecting all
+# signals and dump it to the stdout to make it easy
+# to find meters IDs and signals.
+# This mode WILL NOT read any configuration file
+if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
+    log_message('Starting in LISTEN ONLY Mode...')
+    log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
+    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
+    rtltcp_cmd = ['/usr/bin/rtl_tcp']
+    # While DEBUG mode doesn't read a config, it's still helpful to specify a specific rtl_tcp device.
+    # If it exists, this reads the environment variable RTL_TCP_ARGS and appends it to rtl_tcp command line.
+    # For example, RTL-SDR serial number 777: docker run -e LISTEN_ONLY=yes -e RTL_TCP_ARGS="-d 777" ...
+    if os.environ.get('RTL_TCP_ARGS'):
+        rtltcp_cmd.extend(os.environ.get('RTL_TCP_ARGS').split(' '))
+    log_message('Starting rtl_tcp with ' + str(rtltcp_cmd))
+    rtltcp = subprocess.Popen(rtltcp_cmd)
+    sleep(2)
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
+    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    # loop forever
+    while True:
+        for amrline in rtlamr.stdout:
+            log_message(amrline)
+
 # From:
 # https://stackoverflow.com/questions/14626395/how-to-properly-convert-a-c-ioctl-call-to-a-python-fcntl-ioctl-call
 def reset_usb_device(usbdev):
@@ -76,9 +107,6 @@ def log_message(message):
 
 # Environment variable to help with Travis tests
 # Set it to True if is set to 'yes' or 'true', false otherwise
-test_mode =  str(os.environ.get('TEST')).lower() in ['yes', 'true']
-if test_mode:
-    log_message('Running in test mode!')
 
 def list_intersection(a, b):
     """
@@ -88,15 +116,24 @@ def list_intersection(a, b):
     return result[0] if result else None
 
 class MqttSender:
-    def __init__(self, hostname, port, username, password, tls = None):
+    def __init__(self, config):
         log_message('Configured MQTT sender:')
         self.d = {}
-        self.d['hostname'] = hostname
-        self.d['port'] = int(port)
-        self.d['username'] = username
-        self.d['password'] = password
-        self.d['client_id'] = 'rtlamr2mqtt'
-        self.d['tls'] = tls
+        self.d['hostname'] = config.get('host', 'localhost')
+        self.d['port'] = int(config.get('port', 1883))
+        self.d['username'] = config.get('user', None)
+        self.d['password'] = config.get('password', None)
+        self.d['client_id'] = config.get('client_id','rtlamr2mqtt')
+        self.d['base_topic'] = config.get('base_topic', 'rtlamr')
+        self.d['availability_topic'] = '{}/status'.format(self.d['base_topic'])
+        tls_enabled = config.get('tls_enabled', False)
+        tls_ca = config.get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
+        tls_cert = config.get('tls_cert', None)
+        tls_insecure = config.get('tls_insecure', True)
+        tls_keyfile = config.get('tls_keyfile', None)
+        self.d['tls'] = None
+        if tls_enabled:
+            self.d['tls'] = { ca_certs: tls_ca, certfile: tls_cert, keyfile: tls_keyfile, tls_insecure: tls_insecure }
         self.__log_mqtt_params(**self.d)
 
     def __get_auth(self):
@@ -112,7 +149,7 @@ class MqttSender:
         payload = kwargs.get('payload', None)
         qos = int(kwargs.get('qos', 0))
         retain = kwargs.get('retain', False)
-        will = { 'topic': availability_topic, 'payload':'offline', 'qos': 1, 'retain': True }
+        will = { 'topic': self.d['availability_topic'], 'payload': 'offline', 'qos': 1, 'retain': True }
         try:
             publish.single(
                 topic=topic, payload=payload, qos=qos, retain=retain, hostname=self.d['hostname'], port=self.d['port'],
@@ -167,16 +204,6 @@ def shutdown(signum, frame):
         # Graceful termination
         sys.exit(0)
 
-def load_config(argv):
-    """
-    Attempts to load config from json or yaml file
-    """
-    config_path = '/etc/rtlamr2mqtt.yaml' if len(argv) != 2 else argv[1]
-    if config_path[-4] == 'json':
-        return load_json_config()
-    else:
-        return load_yaml_config(config_path)
-
 def load_yaml_config(config_path):
     """
     Load config from Home Assistant Add-On.
@@ -196,6 +223,84 @@ def load_json_config():
     current_config_file = os.path.join("/data/options.json")
     return json.load(open(current_config_file))
 
+def merge_defaults(defaults, tomerge):
+    merged = {}
+    for k in defaults.keys():
+        if k in tomerge.keys():
+            merged[k] = { **defaults[k], **tomerge[k] }
+        else:
+            merged[k] = { **defaults[k] }
+    if 'meters' in tomerge:
+        merged['meters'] = tomerge['meters']
+    else:
+        merged['meters'] = {}
+    return merged
+
+# Load and build default config
+def load_config(argv):
+    # Set default values:
+    defaults = {
+        'general': {
+            'sleep_for': 0,
+            'verbosity': 'info',
+            'tickle_rtl_tcp': False,
+            'device_id': 'single',
+            'rtltcp_server': '127.0.0.1:1234',
+        },
+        'mqtt': {
+            'host': '127.0.0.1',
+            'user': None,
+            'password': None,
+            'tls_enabled': False,
+            'tls_ca': '/etc/ssl/certs/ca-certificates.crt',
+            'tls_insecure': True,
+            'ha_autodiscovery': True,
+            'ha_autodiscovery_topic': 'homeassistant',
+            'base_topic': 'rtlamr'
+        },
+        'custom_parameters': {
+            'rtltcp': "-s 2048000",
+            'rtlamr': "-unique=true",
+         },
+    }
+    # Attempts to load config from json or yaml file
+    config_path = '/etc/rtlamr2mqtt.yaml' if len(argv) != 2 else argv[1]
+    if config_path[-4:] == 'json' or config_path[-2:] == 'js':
+        config = merge_defaults(defaults, load_json_config())
+    elif config_path[-4:] == 'yaml' or config_path[-3:] == 'yml':
+        config = merge_defaults(defaults, load_yaml_config(config_path))
+    else:
+        log_message('Config file format not supported.')
+        sys.exit(-1)
+    # Add meters to config
+    if len(config['meters']) < 1:
+        log_message('No Meter defined. Exiting...')
+        sys.exit(-1)
+    # Check for Supervisor
+    if os.getenv("SUPERVISOR_TOKEN") is not None:
+        api_url = "http://supervisor/services/mqtt"
+        headers = {"Authorization": "Bearer " + os.getenv("SUPERVISOR_TOKEN")}
+        log_message("Fetching default MQTT configuration from %s" % api_url)
+        try:
+            resp = requests.get(api_url, headers=headers)
+            resp.raise_for_status()
+
+            d = resp.json()['data']
+            config['mqtt']['host'] = d.get('host')
+            config['mqtt']['port'] = d.get('port')
+            config['mqtt']['user'] = d.get('username', None)
+            config['mqtt']['password'] = d.get('password', None)
+            config['mqtt']['tls_enabled'] = d.get('ssl', False)
+            if config['mqtt']['tls_enabled']:
+                config['mqtt']['tls_ca'] = '/etc/ssl/certs/ca-certificates.crt'
+                config['mqtt']['tls_insecure'] = True
+        except e:
+            log_message("Could not fetch default MQTT configuration: %s" % e)
+    for arg in config['custom_parameters']['rtlamr'].split():
+        if '-server=' in arg:
+           config['general']['rtltcp_server'] = arg.split('=')[1]
+    return config
+
 # This is a helper function to flag any error message from rtlamr
 def is_an_error_message(message):
     if 'Error reading samples:' in message:
@@ -206,25 +311,25 @@ def is_an_error_message(message):
 def format_number(number, format):
     return str(format.replace('#','{}').format(*number.zfill(format.count('#'))))
 
-def send_ha_autodiscovery(meter):
+def send_ha_autodiscovery(meter, mqtt_config):
     """
     Build and send HA Auto Discovery message for a meter
     """
     log_message('Sending MQTT autodiscovery payload to Home Assistant...')
-    discover_topic = '{}/sensor/rtlamr/{}/config'.format(ha_autodiscovery_topic, meter['name'])
+    discover_topic = '{}/sensor/rtlamr/{}/config'.format(mqtt_config['ha_autodiscovery_topic'], meter['name'])
     discover_payload = {
         'name': meter['name'],
         'unique_id': str(meter['id']),
         'unit_of_measurement': meter['unit_of_measurement'],
         'icon': meter['icon'],
-        'availability_topic': availability_topic,
+        'availability_topic': '{}/status'.format(mqtt_config['base_topic']),
         'state_class': meter.get('state_class', 'total_increasing'),
         'state_topic': meter['state_topic'],
         'json_attributes_topic': meter['attribute_topic']
     }
     if (meter['device_class'] is not None):
         discover_payload['device_class'] = meter['device_class']
-    mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
+    mqtt_sender.publish(topic=mqtt_config['ha_autodiscovery_topic'], payload=dumps(discover_payload), qos=1, retain=True)
 
 def tickle_rtl_tcp(remote_server):
     """
@@ -255,277 +360,186 @@ def tickle_rtl_tcp(remote_server):
        log_message("Error connecting to rtl_tcp : {}".format(err))
     conn.close()
 
-# Signal handlers/call back
-signal.signal(signal.SIGTERM, shutdown)
-signal.signal(signal.SIGINT, shutdown)
 
-# LISTEN Mode
-# The DEBUG mode will run RTLAMR collecting all
-# signals and dump it to the stdout to make it easy
-# to find meters IDs and signals.
-# This mode WILL NOT read any configuration file
-if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
-    log_message('Starting in LISTEN ONLY Mode...')
-    log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
-    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
-    rtltcp_cmd = ['/usr/bin/rtl_tcp']
-    # While DEBUG mode doesn't read a config, it's still helpful to specify a specific rtl_tcp device.
-    # If it exists, this reads the environment variable RTL_TCP_ARGS and appends it to rtl_tcp command line.
-    # For example, RTL-SDR serial number 777: docker run -e LISTEN_ONLY=yes -e RTL_TCP_ARGS="-d 777" ...
-    if os.environ.get('RTL_TCP_ARGS'):
-        rtltcp_cmd.extend(os.environ.get('RTL_TCP_ARGS').split(' '))
-    log_message('Starting rtl_tcp with ' + str(rtltcp_cmd))
-    rtltcp = subprocess.Popen(rtltcp_cmd)
-    sleep(2)
-    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
-    if test_mode:
-        # Make sure the test will not hang forever during test
-        rtlamr_cmd.append('-duration=2s')
-    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-    # loop forever
+# Main
+if __name__ == "__main__":
+    # Signal handlers/call back
+    signal.signal(signal.SIGTERM, shutdown)
+    signal.signal(signal.SIGINT, shutdown)
+    log_message('RTLAMR2MQTT Starting...')
+
+    external_rtl_tcp = False
+    config = load_config(sys.argv)
+    # Is RTL_TCP external?
+    if re.match('127\.0\.0\.|localhost', config['general']['rtltcp_server']) is None:
+        external_rtl_tcp = True
+        log_message('Using an external RTL_TCP session at {}'.format(config['general']['rtltcp_server']))
+
+    if not external_rtl_tcp:
+        # Find USB Devices
+        usb_device_index = ''
+        usb_devices = find_rtl_sdr_devices()
+        if len(usb_devices) < 1:
+            log_message('No RTL-SDR USB devices found. Exiting...')
+            sys.exit(1)
+
+        usb_device_id = str(config['general'].get('device_id', 'single')).lower()
+        if re.match(r"(^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$)", usb_device_id) is not None:
+            usb_device_index = '-d {}'.format(str(usb_devices[usb_device_id]['index']))
+        else:
+            log_message('No USB device specified in the config file, using the first found.')
+            usb_device_id = list(usb_devices.keys())[0]
+        usb_port = str(usb_devices[usb_device_id]['bus_address'])
+
+        availability_topic = '{}/status'.format(config['mqtt']['base_topic'])
+
+
+    meter_readings = {}
+
+    # Build dict of meter configs
+    meters = {}
+    meter_names = set()
+    protocols = []
+    for meter in config['meters']:
+        id = str(meter['id']).strip()
+        meter_name = str(meter.get('name', 'meter_{}'.format(id)))
+
+        if id in meters or meter_name in meter_names:
+            log_message('Error: Duplicate meter name ({}) or id ({}) found in config. Exiting.'.format(meter_name, id))
+            sys.exit(1)
+
+        meters[id] = meter.copy()
+        meter_names.add(meter_name)
+        meter_readings[id] = 0
+
+        meters[id]['state_topic'] = '{}/{}/state'.format(config['mqtt']['base_topic'], id)
+        meters[id]['attribute_topic'] = '{}/{}/attributes'.format(config['mqtt']['base_topic'], id)
+        meters[id]['name'] = meter_name
+        meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
+        meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
+        meters[id]['device_class'] = str(meter.get('device_class', None))
+        if meters[id]['device_class'].lower() in ['none', 'null']:
+            meters[id]['device_class'] = None
+        meters[id]['sent_HA_discovery'] = False
+
+        protocols.append(meter['protocol'])
+
+    # Build RTLAMR and RTL_TCP commands
+    rtltcp_custom = []
+    rtlamr_custom = []
+    if 'custom_parameters' in config:
+        # Build RTLTCP command
+        if 'rtltcp' in config['custom_parameters']:
+            rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
+        # Build RTLAMR command
+        if 'rtlamr' in config['custom_parameters']:
+            rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
+
+    if not external_rtl_tcp:
+        rtltcp_cmd = ['/usr/bin/rtl_tcp'] + [usb_device_index] + rtltcp_custom
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meters.keys()))] + rtlamr_custom
+    #################################################################
+
+    # Main loop
+    mqtt_sender = MqttSender(config['mqtt'])
+    availability_topic = '{}/status'.format(config['mqtt']['base_topic'])
     while True:
-        for amrline in rtlamr.stdout:
-            log_message(amrline)
-        if test_mode:
-            break
+        if not external_rtl_tcp:
+            reset_usb_device(usb_port)
 
-##################### BUILD CONFIGURATION #####################
-log_message('RTLAMR2MQTT Starting...')
+        mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
 
-config = load_config(sys.argv)
-
-# Set some defaults:
-sleep_for = int(config['general'].get('sleep_for', 0))
-verbosity = str(config['general'].get('verbosity', 'info')).lower()
-use_tickle_rtl_tcp = (config['general'].get('tickle_rtl_tcp', False))
-if test_mode:
-    sleep_for = 0
-
-# Find USB Devices
-usb_device_index = ''
-usb_devices = find_rtl_sdr_devices()
-if len(usb_devices) < 1:
-    log_message('No RTL-SDR USB devices found. Exiting...')
-    sys.exit(1)
-
-usb_device_id = str(config['general'].get('device_id', 'single')).lower()
-if re.match(r"(^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$)", usb_device_id) is not None:
-    usb_device_index = '-d {}'.format(str(usb_devices[usb_device_id]['index']))
-else:
-    log_message('No USB device specified in the config file, using the first found.')
-    usb_device_id = list(usb_devices.keys())[0]
-usb_port = str(usb_devices[usb_device_id]['bus_address'])
-
-# Build MQTT configuration
-availability_topic = 'rtlamr/status'
-
-host = None
-port = None
-user = None
-password = None
-tls = None
-if (config['mqtt'].get('host')
-        or config['mqtt'].get('port')
-        or config['mqtt'].get('user')
-        or config['mqtt'].get('password')):
-    host = config['mqtt'].get('host', 'localhost')
-    port = config['mqtt'].get('port', 1883)
-    tls_enabled = config['mqtt'].get('tls_enabled', False)
-    if tls_enabled:
-        tls_ca = config['mqtt'].get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
-        tls_cert = config['mqtt'].get('tls_cert', None)
-        tls_keyfile = config['mqtt'].get('tls_keyfile', None)
-        # ToDo: Create a easy interface for these parameters
-        tls_version = config['mqtt'].get('tls_version', None)
-        tls_ciphers = config['mqtt'].get('tls_ciphers', None)
-        tls_insecure = config['mqtt'].get('tls_insecure', False)
-        tls = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'insecure': tls_insecure, 'keyfile': tls_keyfile, 'tls_version': tls_version, 'ciphers': tls_ciphers }
-    user = config['mqtt'].get('user')
-    password = config['mqtt'].get('password')
-else:
-    api_url = "http://supervisor/services/mqtt"
-    headers = {"Authorization": "Bearer " + os.getenv("SUPERVISOR_TOKEN")}
-    log_message("Fetching default MQTT configuration from %s" % api_url)
-    try:
-        resp = requests.get(api_url, headers=headers)
-        resp.raise_for_status()
-
-        d = resp.json()['data']
-        host = d.get('host')
-        port = d.get('port')
-        user = d.get('username')
-        password = d.get('password')
-        ssl = d.get('ssl', False)
-        if ssl:
-            tls = { 'ca_certs': '/etc/ssl/certs/ca-certificates.crt', 'insecure': true }
-    except e:
-        log_message("Could not fetch default MQTT configuration: %s" % e)
-        host = 'localhost'
-        port = 1883
-        user = None
-        password = None
-mqtt_sender = MqttSender(host, port, user, password, tls)
-
-ha_autodiscovery_topic = config['mqtt'].get('ha_autodiscovery_topic', 'homeassistant')
-ha_autodiscovery = False
-if 'ha_autodiscovery' in config['mqtt']:
-    if str(config['mqtt']['ha_autodiscovery']).lower() in ['true', 'yes']:
-        ha_autodiscovery = True
-
-# Build Meter and RTLAMR config and send HA Auto-discover payload if enabled
-# TODO: Add a configuration section for rtlamr and rtl_tcp configuration parameters
-protocols = []
-meter_readings = {}
-external_rtl_tcp = False
-rtltcp_server = '127.0.0.1:1234'
-
-# Build dict of meter configs
-meters = {}
-meter_names = set()
-for meter in config['meters']:
-    id = str(meter['id']).strip()
-    meter_name = str(meter.get('name', 'meter_{}'.format(id)))
-
-    if id in meters or meter_name in meter_names:
-        log_message('Error: Duplicate meter name ({}) or id ({}) found in config. Exiting.'.format(meter_name, id))
-        sys.exit(1)
-
-    meters[id] = meter.copy()
-    meter_names.add(meter_name)
-    meter_readings[id] = 0
-
-    meters[id]['state_topic'] = 'rtlamr/{}/state'.format(id)
-    meters[id]['attribute_topic'] = 'rtlamr/{}/attributes'.format(id)
-    meters[id]['name'] = meter_name
-    meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
-    meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
-    meters[id]['device_class'] = str(meter.get('device_class', None))
-    if meters[id]['device_class'].lower() in ['none', 'null']:
-        meters[id]['device_class'] = None
-    meters[id]['sent_HA_discovery'] = False
-
-    protocols.append(meter['protocol'])
-
-
-# Build RTLAMR and RTL_TCP commands
-rtltcp_custom = []
-rtlamr_custom = []
-if 'custom_parameters' in config:
-    # Build RTLTCP command
-    if 'rtltcp' in config['custom_parameters']:
-        rtltcp_custom = config['custom_parameters']['rtltcp'].split(' ')
-    # Build RTLAMR command
-    if 'rtlamr' in config['custom_parameters']:
-        rtlamr_custom = config['custom_parameters']['rtlamr'].split(' ')
-        for arg in rtlamr_custom:
-            if '-server=' in arg:
-               external_rtl_tcp = True
-               rtltcp_server = arg.split('=')[1]   # value of -server= parameter in rtlamr customer params
-
-rtltcp_cmd = ['/usr/bin/rtl_tcp'] + [usb_device_index] + rtltcp_custom
-rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(','.join(protocols)), '-format=json', '-filterid={}'.format(','.join(meters.keys()))] + rtlamr_custom
-#################################################################
-
-# Main loop
-while True:
-    reset_usb_device(usb_port)
-
-    mqtt_sender.publish(topic=availability_topic, payload='online', retain=True)
-
-    # Is this the first time are we executing this loop? Or is rtltcp running?
-    if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
-        log_message('Trying to start RTL_TCP: {}'.format(' '.join(rtltcp_cmd)))
-        # start the rtl_tcp program
-        rtltcp = subprocess.Popen(rtltcp_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
-        log_message('RTL_TCP started with PID {}'.format(rtltcp.pid))
-        # Wait until it is ready to receive connections
-        try:
-            outs, errs = rtltcp.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            outs = None
-        log_message('RTL_TCP is ready to receive connections!')
-        if outs is not None:
-            log_message(outs)
-
-    # Is this the first time are we executing this loop? Or is rtlamr running?
-    if 'rtlamr' not in locals() or rtlamr.poll() is not None:
-        if use_tickle_rtl_tcp:
-            tickle_rtl_tcp(rtltcp_server)
-        log_message('Trying to start RTLAMR: {}'.format(' '.join(rtlamr_cmd)))
-        # start the rtlamr program.
-        rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
-        log_message('RTLAMR started with PID {}'.format(rtlamr.pid))
-
-    # This is a counter to count the number of duplicate error messages
-    error_count = 0
-    for amrline in rtlamr.stdout:
-        if is_an_error_message(amrline):
-            if error_count < 1:
-                log_message('Error reading samples from RTL_TCP.')
-            error_count += 1
-        # Error messages are flooding the Docker logs when an error happens
-        # Try to not show everything but the necessary for debuging
-        if verbosity == 'debug' and not is_an_error_message(amrline):
-            log_message(amrline.strip('\n'))
-
-        # Check if the output line is a valid JSON output
-        json_output = None
-        if amrline[0] == '{':
+        # Is this the first time are we executing this loop? Or is rtltcp running?
+        if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
+            log_message('Trying to start RTL_TCP: {}'.format(' '.join(rtltcp_cmd)))
+            # start the rtl_tcp program
+            rtltcp = subprocess.Popen(rtltcp_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
+            log_message('RTL_TCP started with PID {}'.format(rtltcp.pid))
+            # Wait until it is ready to receive connections
             try:
-                json_output = loads(amrline)
-            except JSONDecodeError:
-                json_output = None
+                outs, errs = rtltcp.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                outs = None
+            log_message('RTL_TCP is ready to receive connections!')
+            if outs is not None:
+                log_message(outs)
 
-        if json_output and 'Message' in json_output: # If it is a valid JSON and is not empty then...
-            # Extract the Meter ID
-            meter_id_key = list_intersection(json_output['Message'], ['EndpointID', 'ID', 'ERTSerialNumber'])
-            meter_id = str(json_output['Message'][meter_id_key]).strip() if meter_id_key else None
+        # Is this the first time are we executing this loop? Or is rtlamr running?
+        if 'rtlamr' not in locals() or rtlamr.poll() is not None:
+            if config['general']['tickle_rtl_tcp']:
+                tickle_rtl_tcp(rtltcp_server)
+            log_message('Trying to start RTLAMR: {}'.format(' '.join(rtlamr_cmd)))
+            # start the rtlamr program.
+            rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
+            log_message('RTLAMR started with PID {}'.format(rtlamr.pid))
 
-            # Extract the consumption
-            consumption_key = list_intersection(json_output['Message'], ['Consumption', 'LastConsumptionCount'])
-            raw_reading = str(json_output['Message'][consumption_key]).strip() if consumption_key else None
+        # This is a counter to count the number of duplicate error messages
+        error_count = 0
+        for amrline in rtlamr.stdout:
+            if is_an_error_message(amrline):
+                if error_count < 1:
+                    log_message('Error reading samples from RTL_TCP.')
+                error_count += 1
+            # Error messages are flooding the Docker logs when an error happens
+            # Try to not show everything but the necessary for debuging
+            if config['general']['verbosity'] == 'debug' and not is_an_error_message(amrline):
+                log_message(amrline.strip('\n'))
 
-            # If we could extract the Meter ID and the consumption, then...
-            if meter_id and raw_reading:
-                if meter_id in meters:
-                    if 'format' in meters[meter_id]: # We have a "format" parameter, let's format the number!
-                        formatted_reading = format_number(raw_reading, meters[meter_id]['format'])
-                    else:
-                        formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
+            # Check if the output line is a valid JSON output
+            json_output = None
+            if amrline[0] == '{':
+                try:
+                    json_output = loads(amrline)
+                except JSONDecodeError:
+                    json_output = None
 
-                    log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formatted_reading))
+            if json_output and 'Message' in json_output: # If it is a valid JSON and is not empty then...
+                # Extract the Meter ID
+                meter_id_key = list_intersection(json_output['Message'], ['EndpointID', 'ID', 'ERTSerialNumber'])
+                meter_id = str(json_output['Message'][meter_id_key]).strip() if meter_id_key else None
 
-                    attributes = {}
-                    if ha_autodiscovery:
-                        # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter
-                        if not meters[meter_id]['sent_HA_discovery']:
-                            send_ha_autodiscovery(meters[meter_id])
-                            meters[meter_id]['sent_HA_discovery'] = True
-                    else:
-                        msg_payload = formatted_reading
+                # Extract the consumption
+                consumption_key = list_intersection(json_output['Message'], ['Consumption', 'LastConsumptionCount'])
+                raw_reading = str(json_output['Message'][consumption_key]).strip() if consumption_key else None
 
-                    attributes['Message Type'] = json_output['Type']
-                    attributes.update(json_output['Message'])
-                    attribute_topic = meters[meter_id]['attribute_topic']
-                    state_topic = meters[meter_id]['state_topic']
-                    mqtt_sender.publish(topic=attribute_topic, payload=json.dumps(attributes), retain=True)
-                    mqtt_sender.publish(topic=state_topic, payload=formatted_reading, retain=True)
-                    meter_readings[meter_id] += 1
+                # If we could extract the Meter ID and the consumption, then...
+                if meter_id and raw_reading:
+                    if meter_id in meters:
+                        if 'format' in meters[meter_id]: # We have a "format" parameter, let's format the number!
+                            formatted_reading = format_number(raw_reading, meters[meter_id]['format'])
+                        else:
+                            formatted_reading = str(raw_reading) # Nope, no formating, just the raw number
 
-        if sleep_for > 0 or test_mode: # We have a sleep_for parameter. Let's go to sleep!
-            # Check if we have readings for all meters
-            if all(list(meter_readings.values())):
-                # Set all meter readings values to 0
-                meter_readings = dict.fromkeys(meter_readings, 0)
-                # Exit from the main "for loop" and stop reading the rtlamr output
-                break
+                        log_message('Meter "{}" - Consumption {}. Sending value to MQTT.'.format(meter_id, formatted_reading))
 
-    # Kill all process
-    log_message('Sleep_for defined, time to sleep!')
-    log_message('Terminating all subprocess...')
-    shutdown(0,0)
-    if test_mode:
-        # If in test mode and reached this point, everything is fine
-        break
-    log_message('Sleeping for {} seconds, see you later...'.format(sleep_for))
-    sleep(sleep_for)
+                        attributes = {}
+                        if config['mqtt']['ha_autodiscovery']:
+                            # if HA Autodiscovery is enabled, send the MQTT auto discovery payload once for each meter
+                            if not meters[meter_id]['sent_HA_discovery']:
+                                send_ha_autodiscovery(meters[meter_id], config['mqtt'])
+                                meters[meter_id]['sent_HA_discovery'] = True
+                        else:
+                            msg_payload = formatted_reading
+
+                        attributes['Message Type'] = json_output['Type']
+                        attributes.update(json_output['Message'])
+                        attribute_topic = meters[meter_id]['attribute_topic']
+                        state_topic = meters[meter_id]['state_topic']
+                        mqtt_sender.publish(topic=attribute_topic, payload=json.dumps(attributes), retain=True)
+                        mqtt_sender.publish(topic=state_topic, payload=formatted_reading, retain=True)
+                        meter_readings[meter_id] += 1
+
+            if config['general']['sleep_for'] > 0: # We have a sleep_for parameter. Let's go to sleep!
+                # Check if we have readings for all meters
+                if all(list(meter_readings.values())):
+                    # Set all meter readings values to 0
+                    meter_readings = dict.fromkeys(meter_readings, 0)
+                    # Exit from the main "for loop" and stop reading the rtlamr output
+                    break
+
+        # Kill all process
+        log_message('Sleep_for defined, time to sleep!')
+        log_message('Terminating all subprocess...')
+        shutdown(0,0)
+        log_message('Sleeping for {} seconds, see you later...'.format(config['general']['sleep_for']))
+        sleep(config['general']['sleep_for'])

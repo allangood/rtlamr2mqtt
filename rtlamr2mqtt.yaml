@@ -11,7 +11,10 @@ general:
   device_id: '0bda:2838'
 
 mqtt:
+  # Broker host
   host: 127.0.0.1
+  # Broker port
+  port: 1883
   # Use TLS with MQTT?
   tls_enabled: false
   # Path to CA certificate to use. Mandatory if tls_enabled = true
@@ -22,12 +25,17 @@ mqtt:
   tls_insecure: true
   # Certificate key file to use. Optional
   tls_keyfile: '/etc/ssl/my_self_signed_cert_key.key'
+  # Username
   user: test
+  # Password
   password: testpassword
   # Use HA autodiscovery feature?
   ha_autodiscovery: true
   # Which topic for the auto discover to use?
   ha_autodiscovery_topic: homeassistant
+  # Base topic to send status and state information
+  # i.e.: status = <base_topic>/status
+  base_topic: 'rtlamr'
 
 # Optional section
 # If you need to pass parameters to rtl_tcp or rtlamr
