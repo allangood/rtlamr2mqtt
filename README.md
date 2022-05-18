@@ -49,6 +49,8 @@ I am using this one: [NooElec NESDR Mini USB](https://www.amazon.ca/NooElec-NESD
 
 ![image](https://user-images.githubusercontent.com/757086/117556120-207bd200-b02b-11eb-9149-58eaf9c6c4ea.png)
 
+![image](https://user-images.githubusercontent.com/757086/169098091-bdd93660-daf5-4c8a-bde1-c4b66e7bdb87.png)
+
 ### How to run and configure?
 
 Docker and Docker-compose are the most indicated way.
@@ -84,7 +86,8 @@ mqtt:
   ha_autodiscovery: true
   # Home Assistant auto-discovery topic
   ha_autodiscovery_topic: homeassistant
-
+  # Base topic to send status and updates
+  base_topic: rtlamr
   # By default, leaving host, port, user, and password unset will tell
   # rtlamr2mqtt to use the default home assistant mqtt settings for those
   # options. If needed, you can override these default settings:
