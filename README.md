@@ -21,19 +21,21 @@ RTLAMR2MQTT is a small Python program to read your utility meter such as water, 
 The project is currently under heavy development!
 
 ### Current features
- - Custom parameters for `rtl_tcp` and `rtlamr` (`custom_parameters` config option)
- - It can run `rtl_tcp` locally or use an external instance running somewhere else (`custom_parameters` config option)
- - MQTT TLS support (`tls_enabled` config option)
- - Reset USB port before open it (`device_id` config option)
- - Send an "wake up" call to a remote RTL_TCP instance before connect to it (`tickle_rtl_tcp` config option)
- - Format reading number. Some meters reports a flat number that should be formatted with decimals (`format` config option)
- - Sleep after successful reading to avoid heating the CPU too much (`sleep_for` config option)
- - Support multiple meters with one instance
- - Run as an Addon for Home Assistant with Supervisor support and MQTT auto configuration
- - Full sensor customization: `name`, `state_class`, `device_class`, `icon` and `unit_of_measurement`
+
+- Custom parameters for `rtl_tcp` and `rtlamr` (`custom_parameters` config option)
+- It can run `rtl_tcp` locally or use an external instance running somewhere else (`custom_parameters` config option)
+- MQTT TLS support (`tls_enabled` config option)
+- Reset USB port before open it (`device_id` config option)
+- Send an "wake up" call to a remote RTL_TCP instance before connect to it (`tickle_rtl_tcp` config option)
+- Format reading number. Some meters reports a flat number that should be formatted with decimals (`format` config option)
+- Sleep after successful reading to avoid heating the CPU too much (`sleep_for` config option)
+- Support multiple meters with one instance
+- Run as an Addon for Home Assistant with Supervisor support and MQTT auto configuration
+- Full sensor customization: `name`, `state_class`, `device_class`, `icon` and `unit_of_measurement`
 
 ### Planned features
- - Better "LISTEN_ONLY" mode (release 2.2.0)
+
+- Better "LISTEN_ONLY" mode (release 2.2.0)
 
 ### Noteworthy Updates
 
@@ -292,3 +294,6 @@ A big thank you for all kind contributions! And a even bigger thanks to these ki
 RTLAMR - https://github.com/bemasher/rtlamr
 
 RTL_TCP - https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr
+
+Icon by:
+[Sound icons created by Plastic Donut - Flaticon]("https://www.flaticon.com/free-icons/sound")
