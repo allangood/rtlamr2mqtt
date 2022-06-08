@@ -12,7 +12,7 @@ RUN go install github.com/bemasher/rtlamr@latest \
     && make \
     && make install
 
-FROM python:3.9-slim
+FROM python:3.10.5-slim
 
 COPY --from=go-builder /usr/local/lib/librtl* /lib/
 COPY --from=go-builder /go/bin/rtlamr* /usr/bin/
