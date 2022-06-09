@@ -23,11 +23,6 @@ import paho.mqtt.publish as publish
 
 from paho.mqtt import MQTTException
 
-# Global flags:
-running_in_listen_only_mode = False
-if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
-    running_in_listen_only_mode = True
-
 ## Running as Add-on?
 running_as_addon = False
 if os.getenv("SUPERVISOR_TOKEN") is not None:
@@ -95,21 +90,21 @@ def list_intersection(a, b):
     return result[0] if result else None
 
 class MqttSender:
-    def __init__(self, config):
+    def __init__(self, mqtt_config):
         log_message('Configured MQTT sender:')
         self.d = {}
-        self.d['hostname'] = config.get('host', 'localhost')
-        self.d['port'] = int(config.get('port', 1883))
-        self.d['username'] = config.get('user', None)
-        self.d['password'] = config.get('password', None)
-        self.d['client_id'] = config.get('client_id', 'rtlamr2mqtt')
-        self.d['base_topic'] = config.get('base_topic', 'rtlamr')
+        self.d['hostname'] = mqtt_config.get('host', 'localhost')
+        self.d['port'] = int(mqtt_config.get('port', 1883))
+        self.d['username'] = mqtt_config.get('user', None)
+        self.d['password'] = mqtt_config.get('password', None)
+        self.d['client_id'] = mqtt_config.get('client_id', 'rtlamr2mqtt')
+        self.d['base_topic'] = mqtt_config.get('base_topic', 'rtlamr')
         self.d['availability_topic'] = '{}/status'.format(self.d['base_topic'])
-        tls_enabled = config.get('tls_enabled', False)
-        tls_ca = config.get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
-        tls_cert = config.get('tls_cert', None)
-        tls_insecure = config.get('tls_insecure', True)
-        tls_keyfile = config.get('tls_keyfile', None)
+        tls_enabled = mqtt_config.get('tls_enabled', False)
+        tls_ca = mqtt_config.get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
+        tls_cert = mqtt_config.get('tls_cert', None)
+        tls_insecure = mqtt_config.get('tls_insecure', True)
+        tls_keyfile = mqtt_config.get('tls_keyfile', None)
         self.d['tls'] = None
         if tls_enabled:
             self.d['tls'] = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'keyfile': tls_keyfile, 'tls_insecure': tls_insecure }
@@ -153,7 +148,7 @@ def shutdown(signum, frame):
         log_message('Kill process called.')
     else:
         log_message('Shutdown detected, killing process.')
-    if not external_rtl_tcp and rtltcp.returncode is None:
+    if 'rtltcp' in locals() and rtltcp.returncode is None:
         log_message('Killing RTL_TCP...')
         rtltcp.terminate()
         try:
@@ -176,7 +171,7 @@ def shutdown(signum, frame):
     if signum != 0 and frame != 0:
         log_message('Graceful shutdown.')
         # Are we running in LISTEN_ONLY mode?
-        if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
+        if not running_in_listen_only_mode:
             if mqtt_sender:
                 mqtt_sender.publish(topic=availability_topic, payload='offline', retain=True)
         # Graceful termination
@@ -248,6 +243,7 @@ def load_config(argv):
             if os.path.exists(config_file):
                 config_path = config_file
                 log_message('Using "{}" config file'.format(config_path))
+                break
     else:
         # If called with argument, use it as configuration file
         config_path = argv[1]
@@ -353,33 +349,38 @@ def tickle_rtl_tcp(remote_server):
 signal.signal(signal.SIGTERM, shutdown)
 signal.signal(signal.SIGINT, shutdown)
 
-'''
-LISTEN Mode
-TODO: Send the output to MQTT to make it easier to run it as an addon
-This mode WILL NOT read any configuration file
-'''
-
-if running_in_listen_only_mode:
+# LISTEN Mode
+def listen_mode():
     log_message('Starting in LISTEN ONLY Mode...')
+    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
+    external_rtl_tcp = False
     if running_as_addon:
         config = load_config(sys.argv)
         mqtt_sender = MqttSender(config['mqtt'])
         debug_topic = '{}/debug'.format(config['mqtt']['base_topic'])
+        if re.match('127\.0\.0\.|localhost', config['general']['rtltcp_server']) is None:
+            external_rtl_tcp = True
+            log_message('Using an external RTL_TCP session at {}'.format(config['general']['rtltcp_server']))
+            rtlamr_cmd.extend(['-server={}'.format(config['general']['rtltcp_server'])])
+        del config
     else:
-        log_message('No Supervisor detected!')
-        log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
-    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
-    rtltcp_cmd = ['/usr/bin/rtl_tcp']
-    # While DEBUG mode doesn't read a config, it's still helpful to specify a specific rtl_tcp device.
-    # If it exists, this reads the environment variable RTL_TCP_ARGS and appends it to rtl_tcp command line.
-    # For example, RTL-SDR serial number 777: docker run -e LISTEN_ONLY=yes -e RTL_TCP_ARGS="-d 777" ...
-    if os.environ.get('RTL_TCP_ARGS'):
-        rtltcp_cmd.extend(os.environ.get('RTL_TCP_ARGS', '').split())
-    log_message('Starting rtl_tcp with ' + str(rtltcp_cmd))
-    rtltcp = subprocess.Popen(rtltcp_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
-    sleep(2)
+        log_message('No Supervisor detected.')
+    '''
+    If it exists, this reads the environment variable RTL_TCP_ARGS and appends it to rtl_tcp command line.
+    For example, RTL-SDR index number 0:
+    $ docker run -e LISTEN_ONLY=yes -e RTL_TCP_ARGS="-d 0" ...
+    '''
+    rtltcp_args = os.environ.get('RTL_TCP_ARGS', '')
+    if 'nostart' in rtltcp_args:
+        external_rtl_tcp = True
+    if not external_rtl_tcp:
+        external_rtl_tcp = False
+        rtltcp_cmd = '/usr/bin/rtl_tcp {}'.format(rtltcp_args)
+        log_message('Starting rtl_tcp with {}'.format(rtltcp_cmd))
+        rtltcp = subprocess.Popen(rtltcp_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
+        sleep(2)
     # Starting RTLAMR
-    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
     rtlamr_cmd.extend(os.environ.get('RTLAMR_ARGS', '').split())
     log_message('Starting rtlamr with ' + str(rtlamr_cmd))
     rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
@@ -399,10 +400,24 @@ if running_in_listen_only_mode:
 
 # Main
 if __name__ == "__main__":
+
+    running_in_listen_only_mode = False
+    if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
+        running_in_listen_only_mode = True
+
+    if running_as_addon:
+        config = load_config(sys.argv)
+        running_in_listen_only_mode = config['general'].get('listen_only', False)
+
+    if running_in_listen_only_mode:
+        listen_mode()
+
     log_message('RTLAMR2MQTT Starting...')
 
     external_rtl_tcp = False
-    config = load_config(sys.argv)
+    if 'config' not in locals():
+        config = load_config(sys.argv)
+
     # Is RTL_TCP external?
     if re.match('127\.0\.0\.|localhost', config['general']['rtltcp_server']) is None:
         external_rtl_tcp = True

@@ -84,7 +84,22 @@ I am using this one: [NooElec NESDR Mini USB](https://www.amazon.ca/NooElec-NESD
 
 ### How to run and configure?
 
-Docker and Docker-compose are the most indicated way.
+#### Home Assistant Add-On:
+
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fallangood%2Frtlamr2mqtt)
+
+[![Open your Home Assistant instance and show the dashboard of a Supervisor add-on.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?repository_url=https%3A%2F%2Fgithub.com%2Fallangood%2Frtlamr2mqtt&addon=6713e36e_rtlamr2mqtt)
+
+Manually:
+
+- Navigate to your Add-Ons (Configuration > Add-ons, Backups, & Supervisor)
+- Click the Add-On Store button
+- Navigate to Repositories (3 dots in the top-right corner > Repositories)
+- Add this repository (https://github.com/allangood/rtlamr2mqtt) and click 'Add'
+- You should now see the 'rtlamr' Add-On at the bottom of your Add-On Store. Click to install and configure.
+
+#### Docker or Docker-Compose
+
 If you are not [running the add-on](https://www.home-assistant.io/common-tasks/os#installing-third-party-add-ons), you must write the **rtlamr2mqtt.yaml** configuration file.
 
 #### Configuration file sample
@@ -276,6 +291,23 @@ If you have multiple RTL-SDRs and wish to start the LISTEN ALL METERS mode on a 
 ```
 docker run --rm -ti -e LISTEN_ONLY=yes -e RTL_MSGTYPE="all" -e RTL_TCP_ARGS="-d 777" --device=/dev/bus/usb:/dev/bus/usb allangood/rtlamr2mqtt
 ```
+
+**Important note**
+
+If you are running the Add-On, then a MQTT topic will be created with the output and you will be able to check the output using Home Assistant.
+The topic is: <base_topic>/debug
+
+Open the MQTT setting and listen in the debug topic:
+[![Open your Home Assistant instance and show your MQTT configuration panel.](https://my.home-assistant.io/badges/config_mqtt.svg)](https://my.home-assistant.io/redirect/config_mqtt/)
+
+#### LISTEN ONLY MODE with remote RTL_TCP:
+
+You will need to define 2 enviroment variables:
+
+- `RTL_TCP_ARGS=nostart`
+- `RTLAMR_ARGS=-server=a.b.c.d:1234`
+
+If you are using the Add-on, then these parameters will be read from the configuration file.
 
 ### Thanks to
 

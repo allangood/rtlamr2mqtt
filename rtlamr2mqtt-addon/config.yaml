@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2.1.2
+version: 2.2.0
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
@@ -26,6 +26,7 @@ options:
   general:
     sleep_for: 300
     verbosity: debug
+    listen_only: false
     tickle_rtl_tcp: false
     device_id: single
   mqtt:
@@ -48,6 +49,7 @@ schema:
   general:
     sleep_for: int
     verbosity: list(debug|normal)?
+    listen_only: bool?
     tickle_rtl_tcp: bool?
     device_id: match((^single|^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$))
   mqtt:
