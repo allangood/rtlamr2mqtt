@@ -133,7 +133,7 @@ class MqttSender:
         tls_keyfile = config.get('tls_keyfile', None)
         self.d['tls'] = None
         if tls_enabled:
-            self.d['tls'] = { ca_certs: tls_ca, certfile: tls_cert, keyfile: tls_keyfile, tls_insecure: tls_insecure }
+            self.d['tls'] = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'keyfile': tls_keyfile, 'tls_insecure': tls_insecure }
         self.__log_mqtt_params(**self.d)
 
     def __get_auth(self):
