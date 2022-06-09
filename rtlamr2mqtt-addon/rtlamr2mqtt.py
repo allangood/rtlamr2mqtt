@@ -1,58 +1,32 @@
 #!/usr/bin/env python3
 
+import os
+import sys
 import re
 import json
-import os
-import paho.mqtt.publish as publish
-import requests
 import signal
-import sys
 import subprocess
 import socket
 import warnings
-import yaml
-import usb.core
-
 from datetime import datetime
 from json import dumps, loads
 from json.decoder import JSONDecodeError
-from paho.mqtt import MQTTException
 from random import randrange
 from struct import pack
 from time import sleep, time
 from fcntl import ioctl
 from stat import S_ISCHR
+import yaml
+import requests
+import usb.core
+import paho.mqtt.publish as publish
 
-# Global flags:
+from paho.mqtt import MQTTException
+
 ## Running as Add-on?
-addon = False
+running_as_addon = False
 if os.getenv("SUPERVISOR_TOKEN") is not None:
-    addon = True
-
-# LISTEN Mode
-# The DEBUG mode will run RTLAMR collecting all
-# signals and dump it to the stdout to make it easy
-# to find meters IDs and signals.
-# This mode WILL NOT read any configuration file
-if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
-    log_message('Starting in LISTEN ONLY Mode...')
-    log_message('!!! IN THIS MODE I WILL NOT READ ANY CONFIGURATION FILE !!!')
-    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
-    rtltcp_cmd = ['/usr/bin/rtl_tcp']
-    # While DEBUG mode doesn't read a config, it's still helpful to specify a specific rtl_tcp device.
-    # If it exists, this reads the environment variable RTL_TCP_ARGS and appends it to rtl_tcp command line.
-    # For example, RTL-SDR serial number 777: docker run -e LISTEN_ONLY=yes -e RTL_TCP_ARGS="-d 777" ...
-    if os.environ.get('RTL_TCP_ARGS'):
-        rtltcp_cmd.extend(os.environ.get('RTL_TCP_ARGS').split(' '))
-    log_message('Starting rtl_tcp with ' + str(rtltcp_cmd))
-    rtltcp = subprocess.Popen(rtltcp_cmd)
-    sleep(2)
-    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
-    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-    # loop forever
-    while True:
-        for amrline in rtlamr.stdout:
-            log_message(amrline)
+    running_as_addon = True
 
 # From:
 # https://stackoverflow.com/questions/14626395/how-to-properly-convert-a-c-ioctl-call-to-a-python-fcntl-ioctl-call
@@ -86,10 +60,10 @@ def find_rtl_sdr_devices():
     DEVICE_IDS = load_id_file('/var/lib/sdl_ids.txt')
     devices_found = {}
     index = -1
-    for dev in usb.core.find(find_all=True):
+    for dev in usb.core.find(find_all = True):
         for known_dev in DEVICE_IDS:
-            id,vendor = known_dev.split(':')
-            if dev.idVendor == int(id,16) and dev.idProduct == int(vendor,16):
+            usb_id, usb_vendor = known_dev.split(':')
+            if dev.idVendor == int(usb_id, 16) and dev.idProduct == int(usb_vendor, 16):
                 index += 1
                 devices_found[known_dev] = { 'bus_address': '{:03d}:{:03d}'.format(dev.bus, dev.address), 'index': index}
                 log_message('RTL SDR Device {} found on USB port {:03d}:{:03d} - Index: {}'.format(known_dev, dev.bus, dev.address, index))
@@ -116,21 +90,21 @@ def list_intersection(a, b):
     return result[0] if result else None
 
 class MqttSender:
-    def __init__(self, config):
+    def __init__(self, mqtt_config):
         log_message('Configured MQTT sender:')
         self.d = {}
-        self.d['hostname'] = config.get('host', 'localhost')
-        self.d['port'] = int(config.get('port', 1883))
-        self.d['username'] = config.get('user', None)
-        self.d['password'] = config.get('password', None)
-        self.d['client_id'] = config.get('client_id','rtlamr2mqtt')
-        self.d['base_topic'] = config.get('base_topic', 'rtlamr')
+        self.d['hostname'] = mqtt_config.get('host', 'localhost')
+        self.d['port'] = int(mqtt_config.get('port', 1883))
+        self.d['username'] = mqtt_config.get('user', None)
+        self.d['password'] = mqtt_config.get('password', None)
+        self.d['client_id'] = mqtt_config.get('client_id', 'rtlamr2mqtt')
+        self.d['base_topic'] = mqtt_config.get('base_topic', 'rtlamr')
         self.d['availability_topic'] = '{}/status'.format(self.d['base_topic'])
-        tls_enabled = config.get('tls_enabled', False)
-        tls_ca = config.get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
-        tls_cert = config.get('tls_cert', None)
-        tls_insecure = config.get('tls_insecure', True)
-        tls_keyfile = config.get('tls_keyfile', None)
+        tls_enabled = mqtt_config.get('tls_enabled', False)
+        tls_ca = mqtt_config.get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
+        tls_cert = mqtt_config.get('tls_cert', None)
+        tls_insecure = mqtt_config.get('tls_insecure', True)
+        tls_keyfile = mqtt_config.get('tls_keyfile', None)
         self.d['tls'] = None
         if tls_enabled:
             self.d['tls'] = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'keyfile': tls_keyfile, 'tls_insecure': tls_insecure }
@@ -139,8 +113,7 @@ class MqttSender:
     def __get_auth(self):
         if self.d['username'] and self.d['password']:
             return { 'username':self.d['username'], 'password': self.d['password'] }
-        else:
-            return None
+        return None
 
     def publish(self, **kwargs):
         log_message('Sending message to MQTT:')
@@ -164,8 +137,8 @@ class MqttSender:
         return True
 
     def __log_mqtt_params(self, **kwargs):
-        for k,v in ((k,v) for (k,v) in kwargs.items() if k not in ['password']):
-            log_message(' > {} => {}'.format(k,v))
+        for k, v in ((k, v) for (k, v) in kwargs.items() if k not in ['password']):
+            log_message(' > {} => {}'.format(k, v))
 
 
 # uses signal to shutdown and hard kill opened processes and self
@@ -175,7 +148,7 @@ def shutdown(signum, frame):
         log_message('Kill process called.')
     else:
         log_message('Shutdown detected, killing process.')
-    if not external_rtl_tcp and rtltcp.returncode is None:
+    if 'rtltcp' in locals() and rtltcp.returncode is None:
         log_message('Killing RTL_TCP...')
         rtltcp.terminate()
         try:
@@ -198,9 +171,9 @@ def shutdown(signum, frame):
     if signum != 0 and frame != 0:
         log_message('Graceful shutdown.')
         # Are we running in LISTEN_ONLY mode?
-        if str(os.environ.get('LISTEN_ONLY')).lower() not in ['yes', 'true']:
+        if not running_in_listen_only_mode:
             if mqtt_sender:
-               mqtt_sender.publish(topic=availability_topic, payload='offline', retain=True)
+                mqtt_sender.publish(topic=availability_topic, payload='offline', retain=True)
         # Graceful termination
         sys.exit(0)
 
@@ -211,16 +184,16 @@ def load_yaml_config(config_path):
         config_path (str): Path to yaml config file
     """
     try:
-        with open(config_path,'r') as config_file:
+        with open(config_path, 'r') as config_file:
             return yaml.safe_load(config_file)
     except FileNotFoundError:
         log_message('Configuration file cannot be found at "{}"'.format(config_path))
         sys.exit(-1)
 
-def load_json_config():
+def load_json_config(config_path):
     """Load config from Home Assistant Add-On"""
 
-    current_config_file = os.path.join("/data/options.json")
+    current_config_file = os.path.join(config_path)
     return json.load(open(current_config_file))
 
 def merge_defaults(defaults, tomerge):
@@ -248,7 +221,7 @@ def load_config(argv):
             'rtltcp_server': '127.0.0.1:1234',
         },
         'mqtt': {
-            'host': '127.0.0.1',
+            'host': None,
             'user': None,
             'password': None,
             'tls_enabled': False,
@@ -261,55 +234,69 @@ def load_config(argv):
         'custom_parameters': {
             'rtltcp': "-s 2048000",
             'rtlamr': "-unique=true",
-         },
+        },
     }
     # Attempts to load config from json or yaml file
-    config_path = '/etc/rtlamr2mqtt.yaml' if len(argv) != 2 else argv[1]
-    if config_path[-4:] == 'json' or config_path[-2:] == 'js':
-        config = merge_defaults(defaults, load_json_config())
-    elif config_path[-4:] == 'yaml' or config_path[-3:] == 'yml':
+    # Use "/data/options.json" or "/etc/rtlamr2mqtt.yaml" as default config file
+    if len(argv) != 2:
+        for config_file in ["/data/options.json", "/etc/rtlamr2mqtt.yaml"]:
+            if os.path.exists(config_file):
+                config_path = config_file
+                log_message('Using "{}" config file'.format(config_path))
+                break
+    else:
+        # If called with argument, use it as configuration file
+        config_path = argv[1]
+
+    if config_path[-5:] == '.json' or config_path[-3:] == '.js':
+        config = merge_defaults(defaults, load_json_config(config_path))
+    elif config_path[-5:] == '.yaml' or config_path[-4:] == '.yml':
         config = merge_defaults(defaults, load_yaml_config(config_path))
     else:
         log_message('Config file format not supported.')
         sys.exit(-1)
+
     # Add meters to config
-    if len(config['meters']) < 1:
+    if len(config['meters']) < 1 and not running_in_listen_only_mode:
         log_message('No Meter defined. Exiting...')
         sys.exit(-1)
-    # Check for Supervisor
-    if os.getenv("SUPERVISOR_TOKEN") is not None:
-        api_url = "http://supervisor/services/mqtt"
-        headers = {"Authorization": "Bearer " + os.getenv("SUPERVISOR_TOKEN")}
-        log_message("Fetching default MQTT configuration from %s" % api_url)
-        try:
-            resp = requests.get(api_url, headers=headers)
-            resp.raise_for_status()
 
-            d = resp.json()['data']
-            config['mqtt']['host'] = d.get('host')
-            config['mqtt']['port'] = d.get('port')
-            config['mqtt']['user'] = d.get('username', None)
-            config['mqtt']['password'] = d.get('password', None)
-            config['mqtt']['tls_enabled'] = d.get('ssl', False)
-            if config['mqtt']['tls_enabled']:
-                config['mqtt']['tls_ca'] = '/etc/ssl/certs/ca-certificates.crt'
-                config['mqtt']['tls_insecure'] = True
-        except e:
-            log_message("Could not fetch default MQTT configuration: %s" % e)
-    for arg in config['custom_parameters']['rtlamr'].split():
+    # Check for Supervisor
+    if running_as_addon:
+        if config['mqtt'].get('host', None) is None:
+            api_url = "http://supervisor/services/mqtt"
+            headers = {"Authorization": "Bearer " + os.getenv("SUPERVISOR_TOKEN")}
+            log_message("Fetching default MQTT configuration from %s" % api_url)
+            try:
+                resp = requests.get(api_url, headers=headers)
+                resp.raise_for_status()
+
+                d = resp.json()['data']
+                config['mqtt']['host'] = d.get('host')
+                config['mqtt']['port'] = d.get('port')
+                config['mqtt']['user'] = d.get('username', None)
+                config['mqtt']['password'] = d.get('password', None)
+                config['mqtt']['tls_enabled'] = d.get('ssl', False)
+                if config['mqtt']['tls_enabled']:
+                    config['mqtt']['tls_ca'] = '/etc/ssl/certs/ca-certificates.crt'
+                    config['mqtt']['tls_insecure'] = True
+            except Exception as e:
+                log_message("Could not fetch default MQTT configuration: %s" % e)
+        else:
+            log_message('MQTT Host defined in config file. Ignoring Supervisor Configuration...')
+    for arg in config['custom_parameters'].get('rtlamr', '').split():
         if '-server=' in arg:
-           config['general']['rtltcp_server'] = arg.split('=')[1]
+            config['general']['rtltcp_server'] = arg.split('=')[1]
     return config
 
 # This is a helper function to flag any error message from rtlamr
 def is_an_error_message(message):
     if 'Error reading samples:' in message:
         return True
-    else:
-        return False
+    return False
 
 def format_number(number, format):
-    return str(format.replace('#','{}').format(*number.zfill(format.count('#'))))
+    return str(format.replace('#', '{}').format(*number.zfill(format.count('#'))))
 
 def send_ha_autodiscovery(meter, mqtt_config):
     """
@@ -327,7 +314,7 @@ def send_ha_autodiscovery(meter, mqtt_config):
         'state_topic': meter['state_topic'],
         'json_attributes_topic': meter['attribute_topic']
     }
-    if (meter['device_class'] is not None):
+    if meter['device_class'] is not None:
         discover_payload['device_class'] = meter['device_class']
     mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
 
@@ -340,36 +327,97 @@ def tickle_rtl_tcp(remote_server):
     SET_SAMPLERATE = 0x02
 
     # extract host and port from remote_server string
-    parts = remote_server.split(':',1)
-    remote_host=parts[0]
-    remote_port=int(parts[1]) if parts[1:] else 1234
-
-    log_message("server: {}, host: {}, port: {}".format(remote_server, remote_host, remote_port))
-
+    parts = remote_server.split(':', 1)
+    remote_host = parts[0]
+    remote_port = int(parts[1]) if parts[1:] else 1234
     log_message("Attempting to tune rtl_tcp to a different freq to shake things up")
+    log_message("server: {}, host: {}, port: {}".format(remote_server, remote_host, remote_port))
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.settimeout(5) # 5 seconds
     send_cmd = lambda c, command, parameter: c.send(pack(">BI", int(command), int(parameter)))
     try:
-       conn.connect((remote_host, remote_port))
-       send_cmd(conn, SET_FREQUENCY, 88e6 + randrange(0,20)*1e6) # random freq
-       sleep(0.2)
-       send_cmd(conn, SET_SAMPLERATE, 2048000)
-       log_message("Successfully tickled rtl_tcp")
+        conn.connect((remote_host, remote_port))
+        send_cmd(conn, SET_FREQUENCY, 88e6 + randrange(0, 20)*1e6) # random freq
+        sleep(0.2)
+        send_cmd(conn, SET_SAMPLERATE, 2048000)
+        log_message("Successfully tickled rtl_tcp")
     except socket.error as err:
-       log_message("Error connecting to rtl_tcp : {}".format(err))
+        log_message("Error connecting to rtl_tcp : {}".format(err))
     conn.close()
 
+# Signal handlers/call back
+signal.signal(signal.SIGTERM, shutdown)
+signal.signal(signal.SIGINT, shutdown)
+
+# LISTEN Mode
+def listen_mode():
+    log_message('Starting in LISTEN ONLY Mode...')
+    msgtype = os.environ.get('RTL_MSGTYPE', 'all')
+    rtlamr_cmd = ['/usr/bin/rtlamr', '-msgtype={}'.format(msgtype), '-format=json']
+    external_rtl_tcp = False
+    if running_as_addon:
+        config = load_config(sys.argv)
+        mqtt_sender = MqttSender(config['mqtt'])
+        debug_topic = '{}/debug'.format(config['mqtt']['base_topic'])
+        if re.match('127\.0\.0\.|localhost', config['general']['rtltcp_server']) is None:
+            external_rtl_tcp = True
+            log_message('Using an external RTL_TCP session at {}'.format(config['general']['rtltcp_server']))
+            rtlamr_cmd.extend(['-server={}'.format(config['general']['rtltcp_server'])])
+        del config
+    else:
+        log_message('No Supervisor detected.')
+    '''
+    If it exists, this reads the environment variable RTL_TCP_ARGS and appends it to rtl_tcp command line.
+    For example, RTL-SDR index number 0:
+    $ docker run -e LISTEN_ONLY=yes -e RTL_TCP_ARGS="-d 0" ...
+    '''
+    rtltcp_args = os.environ.get('RTL_TCP_ARGS', '')
+    if 'nostart' in rtltcp_args:
+        external_rtl_tcp = True
+    if not external_rtl_tcp:
+        external_rtl_tcp = False
+        rtltcp_cmd = '/usr/bin/rtl_tcp {}'.format(rtltcp_args)
+        log_message('Starting rtl_tcp with {}'.format(rtltcp_cmd))
+        rtltcp = subprocess.Popen(rtltcp_cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
+        sleep(2)
+    # Starting RTLAMR
+    rtlamr_cmd.extend(os.environ.get('RTLAMR_ARGS', '').split())
+    log_message('Starting rtlamr with ' + str(rtlamr_cmd))
+    rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
+    log_message('You should see all utility meters after this line:')
+    # loop forever
+    while True:
+        for amrline in rtlamr.stdout:
+            log_message(amrline[:-1])
+            json_output = None
+            if amrline[0] == '{':
+                try:
+                    json_output = loads(amrline)
+                except JSONDecodeError:
+                    json_output = None
+            if json_output is not None and running_as_addon:
+                mqtt_sender.publish(topic=debug_topic, payload=dumps(json_output), retain=False)
 
 # Main
 if __name__ == "__main__":
-    # Signal handlers/call back
-    signal.signal(signal.SIGTERM, shutdown)
-    signal.signal(signal.SIGINT, shutdown)
+
+    running_in_listen_only_mode = False
+    if str(os.environ.get('LISTEN_ONLY')).lower() in ['yes', 'true']:
+        running_in_listen_only_mode = True
+
+    if running_as_addon:
+        config = load_config(sys.argv)
+        running_in_listen_only_mode = config['general'].get('listen_only', False)
+
+    if running_in_listen_only_mode:
+        listen_mode()
+
     log_message('RTLAMR2MQTT Starting...')
 
     external_rtl_tcp = False
-    config = load_config(sys.argv)
+    if 'config' not in locals():
+        config = load_config(sys.argv)
+
     # Is RTL_TCP external?
     if re.match('127\.0\.0\.|localhost', config['general']['rtltcp_server']) is None:
         external_rtl_tcp = True
@@ -401,26 +449,26 @@ if __name__ == "__main__":
     meter_names = set()
     protocols = []
     for meter in config['meters']:
-        id = str(meter['id']).strip()
-        meter_name = str(meter.get('name', 'meter_{}'.format(id)))
+        meter_id = str(meter['id']).strip()
+        meter_name = str(meter.get('name', 'meter_{}'.format(meter_id)))
 
-        if id in meters or meter_name in meter_names:
-            log_message('Error: Duplicate meter name ({}) or id ({}) found in config. Exiting.'.format(meter_name, id))
+        if meter_id in meters or meter_name in meter_names:
+            log_message('Error: Duplicate meter name ({}) or id ({}) found in config. Exiting.'.format(meter_name, meter_id))
             sys.exit(1)
 
-        meters[id] = meter.copy()
+        meters[meter_id] = meter.copy()
         meter_names.add(meter_name)
-        meter_readings[id] = 0
+        meter_readings[meter_id] = 0
 
-        meters[id]['state_topic'] = '{}/{}/state'.format(config['mqtt']['base_topic'], id)
-        meters[id]['attribute_topic'] = '{}/{}/attributes'.format(config['mqtt']['base_topic'], id)
-        meters[id]['name'] = meter_name
-        meters[id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
-        meters[id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
-        meters[id]['device_class'] = str(meter.get('device_class', None))
-        if meters[id]['device_class'].lower() in ['none', 'null']:
-            meters[id]['device_class'] = None
-        meters[id]['sent_HA_discovery'] = False
+        meters[meter_id]['state_topic'] = '{}/{}/state'.format(config['mqtt']['base_topic'], meter_id)
+        meters[meter_id]['attribute_topic'] = '{}/{}/attributes'.format(config['mqtt']['base_topic'], meter_id)
+        meters[meter_id]['name'] = meter_name
+        meters[meter_id]['unit_of_measurement'] = str(meter.get('unit_of_measurement', ''))
+        meters[meter_id]['icon'] = str(meter.get('icon', 'mdi:gauge'))
+        meters[meter_id]['device_class'] = str(meter.get('device_class', None))
+        if meters[meter_id]['device_class'].lower() in ['none', 'null']:
+            meters[meter_id]['device_class'] = None
+        meters[meter_id]['sent_HA_discovery'] = False
 
         protocols.append(meter['protocol'])
 
@@ -467,7 +515,7 @@ if __name__ == "__main__":
         # Is this the first time are we executing this loop? Or is rtlamr running?
         if 'rtlamr' not in locals() or rtlamr.poll() is not None:
             if config['general']['tickle_rtl_tcp']:
-                tickle_rtl_tcp(rtltcp_server)
+                tickle_rtl_tcp(config['general']['rtltcp_server'])
             log_message('Trying to start RTLAMR: {}'.format(' '.join(rtlamr_cmd)))
             # start the rtlamr program.
             rtlamr = subprocess.Popen(rtlamr_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
@@ -540,6 +588,6 @@ if __name__ == "__main__":
         # Kill all process
         log_message('Sleep_for defined, time to sleep!')
         log_message('Terminating all subprocess...')
-        shutdown(0,0)
+        shutdown(0, 0)
         log_message('Sleeping for {} seconds, see you later...'.format(config['general']['sleep_for']))
         sleep(config['general']['sleep_for'])
