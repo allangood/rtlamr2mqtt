@@ -7,6 +7,7 @@ import json
 import signal
 import subprocess
 import socket
+import ssl
 import warnings
 from datetime import datetime
 from json import dumps, loads
@@ -103,11 +104,11 @@ class MqttSender:
         tls_enabled = mqtt_config.get('tls_enabled', False)
         tls_ca = mqtt_config.get('tls_ca', '/etc/ssl/certs/ca-certificates.crt')
         tls_cert = mqtt_config.get('tls_cert', None)
-        tls_insecure = mqtt_config.get('tls_insecure', True)
+        cert_reqs = ssl.CERT_NONE if mqtt_config.get('tls_insecure', True) else ssl.CERT_REQUIRED
         tls_keyfile = mqtt_config.get('tls_keyfile', None)
         self.d['tls'] = None
         if tls_enabled:
-            self.d['tls'] = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'keyfile': tls_keyfile, 'tls_insecure': tls_insecure }
+            self.d['tls'] = { 'ca_certs': tls_ca, 'certfile': tls_cert, 'keyfile': tls_keyfile, 'cert_reqs': cert_reqs }
         self.__log_mqtt_params(**self.d)
 
     def __get_auth(self):
