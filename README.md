@@ -311,15 +311,7 @@ If you are using the Add-on, then these parameters will be read from the configu
 
 ### Thanks to
 
-A big thank you for all kind contributions! And a even bigger thanks to these kind contributors:
-
-- [AnthonyPluth](https://github.com/AnthonyPluth)
-- [jonbloom](https://github.com/jonbloom)
-- [jeffeb3](https://github.com/jeffeb3)
-- [irakhlin](https://github.com/irakhlin)
-- [ericthomas](https://github.com/ericthomas)
-- [b0naf1de](https://github.com/b0naf1de)
-- [JeffreyFalgout](https://github.com/JeffreyFalgout)
+A big thank you to all kind [contributions](https://github.com/allangood/rtlamr2mqtt/graphs/contributors)!
 
 ### Credits to:
 
