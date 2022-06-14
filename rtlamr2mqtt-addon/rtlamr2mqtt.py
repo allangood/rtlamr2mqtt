@@ -149,7 +149,7 @@ def shutdown(signum, frame):
         log_message('Kill process called.')
     else:
         log_message('Shutdown detected, killing process.')
-    if 'rtltcp' in locals() and rtltcp.returncode is None:
+    if not external_rtl_tcp and rtltcp.returncode is None:
         log_message('Killing RTL_TCP...')
         rtltcp.terminate()
         try:
@@ -442,9 +442,7 @@ if __name__ == "__main__":
 
         availability_topic = '{}/status'.format(config['mqtt']['base_topic'])
 
-
     meter_readings = {}
-
     # Build dict of meter configs
     meters = {}
     meter_names = set()
@@ -525,6 +523,13 @@ if __name__ == "__main__":
         # This is a counter to count the number of duplicate error messages
         error_count = 0
         for amrline in rtlamr.stdout:
+            if not external_rtl_tcp and ('rtltcp' not in locals() or rtltcp.poll() is not None):
+                try:
+                    outs, errs = rtltcp.communicate(timeout=5)
+                except subprocess.TimeoutExpired:
+                    outs = None
+                if outs is not None:
+                    log_message('RTL_TCP: {}'.format(outs))
             if is_an_error_message(amrline):
                 if error_count < 1:
                     log_message('Error reading samples from RTL_TCP.')
