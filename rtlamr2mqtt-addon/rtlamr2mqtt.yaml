@@ -8,6 +8,8 @@ general:
   # USB device id to use. Get the ID from lsusb
   # If you only have one, set it to "single"
   # usb_device: 'single'
+  # If you have more than one RTL device, you can use the USB ID:
+  # device_id: '001:001'
   device_id: '0bda:2838'
 
 mqtt:

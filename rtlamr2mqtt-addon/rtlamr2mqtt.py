@@ -433,12 +433,15 @@ if __name__ == "__main__":
             sys.exit(1)
 
         usb_device_id = str(config['general'].get('device_id', 'single')).lower()
-        if re.match(r"(^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$)", usb_device_id) is not None:
+        if re.match(r"(^(0[xX])?[A-Fa-f0-9]{4}:(0[xX])?[A-Fa-f0-9]{4}$)", usb_device_id) is not None:
             usb_device_index = '-d {}'.format(str(usb_devices[usb_device_id]['index']))
+        elif re.match(r"(^[0-9]{3}:([0-9]{3}$)))", usb_device_id) is not None:
+            log_message('Using USB port ID: {}'.format(device_id))
+            usb_port = device_id
         else:
             log_message('No USB device specified in the config file, using the first found.')
             usb_device_id = list(usb_devices.keys())[0]
-        usb_port = str(usb_devices[usb_device_id]['bus_address'])
+            usb_port = str(usb_devices[usb_device_id]['bus_address'])
 
         availability_topic = '{}/status'.format(config['mqtt']['base_topic'])
 
