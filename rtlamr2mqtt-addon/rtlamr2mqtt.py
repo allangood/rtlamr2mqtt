@@ -436,7 +436,7 @@ if __name__ == "__main__":
         usb_device_id = str(config['general'].get('device_id', 'single')).lower()
         if re.match(r"(^(0[xX])?[A-Fa-f0-9]{4}:(0[xX])?[A-Fa-f0-9]{4}$)", usb_device_id) is not None:
             usb_device_index = '-d {}'.format(str(usb_devices[usb_device_id]['index']))
-        elif re.match(r"(^[0-9]{3}:([0-9]{3}$)))", usb_device_id) is not None:
+        elif re.match(r"(^[0-9]{3}:([0-9]{3}$))", usb_device_id) is not None:
             log_message('Using USB port ID: {}'.format(device_id))
             usb_port = device_id
         else:
