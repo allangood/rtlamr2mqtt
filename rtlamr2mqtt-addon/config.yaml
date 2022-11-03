@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2.2.1
+version: 2.3.1
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
@@ -74,5 +74,5 @@ schema:
       format: str?
       unit_of_measurement: str
       icon: str
-      device_class: list(none|aqi|battery|carbon_dioxide|carbon_monoxide|current|date|energy|frequency|gas|humidity|illuminance|monetary|nitrogen_dioxide|nitrogen_monoxide|nitrous_oxide|ozone|pm1|pm10|pm25|power_factor|power|pressure|signal_strength|sulphur_dioxide|temperature|timestamp|volatile_organic_compounds|voltag)?
+      device_class: list(none|apparent_power|aqi|battery|carbon_dioxide|carbon_monoxide|current|date|distance|duration|energy|frequency|gas|humidity|illuminance|moisture|monetary|nitrogen_dioxide|nitrogen_monoxide|nitrous_oxide|ozone|pm1|pm10|pm25|power_factor|power|precipitation_intensity|pressure|reactive_power|signal_strength|speed|sulphur_dioxide|temperature|timestamp|volatile_organic_compounds|voltage|volume|water|weight|wind_speed)?
       state_class: list(measurement|total|total_increasing)?
