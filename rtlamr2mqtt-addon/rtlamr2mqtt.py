@@ -311,6 +311,7 @@ def send_ha_autodiscovery(meter, mqtt_config):
         'unit_of_measurement': meter['unit_of_measurement'],
         'icon': meter['icon'],
         'availability_topic': '{}/status'.format(mqtt_config['base_topic']),
+        'force_update': True,
         'state_class': meter.get('state_class', 'total_increasing'),
         'state_topic': meter['state_topic'],
         'json_attributes_topic': meter['attribute_topic']
