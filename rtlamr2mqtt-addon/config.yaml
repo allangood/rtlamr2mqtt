@@ -54,6 +54,7 @@ schema:
     device_id: match((^single|^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$))
   mqtt:
     host: str?
+    port: int?
     user: str?
     password: str?
     ha_autodiscovery: bool?
