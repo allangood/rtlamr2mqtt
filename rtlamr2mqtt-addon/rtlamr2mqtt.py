@@ -36,12 +36,12 @@ def reset_usb_device(usbdev):
         busnum, devnum = usbdev.split(':')
         filename = "/dev/bus/usb/{:03d}/{:03d}".format(int(busnum), int(devnum))
         if os.path.exists(filename) and S_ISCHR(os.stat(filename).st_mode):
-            log_message('Reseting USB device: {}'.format(filename))
+            log_message('Resetting USB device: {}'.format(filename))
             #define USBDEVFS_RESET             _IO('U', 20)
             USBDEVFS_RESET = ord('U') << (4*2) | 20
             fd = open(filename, "wb")
             if int(ioctl(fd, USBDEVFS_RESET, 0)) != 0:
-                log_message('Error reseting USB device!!!')
+                log_message('Error resetting USB device!!!')
             else:
                 log_message('Reset sucessful.')
             fd.close()
