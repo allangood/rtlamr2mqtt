@@ -205,7 +205,7 @@ If you want to run with docker alone, run this command:
 docker run --name rtlamr2mqtt \
   -v /opt/rtlamr2mqtt/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml \
   -v /opt/rtlamr2mqtt/data:/var/lib/rtlamr2mqtt \
-  -d /dev/bus/usb:/dev/bus/usb \
+  --device /dev/bus/usb:/dev/bus/usb \
   --restart unless-stopped \
   allangood/rtlamr2mqtt
 ```
