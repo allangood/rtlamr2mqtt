@@ -318,6 +318,8 @@ def send_ha_autodiscovery(meter, mqtt_config):
     }
     if meter['device_class'] is not None:
         discover_payload['device_class'] = meter['device_class']
+    if meter['expire_after'] is not None:
+        discover_payload['expire_after'] = meter['expire_after']
     mqtt_sender.publish(topic=discover_topic, payload=dumps(discover_payload), qos=1, retain=True)
 
 def tickle_rtl_tcp(remote_server):
@@ -472,6 +474,7 @@ if __name__ == "__main__":
         meters[meter_id]['device_class'] = str(meter.get('device_class', None))
         if meters[meter_id]['device_class'].lower() in ['none', 'null']:
             meters[meter_id]['device_class'] = None
+        meters[meter_id]['expire_after'] = meter.get('expire_after', None)
         meters[meter_id]['sent_HA_discovery'] = False
 
         protocols.append(meter['protocol'])
