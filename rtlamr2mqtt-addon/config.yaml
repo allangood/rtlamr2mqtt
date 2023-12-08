@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2.3.3
+version: 2.3.4
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
