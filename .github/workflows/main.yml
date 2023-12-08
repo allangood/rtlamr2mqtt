@@ -35,6 +35,7 @@ jobs:
           # list of Docker images to use as base name for tags
           images: |
             ${{ github.actor }}/rtlamr2mqtt
+            ghcr.io/${{ github.repository }}
           # generate Docker tags based on the following events/attributes
           tags: |
             type=ref,event=branch
@@ -56,6 +57,12 @@ jobs:
         with:
           username: ${{ github.actor }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
