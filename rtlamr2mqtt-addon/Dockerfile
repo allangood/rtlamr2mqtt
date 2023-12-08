@@ -5,7 +5,7 @@ WORKDIR /go/src/app
 RUN go install github.com/bemasher/rtlamr@latest \
     && apt-get update \
     && apt-get install -y libusb-1.0-0-dev build-essential git cmake \
-    && git clone git://git.osmocom.org/rtl-sdr.git \
+    && git clone https://git.osmocom.org/rtl-sdr.git \
     && cd rtl-sdr \
     && mkdir build && cd build \
     && cmake .. -DDETACH_KERNEL_DRIVER=ON -DENABLE_ZEROCOPY=ON -Wno-dev \
