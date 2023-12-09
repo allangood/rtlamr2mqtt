@@ -31,7 +31,7 @@ The project is currently under heavy development!
 - Sleep after successful reading to avoid heating the CPU too much (`sleep_for` config option)
 - Support multiple meters with one instance
 - Run as an Addon for Home Assistant with Supervisor support and MQTT auto configuration
-- Full sensor customization: `name`, `state_class`, `device_class`, `icon` and `unit_of_measurement`
+- Full sensor customization: `name`, `state_class`, `device_class`, `expire_after`, `icon` and `unit_of_measurement`
 
 ### Planned features
 
@@ -189,6 +189,9 @@ meters:
     # "total_increasing" for most meters, "total" for meters that might go
     # backwards (net energy meters). Defaults to "total_increasing" if unset.
     state_class:
+    # (optional) Make the Home Assistant sensor `unavailable` after this many seconds without a reading
+    # Default is 0, which means the sensor will never be marked unavailable due to lack of readings.
+    expire_after:
   - id: 6567984
     protocol: scm
     name: meter_hydro

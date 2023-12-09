@@ -53,7 +53,7 @@ meters:
     protocol: scm+
     # A nice name to show on HA
     name: test_meter
-    # Format of you meter
+    # Format of your meter
     format: "######.###"
     # Unit of measurement to show on HA
     unit_of_measurement: "\u33A5"
@@ -61,3 +61,5 @@ meters:
     icon: mdi:gauge
     # device_class on HA
     device_class: energy
+    # expire_after on HA
+    expire_after: 900
