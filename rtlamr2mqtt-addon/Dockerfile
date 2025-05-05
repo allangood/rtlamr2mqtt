@@ -1,4 +1,4 @@
-FROM golang:bullseye as go-builder
+FROM golang:bullseye AS go-builder
 
 WORKDIR /go/src/app
 
@@ -12,12 +12,12 @@ RUN go install github.com/bemasher/rtlamr@latest \
     && make \
     && make install
 
-FROM python:3.10-slim
+FROM python:3.13-slim
 
 COPY --from=go-builder /usr/local/lib/librtl* /lib/
 COPY --from=go-builder /go/bin/rtlamr* /usr/bin/
 COPY --from=go-builder /usr/local/bin/rtl* /usr/bin/
-COPY ./rtlamr2mqtt.py /usr/bin
+COPY ./rtlamr2mqtt.py /usr/local/bin
 COPY ./requirements.txt /tmp
 COPY ./sdl_ids.txt /var/lib/
 
@@ -33,4 +33,4 @@ RUN apt-get update \
 
 STOPSIGNAL SIGTERM
 
-ENTRYPOINT ["/usr/bin/rtlamr2mqtt.py"]
+ENTRYPOINT ["/usr/local/bin/rtlamr2mqtt.py"]
