@@ -1,4 +1,4 @@
-paho-mqtt==1.6.1
+paho-mqtt==2.1.0
 pyyaml==6.0.1
 requests==2.31.0
 pyusb==1.2.1
