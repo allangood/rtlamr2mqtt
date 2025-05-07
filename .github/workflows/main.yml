@@ -57,7 +57,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: rtlamr2mqtt-addon/
           platforms: linux/amd64,linux/i386,linux/arm64,linux/arm/v7,linux/arm/v6
