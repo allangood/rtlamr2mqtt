@@ -12,34 +12,33 @@ discovery_topic = 'homeassistant/device/rtlamr/config'
 
 device_discovery_tpl = {
     "dev": {
-        "ids": "ea334450945afc",
-        "name": "Kitchen",
-        "mf": "Bla electronics",
-        "mdl": "xya",
-        "sw": "1.0",
-        "sn": "ea334450945afc",
-        "hw": "1.0rev2"
+        "ids": "065c3b2845606ee0",
+        "name": "RTLAMR",
+        "mf": "Allan GooD",
+        "mdl": "RTL-SDR AMR Reader",
+        "sw": "2",
+        "sn": "87c831e0dae533a5"
     },
     "o": {
-        "name":"bla2mqtt",
-        "sw": "2.1",
-        "url": "https://bla2mqtt.example.com/support"
+        "name":"rtlamr2mqtt",
+        "sw": "2025.5.1",
+        "url": "https://github.com/allangood/rtlamr2mqtt"
     },
     "cmps": {
-        "some_unique_component_id1": {
-        "p": "sensor",
-        "device_class":"temperature",
-        "unit_of_measurement":"°C",
-        "value_template":"{{ value_json.temperature}}",
-        "unique_id":"temp01ae_t"
-        "state_topic":"homeassistant/sensor/sensorBedroom/state",
+        "<meter_id>_reading": {
+            "p": "sensor",
+            "device_class":"<device_class>",
+            "unit_of_measurement":"<unit_of_measurement>",
+            "value_template":"{{ value_json.reading}}",
+            "unique_id":"<meter_id>_reading",
+            "state_topic":"homeassistant/sensor/<base_topic>/state"
         },
         "some_unique_id2": {
-        "p": "sensor",
-        "device_class":"humidity",
-        "unit_of_measurement":"%",
-        "value_template":"{{ value_json.humidity}}",
-        "unique_id":"temp01ae_h"
+            "p": "sensor",
+            "device_class":"humidity",
+            "unit_of_measurement":"%",
+            "value_template":"{{ value_json.humidity}}",
+            "unique_id":"temp01ae_h"
         }
     },
     "state_topic":"sensorBedroom/state",

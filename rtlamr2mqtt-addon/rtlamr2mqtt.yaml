@@ -2,7 +2,7 @@ general:
   # Sleep for this amount of seconds before each reading 
   sleep_for: 60
   # Verbose output. It can be: debug, info, warning, error, none
-  verbosity: debug
+  verbosity: info
   # if you have multiple RTL devices, set the device id to use with this instance.
   # Get the ID running the lsusb command. If not specified, the first device will be used.
   # Example:
@@ -13,7 +13,7 @@ general:
 
 mqtt:
   # Broker host
-  # host: 127.0.0.1
+  host: 127.0.0.1
   # Broker port
   port: 1883
   # Username
@@ -22,16 +22,18 @@ mqtt:
   # password: testpassword
   # Use TLS with MQTT?
   tls_enabled: false
+  # TLS insecure. Must be true for self-signed certificates. Defaults to False
+  tls_insecure: true
   # Path to CA certificate to use. Mandatory if tls_enabled = true
   tls_ca: '/etc/ssl/certs/ca-certificates.crt'
   # Path to certificate file to use. Optional
   tls_cert: '/etc/ssl/my_self_signed_cert.crt'
-  # TLS insecure: defaults to False
-  tls_insecure: true
   # Certificate key file to use. Optional
   tls_keyfile: '/etc/ssl/my_self_signed_cert_key.key'
   # Which topic for the auto discover to use?
   ha_autodiscovery_topic: homeassistant
+  # Home Assistant status topic
+  ha_status_topic: hass/status
   # Base topic to send status and state information
   # i.e.: status = <base_topic>/status
   base_topic: 'rtlamr'
@@ -45,7 +47,7 @@ mqtt:
 # Mandatory section: Meters definition
 meters:
   # Meter ID
-  - id: NNNNNNNN
+  - id: 33333333
     # Protocol: scm, scm+, idm, netidm, r900 and r900bcd
     protocol: scm+
     # A nice name to show on HA

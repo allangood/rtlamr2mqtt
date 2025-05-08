@@ -22,7 +22,10 @@ if [ "$be_bad" ]; then
   echo "${bad}"
   exit 1
 else
-  echo "${good}"
+  while IFS= read -r line; do
+    echo "$line"
+    sleep 0.1
+  done <<< "$good"
 fi
 
 while :; do

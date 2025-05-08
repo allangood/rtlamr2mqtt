@@ -6,7 +6,7 @@ class MQTTClient:
         """
         Initialize the MQTT client.
         """
-        self.client = mqtt.Client()
+        self.client = mqtt.Client(client_id='rtlamr2mqtt')
         self.broker = broker
         self.port = port
         self.logger = logger
@@ -45,16 +45,16 @@ class MQTTClient:
         """
         Publish a message to a topic.
         """
-        if self.log_level >= 4:
-            self.logger.debug(f"Publishing to {topic}: {payload}")
+        if self.log_level >= 3:
+            self.logger.info(f"Publishing to {topic}: {payload}")
         self.client.publish(topic, payload=payload, qos=qos, retain=retain)
 
     def subscribe(self, topic, qos=0):
         """
         Subscribe to a topic.
         """
-        if self.log_level >= 4:
-            self.logger.debug(f"Subscribing to {topic}")
+        if self.log_level >= 3:
+            self.logger.info(f"Subscribing to {topic}")
         self.client.subscribe(topic, qos=qos)
 
     def set_on_message_callback(self, callback):
@@ -74,6 +74,12 @@ class MQTTClient:
         Stop the MQTT client loop.
         """
         self.client.loop_stop()
+
+    def loop(self):
+        """
+        Stop the MQTT client loop.
+        """
+        self.client.loop()
 
     def disconnect(self):
         """
