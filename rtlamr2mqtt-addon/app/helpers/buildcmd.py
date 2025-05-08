@@ -1,27 +1,5 @@
-import re
 import os
-import usb.core
-
-def load_id_file(sdl_ids_file):
-    device_ids = []
-    with open(sdl_ids_file) as f:
-        for line in f:
-            li = line.strip()
-            if re.match(r"(^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$)", li) is not None:
-                device_ids.append(line.rstrip().lstrip().lower())
-    return device_ids
-
-def find_rtl_sdr_devices(id_file_path):
-    # Load the list of all supported device ids
-    DEVICE_IDS = load_id_file(id_file_path)
-    devices_found = []
-    for dev in usb.core.find(find_all = True):
-        for known_dev in DEVICE_IDS:
-            usb_id, usb_vendor = known_dev.split(':')
-            if dev.idVendor == int(usb_id, 16) and dev.idProduct == int(usb_vendor, 16):
-                devices_found.append('{:03d}:{:03d}'.format(dev.bus, dev.address))
-                break
-    return devices_found
+import helpers.usb_utils as usbutils
 
 def get_comma_separated_str(key, list_of_dict):
     c = []
@@ -83,7 +61,7 @@ def build_rtltcp_args(config):
     if 'rtltcp' in config['custom_parameters']:
         custom_parameters = config['custom_parameters']['rtltcp']
     device_id = config['general']['device_id']
-    sdl_devices = find_rtl_sdr_devices('./sdl_ids.txt')
+    sdl_devices = usbutils.find_rtl_sdr_devices()
     dev_arg = '-d 0'
     if device_id != '0' and device_id in sdl_devices:
         dev_arg = f'-d {sdl_devices.index(device_id)}'

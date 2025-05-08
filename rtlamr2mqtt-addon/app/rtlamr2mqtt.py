@@ -19,6 +19,8 @@ import helpers.config as cnf
 import helpers.buildcmd as cmd
 import helpers.mqtt_client as m
 import helpers.read_output as ro
+import helpers.usb_utils as usbutil
+
 
 def shutdown(rtlamr, rtltcp, mqtt_client):
     if log_level >= 3:
@@ -58,6 +60,13 @@ def on_message(client, userdata, message):
         logger.info(f"Received message: {message.payload.decode()} on topic {message.topic}")
 
 def start_rtltcp(config):
+    if config['general']['device_id'] == '0':
+        usb_id = usbutil.find_rtl_sdr_devices()[0]
+    else:
+        usb_id = config['general']['device_id']
+    if log_level >= 3:
+        logger.debug(f'Reseting USB device {usb_id}')
+    usbutil.reset_usb_device(usb_id)
     rtltcp_args = cmd.build_rtltcp_args(config)
     if log_level >= 3:
         logger.info(f'Starting RTL_TCP using `rtl_tcp {" ".join(rtltcp_args)}`')
@@ -66,7 +75,16 @@ def start_rtltcp(config):
     # Wait for rtl_tcp to be ready
     while not rtltcp_is_ready:
         # Read the output in chunks
-        rtltcp_output = rtltcp.stdout.read1().decode("utf-8").strip('\n')
+        try:
+            rtltcp_output = rtltcp.stdout.read1().decode("utf-8").strip('\n')
+        except KeyboardInterrupt:
+            logger.critical(f"Interrupted by user.")
+            rtltcp_is_ready = False
+            sys.exit(1)
+        except Exception as e:
+            logger.critical(e)
+            rtltcp_is_ready = False
+            sys.exit(1)
         if rtltcp_output:
             if log_level >= 4:
                 logger.debug(rtltcp_output)
@@ -88,7 +106,16 @@ def start_rtlamr(config):
     rtlamr = Popen(["rtlamr"] + rtlamr_args, close_fds=True, stdout=PIPE)
     rtlamr_is_ready = False
     while not rtlamr_is_ready:
-        rtlamr_output = rtlamr.stdout.read1().decode("utf-8").strip('\n')
+        try:
+            rtlamr_output = rtlamr.stdout.read1().decode("utf-8").strip('\n')
+        except KeyboardInterrupt:
+            logger.critical(f"Interrupted by user.")
+            rtlamr_is_ready = False
+            sys.exit(1)
+        except Exception as e:
+            logger.critical(e)
+            rtlamr_is_ready = False
+            sys.exit(1)
         if rtlamr_output:
             if log_level >= 4:
                 logger.debug(rtlamr_output)
@@ -181,7 +208,6 @@ def main():
                 consumption_key = ro.list_intersection(json_output['Message'], ['Consumption', 'LastConsumptionCount'])
                 if consumption_key is not None:
                     consumption = json_output['Message'][consumption_key]
-                print(f"Meter ID: {meter_id}, Consumption: {consumption}")
                 if str(meter_id) in meter_ids_list:
                     if log_level >= 4:
                         logger.debug(f"Received message from ID {meter_id}: {json_output['Message']}")

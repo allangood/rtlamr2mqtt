@@ -1,5 +1,5 @@
 general:
-  # Sleep for this amount of seconds before each reading 
+  # Sleep for this amount of seconds before each reading
   sleep_for: 60
   # Verbose output. It can be: debug, info, warning, error, none
   verbosity: info
@@ -13,7 +13,7 @@ general:
 
 mqtt:
   # Broker host
-  host: 127.0.0.1
+  host: 172.17.0.1
   # Broker port
   port: 1883
   # Username
@@ -25,18 +25,18 @@ mqtt:
   # TLS insecure. Must be true for self-signed certificates. Defaults to False
   tls_insecure: true
   # Path to CA certificate to use. Mandatory if tls_enabled = true
-  tls_ca: '/etc/ssl/certs/ca-certificates.crt'
+  tls_ca: "/etc/ssl/certs/ca-certificates.crt"
   # Path to certificate file to use. Optional
-  tls_cert: '/etc/ssl/my_self_signed_cert.crt'
+  tls_cert: "/etc/ssl/my_self_signed_cert.crt"
   # Certificate key file to use. Optional
-  tls_keyfile: '/etc/ssl/my_self_signed_cert_key.key'
+  tls_keyfile: "/etc/ssl/my_self_signed_cert_key.key"
   # Which topic for the auto discover to use?
   ha_autodiscovery_topic: homeassistant
   # Home Assistant status topic
   ha_status_topic: hass/status
   # Base topic to send status and state information
   # i.e.: status = <base_topic>/status
-  base_topic: 'rtlamr'
+  base_topic: "rtlamr"
 
 # Optional section
 # If you need to pass parameters to rtl_tcp or rtlamr
