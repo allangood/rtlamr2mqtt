@@ -1,6 +1,7 @@
 general:
   # Sleep for this amount of seconds before each reading
-  sleep_for: 60
+  # If this value is 0, it means we will never stop reading
+  sleep_for: 0
   # Verbose output. It can be: debug, info, warning, error, none
   verbosity: info
   # if you have multiple RTL devices, set the device id to use with this instance.
@@ -13,7 +14,7 @@ general:
 
 mqtt:
   # Broker host
-  host: 172.17.0.1
+  host: 127.0.0.1
   # Broker port
   port: 1883
   # Username

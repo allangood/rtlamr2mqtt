@@ -15,7 +15,6 @@ RUN go install github.com/bemasher/rtlamr@latest \
 
 FROM python:3.13-slim
 
-
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"

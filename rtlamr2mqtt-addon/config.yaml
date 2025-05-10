@@ -9,7 +9,7 @@ boot: auto
 map:
   - config:rw
 url: https://github.com/allangood/rtlamr2mqtt
-uart: false
+uart: true
 udev: true
 usb: true
 host_network: false
@@ -27,7 +27,7 @@ options:
     sleep_for: 60
     verbosity: info
     device_id: "0"
-    rtltcp_host: "remote_host:1234"
+    rtltcp_host: "127.0.0.1:1234"
   mqtt:
     host: 127.0.0.1
     port: 1883
