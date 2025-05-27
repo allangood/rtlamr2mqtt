@@ -1,7 +1,14 @@
-import paho.mqtt.client as mqtt
+"""
+Helper functions for MQTT connection
+"""
+
 import ssl
+import paho.mqtt.client as mqtt
 
 class MQTTClient:
+    """
+    A class to handle MQTT client operations.
+    """
     def __init__(self, logger, broker, port, username=None, password=None, tls_enabled=False, ca_cert=None, client_cert=None, tls_insecure=False, client_key=None, log_level=4):
         """
         Initialize the MQTT client.

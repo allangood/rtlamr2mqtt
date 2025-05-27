@@ -14,17 +14,29 @@ import sys
 import logging
 import subprocess
 import signal
+from datetime import datetime
 from subprocess import Popen, PIPE
 from json import dumps
-from time import sleep
+from time import sleep, time
 import helpers.config as cnf
 import helpers.buildcmd as cmd
 import helpers.mqtt_client as m
+import helpers.ha_messages as ha_msgs
 import helpers.read_output as ro
 import helpers.usb_utils as usbutil
+import helpers.info as i
+
+
+# Set up logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
+LOG_LEVEL = 0
+logger.info('Starting rtlamr2mqtt %s', i.version())
+
 
 
 def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None):
+    """ Shutdown function to terminate processes and clean up """
     if LOG_LEVEL >= 3:
         logger.info('Shutting down...')
     # Terminate RTLAMR
@@ -60,36 +72,46 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None):
 
 
 def signal_handler(signum, frame):
-    raise Exception(f'Signal {signum} received.')
+    """ Signal handler for SIGINT and SIGTERM """
+    raise RuntimeError(f'Signal {signum} received.')
+
 
 
 
 def on_message(client, userdata, message):
+    """ Callback function for MQTT messages """
     if LOG_LEVEL >= 3:
         logger.info('Received message "%s" on topic "%s"', message.payload.decode(), message.topic)
 
 
 
+def get_iso8601_timestamp():
+    """
+    Get the current timestamp in ISO 8601 format
+    """
+    return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
 def start_rtltcp(config):
+    """ Start RTL_TCP process """
     # Search for RTL-SDR devices
     usb_id_list = usbutil.find_rtl_sdr_devices()
 
     if 'RTLAMR2MQTT_USE_MOCK' in os.environ:
         usb_id_list = [ '001:001']
 
+    usb_id = config['general']['device_id']
     if config['general']['device_id'] == '0':
         if len(usb_id_list) > 0:
             usb_id = usb_id_list[0]
         else:
             logger.critical('No RTL-SDR devices found. Exiting...')
             return None
-    else:
-        usb_id = config['general']['device_id']
+        
 
-    if LOG_LEVEL >= 3:
-        logger.debug('Reseting USB device: %s', usb_id)
-    
     if 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
+        if LOG_LEVEL >= 3:
+            logger.debug('Reseting USB device: %s', usb_id)
         usbutil.reset_usb_device(usb_id)
 
     rtltcp_args = cmd.build_rtltcp_args(config)
@@ -101,6 +123,7 @@ def start_rtltcp(config):
     except Exception as e:
         logger.critical('Failed to start RTL_TCP. %s', e)
         return None
+    
     rtltcp_is_ready = False
     # Wait for rtl_tcp to be ready
     while not rtltcp_is_ready:
@@ -132,6 +155,7 @@ def start_rtltcp(config):
 
 
 def start_rtlamr(config):
+    """ Start RTLAMR process """
     rtlamr_args = cmd.build_rtlamr_args(config)
     if LOG_LEVEL >= 3:
         logger.info('Starting RTLAMR using "rtlamr %s"', " ".join(rtlamr_args))
@@ -182,6 +206,7 @@ def main():
     else:
         config_path = None
     err, msg, config = cnf.load_config(config_path)
+
     if err != 'success':
         # Error loading configuration file
         logger.critical(msg)
@@ -196,7 +221,12 @@ def main():
     ##################################################################
 
     # Get a list of meters ids to watch
-    meter_ids_list = cmd.get_comma_separated_str('id', config['meters']).split(',')
+    meter_ids_list = list(config['meters'].keys())
+
+    # Create the info reading variable
+    reading_info = {}
+    for m_id in meter_ids_list:
+        reading_info[m_id] = { 'n_readings': 0, 'last_reading': 0 }
 
     # Create MQTT Client and connect to the broker
     mqtt_client = m.MQTTClient(
@@ -218,7 +248,7 @@ def main():
         topic=f'{config["mqtt"]["base_topic"]}/status',
         payload="offline",
         qos=1,
-        retain=True
+        retain=False
     )
 
     try:
@@ -229,17 +259,33 @@ def main():
 
     # Set on_message callback
     mqtt_client.set_on_message_callback(on_message)
+    
     # Subscribe to Home Assistant status topic
     mqtt_client.subscribe(config['mqtt']['ha_status_topic'], qos=1)
+    
     # Start the MQTT client loop
     mqtt_client.loop_start()
+    
+    # Publish the discovery messages for all meters
+    for meter in config['meters']:
+        discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
+        mqtt_client.publish(
+            topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
+            payload=dumps(discovery_payload),
+            qos=1,
+            retain=False
+        )
+
+    # Give some time for the MQTT client to connect and publish
+    sleep(1)
     # Publish the initial status
     mqtt_client.publish(
         topic=f'{config["mqtt"]["base_topic"]}/status',
         payload='online',
         qos=1,
-        retain=True
+        retain=False
     )
+
     ##################################################################
     keep_reading = True
     while keep_reading:
@@ -272,26 +318,49 @@ def main():
                 keep_reading = False
                 break
             # Search for ID in the output
-            reading = ro.search_for_ids(
+            reading = ro.get_message_for_ids(
                 rtlamr_output = rtlamr_output,
                 meter_ids_list = meter_ids_list
             )
+
             if reading is not None:
                 # Remove the meter_id from the list of missing readings
                 if reading['meter_id'] in missing_readings:
                     missing_readings.remove(reading['meter_id'])
+
+                # Update the reading info
+                reading_info[reading['meter_id']]['n_readings'] += 1
+                reading_info[reading['meter_id']]['last_reading'] = int(time())
+
+                if config['meters'][reading['meter_id']]['format'] is not None:
+                    r = ro.format_number(reading['consumption'], config['meters'][reading['meter_id']]['format'])
+                else:
+                    r = reading['consumption']
+
                 # Publish the reading to MQTT
+                payload = { 'reading': r, 'lastseen': get_iso8601_timestamp() }
                 mqtt_client.publish(
-                    topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}',
-                    payload=dumps(reading),
+                    topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/state',
+                    payload=dumps(payload),
                     qos=1,
-                    retain=True
+                    retain=False
+                )
+                
+                # Publish the meter attributes to MQTT
+                # Add the meter protocol to the list of attributes
+                reading['message']['protocol'] = config['meters'][reading['meter_id']]['protocol']
+                mqtt_client.publish(
+                    topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/attributes',
+                    payload=dumps(reading['message']),
+                    qos=1,
+                    retain=False
                 )
 
             if config['general']['sleep_for'] > 0 and len(missing_readings) == 0:
                 # We have our readings, so we can sleep
                 if LOG_LEVEL >= 3:
-                    logger.info(f'All readings received. Sleeping for {config["general"]["sleep_for"]} seconds...')
+                    logger.info('All readings received.')
+                    logger.info('Sleeping for %d seconds...', config["general"]["sleep_for"])
                 # Shutdown everything, but mqtt_client
                 shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=None)
                 try:
@@ -315,15 +384,11 @@ def main():
                 topic=f'{config["mqtt"]["base_topic"]}/status',
                 payload='offline',
                 qos=1,
-                retain=True
+                retain=False
             )
     shutdown(rtlamr = rtlamr, rtltcp = rtltcp, mqtt_client = mqtt_client)
 
 
 if __name__ == '__main__':
-    # Set up logging
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
-    LOG_LEVEL = 0
     # Call main function
     main()

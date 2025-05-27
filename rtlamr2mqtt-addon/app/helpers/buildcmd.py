@@ -1,26 +1,33 @@
-import os
+"""
+Helper functions for building command for rtl_tcp and rtlamr
+"""
+
 import helpers.usb_utils as usbutils
 
 def get_comma_separated_str(key, list_of_dict):
+    """
+    Get a comma-separated string of values for a given key from a list of dictionaries.
+    """
     c = []
-    for dict in list_of_dict:
-        if key in dict:
-            c.append(str(dict[key]))
+    for d in list_of_dict:
+        if key in list_of_dict[d]:
+            print(list_of_dict[d][key])
+            c.append(str(list_of_dict[d][key]))
     return ','.join(c)
 
-def partial_match_remove(key, list):
+def partial_match_remove(k, l):
     """
     Remove items from a list of dictionaries that partially match a key.
     Args:
-        key (str): The key to check for partial matches.
-        list (list): The list of dictionaries to check.
+        k (str): The key to check for partial matches.
+        l (list): The list of dictionaries to check.
     Returns:
-        list: The modified list of dictionaries.
+        l: The modified list of dictionaries.
     """
-    for n in list:
-        if '-server' in n:
-            list.remove(n)
-    return list
+    for n in l:
+        if k in n:
+            l.remove(n)
+    return l
 
 def build_rtlamr_args(config):
     """
@@ -32,7 +39,6 @@ def build_rtlamr_args(config):
     """
     # Build the command line arguments for the rtlamr command
     # based on the configuration file
-    args = []
     meters = config['meters']
     default_args = [ '-format=json' ]
     rtltcp_host = [ f'-server={config["general"]["rtltcp_host"]}' ]
@@ -41,10 +47,15 @@ def build_rtlamr_args(config):
     else:
         custom_parameters = [ '-unique=true' ]
     default_args = partial_match_remove('server', default_args)
-    ids = get_comma_separated_str('id', meters)
+
+    # Build a comma-separated string of meter IDs
+    ids = ','.join(list(meters.keys()))
     filterid_arg = [ f'-filterid={ids}' ]
+    
+    # Build a comma-separated string of message types
     msgtypes = get_comma_separated_str('protocol', meters)
     msgtype_arg = [ f'-msgtype={msgtypes}' ]
+
     return default_args + rtltcp_host + custom_parameters + filterid_arg + msgtype_arg
 
 def build_rtltcp_args(config):
