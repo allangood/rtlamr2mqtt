@@ -1,3 +1,18 @@
+### 2025-05-28 - Major changes!!!
+
+**MAJOR REWRITE**
+After a long break without working on this project
+I am back with a major rewrite.
+The old code was too hard to maintain
+This is a completly new code.
+You old entities should be cleaned manually from your MQTT broker
+
+**Changes**
+
+- I've tried to keep the configuration compatible with this new version
+  but some of the parameters had to change and I had to add some others.
+  Please check the tlamr2mqtt.yaml` file to see all the changes
+
 ### 2022-05-17
 
 - Bug fixes for remote rtl_tcp and usb_reset logic #123
