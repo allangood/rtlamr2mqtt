@@ -46,6 +46,9 @@ mqtt:
 #   rtlamr: "-unique=true"
 
 # Mandatory section: Meters definition
+# You can define multiple meters
+# Check here for more info:
+# https://www.home-assistant.io/integrations/sensor.mqtt
 meters:
   # Meter ID
   - id: 33333333
@@ -53,7 +56,7 @@ meters:
     protocol: scm+
     # A nice name to show on HA
     name: my_water_meter
-    # How to format the number of you meter. Each '#' is a digit
+    # How to format the number of your meter. Each '#' is a digit
     format: "######.###"
     # Unit of measurement to show on HA
     unit_of_measurement: "m³"
@@ -61,12 +64,20 @@ meters:
     icon: mdi:gauge
     # device_class on HA
     device_class: water
+    # HA state_class. It can be measurement|total|total_increasing
+    # state_class: total_increasing
+    # If set, it defines the number of seconds after the sensor’s state expires,
+    # if it’s not updated. After expiry, the sensor’s state becomes unavailable.
+    # expire_after: 0
+    # Sends update events even if the value hasn’t changed.
+    # Useful if you want to have meaningful value graphs in history.
+    # force_update: true
   - id: 22222222
     # Protocol: scm, scm+, idm, netidm, r900 and r900bcd
     protocol: r900
     # A nice name to show on HA
     name: my_energy_meter
-    # How to format the number of you meter. Each '#' is a digit
+    # How to format the number of your meter. Each '#' is a digit
     format: "######.###"
     # Unit of measurement to show on HA
     unit_of_measurement: "KWh"

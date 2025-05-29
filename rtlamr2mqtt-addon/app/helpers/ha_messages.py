@@ -9,15 +9,13 @@ def meter_discover_payload(base_topic, meter_config):
     Returns the discovery payload for Home Assistant.
     """
 
-    meter_id = meter_config['id']
+    meter_id = meter_config.pop('id')
     meter_name = meter_config.get('name', 'Unknown Meter')
-    device_class = meter_config.get('device_class', 'water')
-    unit_of_measurement = meter_config.get('unit_of_measurement', 'm³')
-    meter_icon = meter_config.get('icon', 'mdi:water')
+    meter_config.pop('name', None)
 
-    return {
+    template_payload = {
         "device": {
-            "identifiers": f"{device_class}_meter_{meter_id}",
+            "identifiers": f"meter_{meter_id}",
             "name": meter_name,
             "manufacturer": "RTLAMR2MQTT",
             "model": "Smart Meter",
@@ -34,9 +32,6 @@ def meter_discover_payload(base_topic, meter_config):
             f"{meter_id}_reading": {
                 "platform": "sensor",
                 "name": "Reading",
-                "device_class": device_class,
-                "unit_of_measurement": unit_of_measurement,
-                "icon": meter_icon,
                 "value_template": "{{ value_json.reading|float }}",
                 "json_attributes_topic": f"{base_topic}/{meter_id}/attributes",
                 "unique_id": f"{meter_id}_reading"
@@ -53,3 +48,7 @@ def meter_discover_payload(base_topic, meter_config):
         "availability_topic": f"{base_topic}/status",
         "qos": 1
     }
+
+    template_payload['components'][f'{meter_id}_reading'].update(meter_config)
+
+    return template_payload

@@ -26,13 +26,13 @@ def load_config(config_path=None):
     if config_path is None:
         return ('error', 'No config file found.', None)
     ##############################################################
-    
+
     # Check if the file exists and is readable
     if not os.path.isfile(config_path):
         return ('error', 'Config file not found.', None)
     if not os.access(config_path, os.R_OK):
         return ('error', 'Config file not readable.', None)
-    
+
     # Get file extension
     file_extension = os.path.splitext(config_path)[1]
     if file_extension in ['.json', '.js']:
@@ -43,7 +43,7 @@ def load_config(config_path=None):
             config = safe_load(file)
     else:
         return ('error', 'Config file format not supported.', None)
-    
+
     # Get values and set defauls
     general, mqtt, custom_parameters = {}, {}, {}
     if 'general' in config and config['general'] is not None:
@@ -72,16 +72,29 @@ def load_config(config_path=None):
     mqtt['base_topic'] = str(mqtt.get('base_topic', 'rtlamr'))
     mqtt['ha_status_topic'] = str(mqtt.get('ha_status_topic', 'homeassistant/status'))
     mqtt['ha_autodiscovery_topic'] = mqtt.get('ha_autodiscovery_topic', 'homeassistant')
-    
+
     # Custom parameters section
     custom_parameters['rtltcp'] = str(custom_parameters.get('rtltcp', '-s 2048000'))
     custom_parameters['rtlamr'] = str(custom_parameters.get('rtlamr', '-unique=true'))
-    
+
     # Convert meters to a dictionary with IDs as keys
     meters = {}
+    meters_allowed_keys = [
+        'id',
+        'protocol',
+        'name',
+        'format',
+        'unit_of_measurement',
+        'icon',
+        'device_class',
+        'state_class',
+        'expire_after',
+        'force_update'
+    ]
     for m in config['meters']:
-        meters[str(m['id'])] = m
-    
+        # Get only allowed keys and drop anything else
+        meters[str(m['id'])] = { key: value for key, value in m.items() if key in meters_allowed_keys }
+
     # Build config
     config = {
         'general': general,

@@ -16,9 +16,6 @@ host_network: false
 hassio_api: true
 arch:
   - amd64
-  - i386
-  - armv7
-  - armhf
   - aarch64
 services:
   - mqtt:need
@@ -31,13 +28,6 @@ options:
   mqtt:
     host: 127.0.0.1
     port: 1883
-    user: test
-    password: testpassword
-    tls_enabled: false
-    tls_insecure: true
-    tls_ca: "/etc/ssl/certs/ca-certificates.crt"
-    tls_cert: "/etc/ssl/my_self_signed_cert.crt"
-    tls_keyfile: "/etc/ssl/my_self_signed_cert_key.key"
     ha_autodiscovery_topic: homeassistant
     ha_status_topic: hass/status
     base_topic: "rtlamr"
@@ -45,20 +35,10 @@ options:
     rtltcp: "-s 2048000"
     rtlamr: "-unique=true"
   meters:
-    - id: 11111111
-      protocol: scm+
-      name: my_water_meter
-      format: "######.###"
-      unit_of_measurement: "m³"
-      icon: mdi:gauge
-      # device_class on HA
-      device_class: water
     - id: 22222222
       protocol: r900
       name: my_energy_meter
       format: "######.###"
-      unit_of_measurement: "KWh"
-      icon: mdi:gauge
       # device_class on HA
       device_class: energy
 
@@ -93,3 +73,5 @@ schema:
       icon: "str?"
       device_class: list(none|current|energy|gas|power|water)
       state_class: list(measurement|total|total_increasing)?
+      expire_after: int?
+      force_update: bool?
