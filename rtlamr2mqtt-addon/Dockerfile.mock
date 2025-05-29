@@ -1,0 +1,18 @@
+# syntax=docker/dockerfile:1
+FROM python:3.13-slim
+
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV RTLAMR2MQTT_USE_MOCK=1
+
+COPY mock/ /usr/bin/
+COPY requirements.txt /tmp
+COPY ./app/ $VIRTUAL_ENV/app/
+
+RUN pip install -r /tmp/requirements.txt \
+    && rm -rf /usr/share/doc /tmp/requirements.txt
+
+STOPSIGNAL SIGTERM
+
+ENTRYPOINT ["python", "/opt/venv/app/rtlamr2mqtt.py"]

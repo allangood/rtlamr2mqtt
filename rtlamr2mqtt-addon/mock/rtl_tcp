@@ -1,0 +1,33 @@
+#!/bin/bash
+# This is a mock script to simulate the output of a real RTL_TCP device.
+
+be_bad=$(echo "$@"|grep "bad")
+
+good="Found 1 device(s):
+  0:  Realtek, RTL2838UHIDIR, SN: 00000001
+
+Using device 0: Generic RTL2832U OEM
+Detached kernel driver
+Found Rafael Micro R820T tuner
+[R82XX] PLL not locked!
+Tuned to 100000000 Hz.
+listening...
+Use the device argument 'rtl_tcp=127.0.0.1:1234' in OsmoSDR (gr-osmosdr) source
+to receive samples in GRC and control rtl_tcp parameters (frequency, gain, ...).
+"
+
+bad="No supported devices found."
+
+if [ "$be_bad" ]; then
+  echo "${bad}"
+  exit 1
+else
+  while IFS= read -r line; do
+    echo "$line"
+    sleep 0.1
+  done <<< "$good"
+fi
+
+while :; do
+  sleep 1
+done

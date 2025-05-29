@@ -1,0 +1,76 @@
+general:
+  # Sleep for this amount of seconds before each reading
+  # If this value is 0, it means we will never stop reading
+  sleep_for: 0
+  # Verbose output. It can be: debug, info, warning, error, none
+  verbosity: info
+  # if you have multiple RTL devices, set the device id to use with this instance.
+  # Get the ID running the lsusb command. If not specified, the first device will be used.
+  # Example:
+  # device_id: '001:010'
+  # RTL_TCP host and port to connect. Default, use the internal server
+  # If you want to use a remote rtl_tcp server, set the host and port here
+  # rtltcp_host: 'remote_host:1234'
+
+mqtt:
+  # Broker host
+  host: 127.0.0.1
+  # Broker port
+  port: 1883
+  # Username
+  # user: test
+  # Password
+  # password: testpassword
+  # Use TLS with MQTT?
+  tls_enabled: false
+  # TLS insecure. Must be true for self-signed certificates. Defaults to False
+  tls_insecure: true
+  # Path to CA certificate to use. Mandatory if tls_enabled = true
+  tls_ca: "/etc/ssl/certs/ca-certificates.crt"
+  # Path to certificate file to use. Optional
+  tls_cert: "/etc/ssl/my_self_signed_cert.crt"
+  # Certificate key file to use. Optional
+  tls_keyfile: "/etc/ssl/my_self_signed_cert_key.key"
+  # Which topic for the auto discover to use?
+  ha_autodiscovery_topic: homeassistant
+  # Home Assistant status topic
+  ha_status_topic: hass/status
+  # Base topic to send status and state information
+  # i.e.: status = <base_topic>/status
+  base_topic: "rtlamr"
+
+# Optional section
+# If you need to pass parameters to rtl_tcp or rtlamr
+# custom_parameters:
+#   rtltcp: "-s 2048000"
+#   rtlamr: "-unique=true"
+
+# Mandatory section: Meters definition
+meters:
+  # Meter ID
+  - id: 33333333
+    # Protocol: scm, scm+, idm, netidm, r900 and r900bcd
+    protocol: scm+
+    # A nice name to show on HA
+    name: my_water_meter
+    # How to format the number of you meter. Each '#' is a digit
+    format: "######.###"
+    # Unit of measurement to show on HA
+    unit_of_measurement: "m³"
+    # Icon to show on HA
+    icon: mdi:gauge
+    # device_class on HA
+    device_class: water
+  - id: 22222222
+    # Protocol: scm, scm+, idm, netidm, r900 and r900bcd
+    protocol: r900
+    # A nice name to show on HA
+    name: my_energy_meter
+    # How to format the number of you meter. Each '#' is a digit
+    format: "######.###"
+    # Unit of measurement to show on HA
+    unit_of_measurement: "KWh"
+    # Icon to show on HA
+    icon: mdi:gauge
+    # device_class on HA
+    device_class: energy
