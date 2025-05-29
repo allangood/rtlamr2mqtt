@@ -35,7 +35,7 @@ logger.info('Starting rtlamr2mqtt %s', i.version())
 
 
 
-def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None):
+def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr'):
     """ Shutdown function to terminate processes and clean up """
     if LOG_LEVEL >= 3:
         logger.info('Shutting down...')
@@ -64,6 +64,12 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None):
         if LOG_LEVEL >= 3:
             logger.info('RTL_TCP Terminitaed.')
     if mqtt_client is not None:
+        mqtt_client.publish(
+            topic=f'{base_topic}/status',
+            payload='offline',
+            qos=1,
+            retain=False
+        )
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
     if LOG_LEVEL >= 3:
@@ -107,7 +113,7 @@ def start_rtltcp(config):
         else:
             logger.critical('No RTL-SDR devices found. Exiting...')
             return None
-        
+
 
     if 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
         if LOG_LEVEL >= 3:
@@ -123,7 +129,7 @@ def start_rtltcp(config):
     except Exception as e:
         logger.critical('Failed to start RTL_TCP. %s', e)
         return None
-    
+
     rtltcp_is_ready = False
     # Wait for rtl_tcp to be ready
     while not rtltcp_is_ready:
@@ -259,13 +265,13 @@ def main():
 
     # Set on_message callback
     mqtt_client.set_on_message_callback(on_message)
-    
+
     # Subscribe to Home Assistant status topic
     mqtt_client.subscribe(config['mqtt']['ha_status_topic'], qos=1)
-    
+
     # Start the MQTT client loop
     mqtt_client.loop_start()
-    
+
     # Publish the discovery messages for all meters
     for meter in config['meters']:
         discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
@@ -294,14 +300,14 @@ def main():
         rtltcp = start_rtltcp(config)
         if rtltcp is None:
             logger.critical('Failed to start RTL_TCP. Exiting...')
-            shutdown(rtlamr=None, rtltcp=None, mqtt_client=mqtt_client)
+            shutdown(rtlamr=None, rtltcp=None, mqtt_client=mqtt_client, base_topic=config["mqtt"]["base_topic"])
             sys.exit(1)
 
         # Start RTLAMR
         rtlamr = start_rtlamr(config)
         if rtlamr is None:
             logger.critical('Failed to start RTLAMR. Exiting...')
-            shutdown(rtlamr=None, rtltcp=rtltcp, mqtt_client=mqtt_client)
+            shutdown(rtlamr=None, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config["mqtt"]["base_topic"])
             sys.exit(1)
         ##################################################################
 
@@ -345,7 +351,7 @@ def main():
                     qos=1,
                     retain=False
                 )
-                
+
                 # Publish the meter attributes to MQTT
                 # Add the meter protocol to the list of attributes
                 reading['message']['protocol'] = config['meters'][reading['meter_id']]['protocol']
@@ -368,25 +374,19 @@ def main():
                 except KeyboardInterrupt:
                     logger.critical('Interrupted by user.')
                     keep_reading = False
-                    shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client)
+                    shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config['mqtt']['base_topic'])
                     break
                 except Exception:
                     logger.critical('Term siganal received. Exiting...')
                     keep_reading = False
-                    shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client)
+                    shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config['mqtt']['base_topic'])
                     break
                 if LOG_LEVEL >= 3:
                     logger.info('Time to wake up!')
                 break
 
     # Shutdown
-    mqtt_client.publish(
-                topic=f'{config["mqtt"]["base_topic"]}/status',
-                payload='offline',
-                qos=1,
-                retain=False
-            )
-    shutdown(rtlamr = rtlamr, rtltcp = rtltcp, mqtt_client = mqtt_client)
+    shutdown(rtlamr = rtlamr, rtltcp = rtltcp, mqtt_client = mqtt_client, base_topic=config['mqtt']['base_topic'])
 
 
 if __name__ == '__main__':
