@@ -41,7 +41,7 @@ def reset_usb_device(usbdev):
     Reset USB port
     """
     if usbdev is not None and ':' in usbdev:
-        busnum, devnum = usbdev.split(':')
+        busnum, devnum = [int(x) for x in usbdev.split(':')]
         filename = f"/dev/bus/usb/{busnum:03d}/{devnum:03d}"
         if os.path.exists(filename) and S_ISCHR(os.stat(filename).st_mode):
             #define USBDEVFS_RESET_IO('U', 20)
