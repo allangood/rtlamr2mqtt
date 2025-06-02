@@ -105,7 +105,10 @@ def start_rtltcp(config):
     # Search for RTL-SDR devices
     usb_id_list = usbutil.find_rtl_sdr_devices()
 
-    if 'RTLAMR2MQTT_USE_MOCK' in os.environ:
+    # Check if we are using a remote RTL_TCP server
+    is_remote = config["general"]["rtltcp_host"].split(':') not in [ '127.0.1', 'localhost' ]
+
+    if 'RTLAMR2MQTT_USE_MOCK' in os.environ or is_remote:
         usb_id_list = [ '001:001']
 
     usb_id = config['general']['device_id']
@@ -117,7 +120,7 @@ def start_rtltcp(config):
             return None
 
 
-    if 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
+    if 'RTLAMR2MQTT_USE_MOCK' not in os.environ and not is_remote:
         if LOG_LEVEL >= 3:
             logger.debug('Reseting USB device: %s', usb_id)
         usbutil.reset_usb_device(usb_id)
