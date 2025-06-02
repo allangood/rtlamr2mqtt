@@ -15,7 +15,6 @@ import logging
 import subprocess
 import signal
 from datetime import datetime
-from subprocess import Popen, PIPE
 from json import dumps
 from time import sleep, time
 import helpers.config as cnf
@@ -43,6 +42,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr'):
     if rtlamr is not None:
         if LOG_LEVEL >= 3:
             logger.info('Terminating RTLAMR...')
+        rtlamr.stdout.close()
         rtlamr.terminate()
         try:
             rtlamr.communicate(timeout=1)
@@ -52,9 +52,10 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr'):
         if LOG_LEVEL >= 3:
             logger.info('RTLAMR Terminitaed.')
     # Terminate RTL_TCP
-    if rtltcp is not None:
+    if rtltcp not in [None, 'remote']:
         if LOG_LEVEL >= 3:
             logger.info('Terminating RTL_TCP...')
+        rtltcp.stdout.close()
         rtltcp.terminate()
         try:
             rtltcp.communicate(timeout=1)
@@ -98,12 +99,16 @@ def get_iso8601_timestamp():
     return datetime.now().astimezone().replace(microsecond=0).isoformat()
 
 
+
 def start_rtltcp(config):
     """ Start RTL_TCP process """
     # Search for RTL-SDR devices
     usb_id_list = usbutil.find_rtl_sdr_devices()
 
-    if 'RTLAMR2MQTT_USE_MOCK' in os.environ:
+    # Check if we are using a remote RTL_TCP server
+    is_remote = config["general"]["rtltcp_host"].split(':') not in [ '127.0.1', 'localhost' ]
+
+    if 'RTLAMR2MQTT_USE_MOCK' in os.environ or is_remote:
         usb_id_list = [ '001:001']
 
     usb_id = config['general']['device_id']
@@ -115,17 +120,27 @@ def start_rtltcp(config):
             return None
 
 
-    if 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
+    if 'RTLAMR2MQTT_USE_MOCK' not in os.environ and not is_remote:
         if LOG_LEVEL >= 3:
             logger.debug('Reseting USB device: %s', usb_id)
         usbutil.reset_usb_device(usb_id)
 
     rtltcp_args = cmd.build_rtltcp_args(config)
+    if rtltcp_args is None and LOG_LEVEL >= 3:
+        logger.info(f'Using remote RTL_TCP host on {config["general"]["rtltcp_host"]}.')
+        return 'remote'
 
     if LOG_LEVEL >= 3:
-        logger.info('Starting RTL_TCP using "rtl_tcp %s"', " ".join(rtltcp_args))
+        logger.info('Starting RTL_TCP using: rtl_tcp %s', " ".join(rtltcp_args))
     try:
-        rtltcp = Popen(["rtl_tcp"] + rtltcp_args, close_fds=True, stdout=PIPE)
+        rtltcp = subprocess.Popen(["rtl_tcp"] + rtltcp_args,
+            start_new_session=True,
+            text=True,
+            close_fds=True,
+            universal_newlines=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT)
+        sleep(2)
     except Exception as e:
         logger.critical('Failed to start RTL_TCP. %s', e)
         return None
@@ -135,15 +150,13 @@ def start_rtltcp(config):
     while not rtltcp_is_ready:
         # Read the output in chunks
         try:
-            rtltcp_output = rtltcp.stdout.read1().decode('utf-8').strip('\n')
-        except KeyboardInterrupt:
-            logger.critical('Interrupted by user.')
-            rtltcp_is_ready = False
-            sys.exit(1)
+            usbutil.tickle_rtl_tcp(config['general']['rtltcp_host'])
+            rtltcp_output = rtltcp.stdout.readline().strip()
+            sys.stdout.flush()
         except Exception as e:
             logger.critical(e)
             rtltcp_is_ready = False
-            sys.exit(1)
+            return None
         if rtltcp_output:
             if LOG_LEVEL >= 4:
                 logger.debug(rtltcp_output)
@@ -163,25 +176,29 @@ def start_rtltcp(config):
 def start_rtlamr(config):
     """ Start RTLAMR process """
     rtlamr_args = cmd.build_rtlamr_args(config)
+    usbutil.tickle_rtl_tcp(config['general']['rtltcp_host'])
     if LOG_LEVEL >= 3:
-        logger.info('Starting RTLAMR using "rtlamr %s"', " ".join(rtlamr_args))
+        logger.info('Starting RTLAMR using: rtlamr %s', " ".join(rtlamr_args))
     try:
-        rtlamr = Popen(["rtlamr"] + rtlamr_args, close_fds=True, stdout=PIPE)
+        rtlamr = subprocess.Popen(["rtlamr"] + rtlamr_args,
+            close_fds=True,
+            text=True,
+            start_new_session=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            )
+        sleep(2)
     except Exception:
         logger.critical('Failed to start RTLAMR. Exiting...')
         return None
     rtlamr_is_ready = False
     while not rtlamr_is_ready:
         try:
-            rtlamr_output = rtlamr.stdout.read1().decode('utf-8').strip('\n')
-        except KeyboardInterrupt:
-            logger.critical('Interrupted by user.')
-            rtlamr_is_ready = False
-            sys.exit(1)
+            rtlamr_output = rtlamr.stdout.readline().strip()
         except Exception as e:
             logger.critical(e)
             rtlamr_is_ready = False
-            sys.exit(1)
+            return None
         if rtlamr_output:
             if LOG_LEVEL >= 4:
                 logger.debug(rtlamr_output)
@@ -226,10 +243,17 @@ def main():
         logger.info(msg)
     ##################################################################
 
+    # ToDo:
+    # Here is were it will be defined how the code will search
+    # for a meter_id based on a value.
+    # res = list((sub for sub in config['meters'] if config['meters'][sub]['name'][-7:] == "_FINDME"))
+
     # Get a list of meters ids to watch
     meter_ids_list = list(config['meters'].keys())
 
     # Create the info reading variable
+    # This variable stores the number of readings for each meter
+    # It is used to help with the sleep_for logic
     reading_info = {}
     for m_id in meter_ids_list:
         reading_info[m_id] = { 'n_readings': 0, 'last_reading': 0 }
@@ -295,7 +319,7 @@ def main():
     ##################################################################
     keep_reading = True
     while keep_reading:
-        missing_readings = meter_ids_list.copy()
+        read_counter = []
         # Start RTL_TCP
         rtltcp = start_rtltcp(config)
         if rtltcp is None:
@@ -330,9 +354,9 @@ def main():
             )
 
             if reading is not None:
-                # Remove the meter_id from the list of missing readings
-                if reading['meter_id'] in missing_readings:
-                    missing_readings.remove(reading['meter_id'])
+                # Add the meter_id to the read_counter
+                if reading['meter_id'] not in read_counter:
+                    read_counter.append(reading['meter_id'])
 
                 # Update the reading info
                 reading_info[reading['meter_id']]['n_readings'] += 1
