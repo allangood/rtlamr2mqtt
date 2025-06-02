@@ -31,14 +31,18 @@ RTLAMR2MQTT is a small Python program to read your utility meter such as water, 
 
 - Function to find your meter ID based on your meter reading
 
-### Noteworthy Updates
+### Changes
 
-> [!CAUTION] > **Major code rewrite**
-> After a long break without working on this project
-> I am back with a major rewrite.
-> The old code was too hard to maintain
-> This is a completly new code.
-> You old entities should be cleaned manually from your MQTT broker
+> [!CAUTION]
+> **Major code rewrite** \
+> After a long break without working on this project, I am back with a major rewrite. \
+> The old code was too hard to maintain. \
+> Your old entities should be cleaned manually from your MQTT broker
+
+> [!CAUTION]
+> This new version does **not** have the LISTEN MODE!!! \
+> It is planned, but not implemented yet.
+
 
 # Readme starts here
 
