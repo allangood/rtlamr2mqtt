@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2.3.4
+version: 2025.6.1
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
@@ -16,64 +16,62 @@ host_network: false
 hassio_api: true
 arch:
   - amd64
-  - i386
-  - armv7
-  - armhf
   - aarch64
 services:
   - mqtt:need
 options:
   general:
-    sleep_for: 300
-    verbosity: debug
-    listen_only: false
-    tickle_rtl_tcp: false
-    device_id: single
+    sleep_for: 60
+    verbosity: info
+    device_id: "0"
+    rtltcp_host: "127.0.0.1:1234"
   mqtt:
-    ha_autodiscovery: true
+    host: 127.0.0.1
+    port: 1883
     ha_autodiscovery_topic: homeassistant
-    base_topic: rtlamr
-    tls_enabled: false
+    ha_status_topic: hass/status
+    base_topic: "rtlamr"
   custom_parameters:
     rtltcp: "-s 2048000"
     rtlamr: "-unique=true"
   meters:
-    - id: 123456789
-      protocol: scm+
-      name: gas_meter
-      format: "####.###"
-      unit_of_measurement: m³
-      icon: mdi:gas_canister
-      device_class: gas
+    - id: 22222222
+      protocol: r900
+      name: my_energy_meter
+      format: "######.###"
+      # device_class on HA
+      device_class: energy
+
 schema:
   general:
-    sleep_for: int
-    verbosity: list(debug|normal)?
-    listen_only: bool?
-    tickle_rtl_tcp: bool?
-    device_id: match((^single|^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$))
+    sleep_for: "int?"
+    verbosity: "list(debug|info|warning|critical|none)?"
+    device_id: "match((^0|^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$))?"
+    rtltcp_host: match(([\w\d\.]+):(\d+))
   mqtt:
-    host: str?
-    port: int?
-    user: str?
+    host: "str?"
+    port: "int?"
+    user: "str?"
     password: str?
-    ha_autodiscovery: bool?
-    ha_autodiscovery_topic: str?
-    base_topic: str
-    tls_enabled: bool?
-    tls_ca: str?
-    tls_cert: str?
-    tls_keyfile: str?
-    tls_insecure: bool?
+    tls_enabled: "bool?"
+    tls_insecure: "bool?"
+    tls_ca: "str?"
+    tls_cert: "str?"
+    tls_keyfile: "str?"
+    ha_autodiscovery_topic: "str?"
+    ha_status_topic: "str?"
+    base_topic: "str?"
   custom_parameters:
-    rtltcp: str?
-    rtlamr: str?
+    rtltcp: "str?"
+    rtlamr: "str?"
   meters:
     - id: int
       protocol: list(idm|netidm|r900|r900bcd|scm|scm+)
-      name: str
-      format: str?
-      unit_of_measurement: str
-      icon: str
-      device_class: list(none|apparent_power|aqi|battery|carbon_dioxide|carbon_monoxide|current|date|distance|duration|energy|frequency|gas|humidity|illuminance|moisture|monetary|nitrogen_dioxide|nitrogen_monoxide|nitrous_oxide|ozone|pm1|pm10|pm25|power_factor|power|precipitation_intensity|pressure|reactive_power|signal_strength|speed|sulphur_dioxide|temperature|timestamp|volatile_organic_compounds|voltage|volume|water|weight|wind_speed)?
+      name: "str"
+      format: "str?"
+      unit_of_measurement: "str?"
+      icon: "str?"
+      device_class: list(none|current|energy|gas|power|water)
       state_class: list(measurement|total|total_increasing)?
+      expire_after: int?
+      force_update: bool?

@@ -1,0 +1,58 @@
+#!/bin/bash
+# This is a mock script to simulate the output of a real RTLAMR device.
+
+header='client accepted! localhost 56348
+Allocating 15 zero-copy buffers
+set freq 912600155
+21:25:03.790381 decode.go:45: CenterFreq: 912600155
+21:25:03.790583 decode.go:46: SampleRate: 2359296
+21:25:03.790600 decode.go:47: DataRate: 32768
+21:25:03.790614 decode.go:48: ChipLength: 72
+21:25:03.790621 decode.go:49: PreambleSymbols: 32
+21:25:03.790634 decode.go:50: PreambleLength: 4608
+21:25:03.790641 decode.go:51: PacketSymbols: 736
+21:25:03.790659 decode.go:52: PacketLength: 105984
+21:25:03.790675 decode.go:59: Protocols: idm,r900,scm,scm+
+21:25:03.790684 decode.go:60: Preambles: 01010101010101010001011010100011,00000000000000001110010101100100,111110010101001100000,0001011010100011
+21:25:03.790703 main.go:124: GainCount: 29
+set sample rate 2359296
+set gain mode 0'
+
+reads='{"Time":"2025-05-05T21:25:04.891578823Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":33333333,"ConsumptionIntervalCount":76,"ModuleProgrammingState":188,"TamperCounters":"AwIAcw4A","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":1978208,"DifferentialConsumptionIntervals":[26,26,27,26,26,24,24,24,24,24,26,26,26,27,26,26,26,26,24,23,48,23,24,25,25,24,25,24,25,25,23,23,22,23,23,23,24,25,25,25,25,25,26,23,23,22,23],"TransmitTimeOffset":3911,"SerialNumberCRC":43319,"PacketCRC":49515}}
+{"Time":"2025-05-05T21:25:06.548266268Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":60706301,"Type":7,"TamperPhy":1,"TamperEnc":2,"Consumption":7621974,"ChecksumVal":48922}}
+{"Time":"2025-05-05T21:25:08.660603188Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":00000000,"Type":7,"TamperPhy":3,"TamperEnc":1,"Consumption":206082,"ChecksumVal":20730}}
+{"Time":"2025-05-05T21:25:10.905527969Z","Offset":0,"Length":0,"Type":"R900","Message":{"ID":1111111111,"Unkn1":163,"NoUse":0,"BackFlow":0,"Consumption":4555831,"Unkn3":0,"Leak":2,"LeakNow":0}}
+{"Time":"2025-05-05T21:25:11.001486809Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":22222222,"Type":7,"TamperPhy":0,"TamperEnc":1,"Consumption":9480653,"ChecksumVal":8042}}
+{"Time":"2025-05-05T21:25:11.959372062Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":33333333,"Type":7,"TamperPhy":3,"TamperEnc":2,"Consumption":1978226,"ChecksumVal":60151}}
+{"Time":"2025-05-05T21:25:14.555435329Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":44444444,"ConsumptionIntervalCount":68,"ModuleProgrammingState":188,"TamperCounters":"BAUAdhEA","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":9386150,"DifferentialConsumptionIntervals":[57,85,51,41,69,43,42,43,43,43,43,44,44,44,44,46,41,27,43,44,43,43,43,43,43,44,70,52,44,45,46,44,47,44,43,24,41,43,45,44,43,44,41,25,43,44,43],"TransmitTimeOffset":4068,"SerialNumberCRC":11642,"PacketCRC":20482}}
+{"Time":"2025-05-05T21:25:15.387177726Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":52,"PacketLength":92,"HammingCode":198,"ApplicationVersion":140,"ERTType":6,"ERTSerialNumber":22222222,"ConsumptionIntervalCount":164,"ModuleProgrammingState":184,"TamperCounters":"BAEAbQEA","AsynchronousCounters":0,"PowerOutageFlags":"AAAACAAA","LastConsumptionCount":1217440205,"DifferentialConsumptionIntervals":[7,6,70,70,6,6,22,2,358,5,6,5,24,2,262,136,13,87,6,6,6,6,6,5,6,5,129,390,6,6,7,6,7,8,5,6,7,6,6,7,7,6,6,22,7,6,22],"TransmitTimeOffset":3938,"SerialNumberCRC":40239,"PacketCRC":58148}}
+{"Time":"2025-05-05T21:25:16.459564528Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":33333333,"ConsumptionIntervalCount":76,"ModuleProgrammingState":188,"TamperCounters":"AwIAcw4A","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":1978208,"DifferentialConsumptionIntervals":[26,26,27,26,26,24,24,24,24,24,26,26,26,27,26,26,26,26,24,23,48,23,24,25,25,24,25,24,25,25,23,23,22,23,23,23,24,25,25,25,25,25,26,23,23,22,23],"TransmitTimeOffset":4096,"SerialNumberCRC":43319,"PacketCRC":38431}}
+{"Time":"2025-05-05T21:25:18.0592798Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":00000000,"ConsumptionIntervalCount":83,"ModuleProgrammingState":188,"TamperCounters":"AwEAgQ0A","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":206053,"DifferentialConsumptionIntervals":[30,17,37,38,17,32,41,19,29,45,30,19,42,35,17,37,41,19,27,43,36,17,31,40,16,27,41,28,17,37,37,17,25,42,22,18,41,32,17,31,39,17,24,42,20,18,40],"TransmitTimeOffset":4091,"SerialNumberCRC":30874,"PacketCRC":37394}}
+{"Time":"2025-05-05T21:25:18.404352806Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":22222222,"Type":7,"TamperPhy":0,"TamperEnc":1,"Consumption":9480653,"ChecksumVal":8042}}
+{"Time":"2025-05-05T21:25:19.118764497Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":00000000,"Type":7,"TamperPhy":3,"TamperEnc":1,"Consumption":206082,"ChecksumVal":20730}}
+{"Time":"2025-05-05T21:25:21.825465663Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":33333333,"Type":7,"TamperPhy":3,"TamperEnc":2,"Consumption":1978226,"ChecksumVal":60151}}
+{"Time":"2025-05-05T21:25:23.017740828Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":44444444,"ConsumptionIntervalCount":68,"ModuleProgrammingState":188,"TamperCounters":"BAUAdhEA","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":9386150,"DifferentialConsumptionIntervals":[57,85,51,41,69,43,42,43,43,43,43,44,44,44,44,46,41,27,43,44,43,43,43,43,43,44,70,52,44,45,46,44,47,44,43,24,41,43,45,44,43,44,41,25,43,44,43],"TransmitTimeOffset":4204,"SerialNumberCRC":11642,"PacketCRC":3504}}
+{"Time":"2025-05-05T21:25:24.220854724Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":22222222,"ConsumptionIntervalCount":164,"ModuleProgrammingState":188,"TamperCounters":"hAUAbQFQ","AsynchronousCounters":0,"PowerOutageFlags":"AiEAgDAA","LastConsumptionCount":9480653,"DifferentialConsumptionIntervals":[7,6,6,6,6,6,6,6,6,5,6,5,8,7,6,8,7,7,7,6,6,6,6,5,6,5,7,6,6,6,7,6,7,8,5,6,7,6,6,7,7,6,6,6,7,6,6],"TransmitTimeOffset":4079,"SerialNumberCRC":40239,"PacketCRC":39471}}
+{"Time":"2025-05-05T21:25:24.741295887Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":00000000,"ConsumptionIntervalCount":83,"ModuleProgrammingState":188,"TamperCounters":"AwEAgQ0A","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":206053,"DifferentialConsumptionIntervals":[30,17,37,38,17,32,41,19,29,45,30,19,42,35,17,37,41,19,27,43,36,17,31,40,16,27,41,28,17,37,37,17,25,42,22,18,41,32,17,31,39,17,24,42,20,18,40],"TransmitTimeOffset":4198,"SerialNumberCRC":30874,"PacketCRC":26419}}
+{"Time":"2025-05-05T21:25:25.826760611Z","Offset":0,"Length":0,"Type":"R900","Message":{"ID":1578829012,"Unkn1":163,"NoUse":32,"BackFlow":0,"Consumption":554416,"Unkn3":0,"Leak":2,"LeakNow":0}}
+{"Time":"2025-05-05T21:25:26.782067598Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":59897587,"ConsumptionIntervalCount":76,"ModuleProgrammingState":188,"TamperCounters":"QwVEdi1I","AsynchronousCounters":0,"PowerOutageFlags":"IglEBEYB","LastConsumptionCount":2691204,"DifferentialConsumptionIntervals":[49,31,31,37,50,34,39,53,31,37,47,43,43,46,45,43,49,46,44,50,66,78,46,50,55,31,32,32,32,31,32,31,31,31,32,31,31,31,32,29,29,30,29,29,29,30,29],"TransmitTimeOffset":4143,"SerialNumberCRC":51697,"PacketCRC":1042}}
+{"Time":"2025-05-05T21:25:27.459184873Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":00000000,"Type":7,"TamperPhy":3,"TamperEnc":1,"Consumption":206082,"ChecksumVal":20730}}
+{"Time":"2025-05-05T21:25:27.722258648Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":59897593,"Type":7,"TamperPhy":3,"TamperEnc":0,"Consumption":9233791,"ChecksumVal":17174}}
+{"Time":"2025-05-05T21:25:29.005225619Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":22222222,"Type":7,"TamperPhy":0,"TamperEnc":1,"Consumption":9480659,"ChecksumVal":4878}}
+{"Time":"2025-05-05T21:25:29.39390036Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":33333333,"ConsumptionIntervalCount":76,"ModuleProgrammingState":188,"TamperCounters":"AwIAcw4A","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":1978208,"DifferentialConsumptionIntervals":[26,26,27,26,26,24,24,24,24,24,26,26,26,27,26,26,26,26,24,23,48,23,24,25,25,24,25,24,25,25,23,23,22,23,23,23,24,25,25,25,25,25,26,23,23,22,23],"TransmitTimeOffset":4303,"SerialNumberCRC":43319,"PacketCRC":40153}}
+{"Time":"2025-05-05T21:25:30.953363523Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":33333333,"Type":7,"TamperPhy":3,"TamperEnc":2,"Consumption":1978226,"ChecksumVal":60151}}
+{"Time":"2025-05-05T21:25:34.961312694Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":00000000,"ConsumptionIntervalCount":83,"ModuleProgrammingState":188,"TamperCounters":"AwEAgQUg","AsynchronousCounters":0,"PowerOutageFlags":"AAAEAAAA","LastConsumptionCount":206053,"DifferentialConsumptionIntervals":[30,17,37,38,17,32,41,19,29,45,30,19,42,35,17,37,41,19,27,43,36,17,31,40,16,27,41,28,17,37,37,17,25,42,22,18,41,32,17,31,39,17,24,42,20,18,40],"TransmitTimeOffset":4361,"SerialNumberCRC":30874,"PacketCRC":42717}}
+{"Time":"2025-05-05T21:25:36.340216552Z","Offset":0,"Length":0,"Type":"IDM","Message":{"Preamble":1431639715,"PacketTypeID":28,"PacketLength":92,"HammingCode":198,"ApplicationVersion":4,"ERTType":7,"ERTSerialNumber":22222222,"ConsumptionIntervalCount":164,"ModuleProgrammingState":188,"TamperCounters":"BAEAbQEA","AsynchronousCounters":0,"PowerOutageFlags":"AAAAAAAA","LastConsumptionCount":9480653,"DifferentialConsumptionIntervals":[7,6,6,6,6,6,6,6,6,5,6,5,8,7,6,8,7,7,7,6,6,6,6,5,6,5,7,6,6,6,7,6,7,8,5,6,7,6,6,7,7,6,6,6,7,6,6],"TransmitTimeOffset":4273,"SerialNumberCRC":40239,"PacketCRC":4265}}'
+
+while IFS= read -r line; do
+  echo "$line"
+  sleep 0.1
+done <<< "$header"
+
+while :; do
+  while IFS= read -r line; do
+    echo "$line"
+    sleep 0.1
+  done <<< "$reads"
+  sleep "$((RANDOM % 10))s"
+done
