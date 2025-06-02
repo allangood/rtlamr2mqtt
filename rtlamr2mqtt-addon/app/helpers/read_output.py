@@ -55,7 +55,7 @@ def get_message_for_ids(rtlamr_output, meter_ids_list):
             meter_id = str(message[meter_id_key])
             if meter_id in meter_ids_list:
                 message.pop(meter_id_key)
-                consumption_key = list_intersection(message, ['Consumption', 'LastConsumptionCount'])
+                consumption_key = list_intersection(message, ['Consumption', 'LastConsumption', 'LastConsumptionCount'])
                 if consumption_key is not None:
                     consumption = message[consumption_key]
                     message.pop(consumption_key)
