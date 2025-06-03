@@ -99,7 +99,6 @@ def get_iso8601_timestamp():
     return datetime.now().astimezone().replace(microsecond=0).isoformat()
 
 
-
 def start_rtltcp(config):
     """ Start RTL_TCP process """
     # Search for RTL-SDR devices

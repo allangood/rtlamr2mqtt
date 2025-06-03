@@ -12,6 +12,7 @@ import re
 import usb.core
 import socket
 
+
 def load_id_file(sdl_ids_file):
     """
     Load SDL file id
