@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2025.6.1
+version: 2025.6.2
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
@@ -23,17 +23,11 @@ options:
   general:
     sleep_for: 60
     verbosity: info
-    device_id: "0"
-    rtltcp_host: "127.0.0.1:1234"
+  custom_parameters: {}
   mqtt:
-    host: 127.0.0.1
-    port: 1883
     ha_autodiscovery_topic: homeassistant
-    ha_status_topic: hass/status
+    ha_status_topic: homeassistant/status
     base_topic: "rtlamr"
-  custom_parameters:
-    rtltcp: "-s 2048000"
-    rtlamr: "-unique=true"
   meters:
     - id: 22222222
       protocol: r900
@@ -47,7 +41,7 @@ schema:
     sleep_for: "int?"
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "match((^0|^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$))?"
-    rtltcp_host: match(([\w\d\.]+):(\d+))
+    rtltcp_host: match(([\w\d\.]+):(\d+))?
   mqtt:
     host: "str?"
     port: "int?"

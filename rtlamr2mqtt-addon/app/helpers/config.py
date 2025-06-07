@@ -3,8 +3,35 @@ Helper functions for loading configuration files
 """
 
 import os
+import requests
 from json import load
 from yaml import safe_load
+
+
+def get_mqtt_info_from_supervisor(mqtt_config):
+    """
+    Get MQTT broker information from the Supervisor API.
+    """
+    if os.getenv("SUPERVISOR_TOKEN") is not None:
+        api_url = f'http://supervisor/services/mqtt'
+        headers = {
+            "Authorization": "Bearer " + os.getenv("SUPERVISOR_TOKEN"),
+            "Content-Type": "application/json"
+        }
+        try:
+            resp = requests.get(api_url, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()['data']
+            mqtt_config['host'] = data.get('host')
+            mqtt_config['port'] = data.get('port')
+            mqtt_config['user'] = data.get('username', None)
+            mqtt_config['password'] = data.get('password', None)
+            mqtt_config['tls_enabled'] = data.get('ssl', False)
+        except Exception:
+            return {}
+
+    return mqtt_config
+
 
 def load_config(config_path=None):
     """
@@ -60,11 +87,14 @@ def load_config(config_path=None):
     general['device_id'] = str(general.get('device_id', '0'))
     general['rtltcp_host'] = str(general.get('rtltcp_host', '127.0.0.1:1234'))
     # MQTT section
-    mqtt['host'] = str(mqtt.get('host', 'localhost'))
-    mqtt['port'] = int(mqtt.get('port', 1883))
-    mqtt['user'] = mqtt.get('user', None)
-    mqtt['password'] = mqtt.get('password', None)
-    mqtt['tls_enabled'] = bool(mqtt.get('tls_enabled', False))
+    mqtt['host'] = str(mqtt.get('host', 'None'))
+    if mqtt['host'] == 'None':
+        mqtt = get_mqtt_info_from_supervisor(mqtt)
+    else:
+        mqtt['port'] = int(mqtt.get('port', 1883))
+        mqtt['user'] = mqtt.get('user', None)
+        mqtt['password'] = mqtt.get('password', None)
+        mqtt['tls_enabled'] = bool(mqtt.get('tls_enabled', False))
     mqtt['tls_insecure'] = bool(mqtt.get('tls_insecure', False))
     mqtt['tls_ca'] = mqtt.get('tls_ca', None)
     mqtt['tls_cert'] = mqtt.get('tls_cert', None)
