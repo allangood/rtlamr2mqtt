@@ -17,6 +17,7 @@ import signal
 from datetime import datetime
 from json import dumps
 from time import sleep, time
+from shutil import which
 import helpers.config as cnf
 import helpers.buildcmd as cmd
 import helpers.mqtt_client as m
@@ -102,11 +103,14 @@ def get_iso8601_timestamp():
 
 def start_rtltcp(config):
     """ Start RTL_TCP process """
-    # Search for RTL-SDR devices
-    usb_id_list = usbutil.find_rtl_sdr_devices()
-
     # Check if we are using a remote RTL_TCP server
     is_remote = config["general"]["rtltcp_host"].split(':') not in [ '127.0.1', 'localhost' ]
+
+    if is_remote:
+        return 'remote'
+
+    # Search for RTL-SDR devices
+    usb_id_list = usbutil.find_rtl_sdr_devices()
 
     if 'RTLAMR2MQTT_USE_MOCK' in os.environ or is_remote:
         usb_id_list = [ '001:001']
@@ -126,36 +130,38 @@ def start_rtltcp(config):
         usbutil.reset_usb_device(usb_id)
 
     rtltcp_args = cmd.build_rtltcp_args(config)
+    rtltcp_full_command = [which("rtl_tcp")] + rtltcp_args
+
     if rtltcp_args is None and LOG_LEVEL >= 3:
         logger.info(f'Using remote RTL_TCP host on {config["general"]["rtltcp_host"]}.')
         return 'remote'
 
     if LOG_LEVEL >= 3:
-        logger.info('Starting RTL_TCP using: rtl_tcp %s', " ".join(rtltcp_args))
+        logger.info('Starting RTL_TCP using: %s', " ".join(rtltcp_full_command))
+
     try:
-        rtltcp = subprocess.Popen(["rtl_tcp"] + rtltcp_args,
+        # rtltcp = subprocess.Popen(["strace", "--output=out.trace", "rtl_tcp"] + rtltcp_args,
+        rtltcp = subprocess.Popen(["/usr/bin/unbuffer"] + rtltcp_full_command,
             start_new_session=True,
             text=True,
-            close_fds=True,
-            universal_newlines=True,
+            close_fds=False,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT)
-        sleep(2)
+            stderr=subprocess.STDOUT,
+            bufsize=1)
+
     except Exception as e:
         logger.critical('Failed to start RTL_TCP. %s', e)
         return None
 
     rtltcp_is_ready = False
     # Wait for rtl_tcp to be ready
+
     while not rtltcp_is_ready:
-        # Read the output in chunks
         try:
-            usbutil.tickle_rtl_tcp(config['general']['rtltcp_host'])
             rtltcp_output = rtltcp.stdout.readline().strip()
-            sys.stdout.flush()
         except Exception as e:
             logger.critical(e)
-            rtltcp_is_ready = False
+            rtlamr_is_ready = False
             return None
         if rtltcp_output:
             if LOG_LEVEL >= 4:
@@ -164,11 +170,12 @@ def start_rtltcp(config):
                 rtltcp_is_ready = True
                 if LOG_LEVEL >= 3:
                     logger.info('RTL_TCP started!')
-        # Check rtl_tcp status
-        rtltcp.poll()
-        if rtltcp.returncode is not None:
-            logger.critical('RTL_TCP failed to start errcode: %d', int(rtltcp.returncode))
-            sys.exit(1)
+    # Check rtl_tcp status
+    rtltcp.poll()
+    if rtltcp.returncode is not None:
+        logger.critical('RTL_TCP failed to start errcode: %d', int(rtltcp.returncode))
+        return None
+
     return rtltcp
 
 
@@ -176,21 +183,26 @@ def start_rtltcp(config):
 def start_rtlamr(config):
     """ Start RTLAMR process """
     rtlamr_args = cmd.build_rtlamr_args(config)
+    rtlamr_full_command = [which("rtlamr")] + rtlamr_args
+
+    # Tickle the rtl_tcp server to wake it up
     usbutil.tickle_rtl_tcp(config['general']['rtltcp_host'])
+
     if LOG_LEVEL >= 3:
-        logger.info('Starting RTLAMR using: rtlamr %s', " ".join(rtlamr_args))
+        logger.info('Starting RTLAMR using: %s', " ".join(rtlamr_full_command))
     try:
-        rtlamr = subprocess.Popen(["rtlamr"] + rtlamr_args,
+        rtlamr = subprocess.Popen(["/usr/bin/unbuffer"] + rtlamr_full_command,
             close_fds=True,
             text=True,
             start_new_session=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            )
-        sleep(2)
+            bufsize=1)
+
     except Exception:
         logger.critical('Failed to start RTLAMR. Exiting...')
         return None
+
     rtlamr_is_ready = False
     while not rtlamr_is_ready:
         try:
@@ -206,11 +218,12 @@ def start_rtlamr(config):
                 rtlamr_is_ready = True
                 if LOG_LEVEL >= 3:
                     logger.info('RTLAMR started!')
-        # Check rtl_tcp status
-        rtlamr.poll()
-        if rtlamr.returncode is not None:
-            logger.critical('RTLAMR failed to start errcode: %d', rtlamr.returncode)
-            sys.exit(1)
+    # Check rtl_tcp status
+    rtlamr.poll()
+    if rtlamr.returncode is not None:
+        logger.critical('RTLAMR failed to start errcode: %d', rtlamr.returncode)
+        return None
+
     return rtlamr
 
 
@@ -326,12 +339,17 @@ def main():
             logger.critical('Failed to start RTL_TCP. Exiting...')
             shutdown(rtlamr=None, rtltcp=None, mqtt_client=mqtt_client, base_topic=config["mqtt"]["base_topic"])
             sys.exit(1)
+        elif rtltcp == 'remote':
+            logger.info('Using remote RTL_TCP server at %s', config['general']['rtltcp_host'])
+            # If we are using a remote RTL_TCP server, we can skip the rest of the setup
+            # and just read from the remote server
+            rtltcp = None
 
         # Start RTLAMR
         rtlamr = start_rtlamr(config)
         if rtlamr is None:
             logger.critical('Failed to start RTLAMR. Exiting...')
-            shutdown(rtlamr=None, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config["mqtt"]["base_topic"])
+            shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config["mqtt"]["base_topic"])
             sys.exit(1)
         ##################################################################
 

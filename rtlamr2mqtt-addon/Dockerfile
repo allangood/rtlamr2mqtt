@@ -28,6 +28,7 @@ COPY ./app/ $VIRTUAL_ENV/app/
 RUN apt-get update \
     && apt-get install -o Dpkg::Options::="--force-confnew" -y \
       libusb-1.0-0 \
+      expect \
     && apt-get --purge autoremove -y \
     && apt-get clean \
     && find /var/lib/apt/lists/ -type f -delete \
