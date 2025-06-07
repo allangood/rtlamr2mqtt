@@ -109,11 +109,11 @@ def start_rtltcp(config):
     if is_remote:
         return 'remote'
 
-    # Search for RTL-SDR devices
-    usb_id_list = usbutil.find_rtl_sdr_devices()
-
-    if 'RTLAMR2MQTT_USE_MOCK' in os.environ or is_remote:
+    if 'RTLAMR2MQTT_USE_MOCK' in dict(os.environ) or is_remote:
         usb_id_list = [ '001:001']
+    else:
+        # Search for RTL-SDR devices
+        usb_id_list = usbutil.find_rtl_sdr_devices()
 
     usb_id = config['general']['device_id']
     if config['general']['device_id'] == '0':
@@ -124,7 +124,7 @@ def start_rtltcp(config):
             return None
 
 
-    if 'RTLAMR2MQTT_USE_MOCK' not in os.environ and not is_remote:
+    if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote:
         if LOG_LEVEL >= 3:
             logger.debug('Reseting USB device: %s', usb_id)
         usbutil.reset_usb_device(usb_id)
@@ -352,7 +352,7 @@ def main():
         # Read the output from RTLAMR
         while keep_reading:
             try:
-                rtlamr_output = rtlamr.stdout.read1().decode('utf-8')
+                rtlamr_output = rtlamr.stdout.readline().strip()
             except KeyboardInterrupt:
                 logger.critical('Interrupted by user.')
                 keep_reading = False

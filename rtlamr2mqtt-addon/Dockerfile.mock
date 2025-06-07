@@ -2,16 +2,21 @@
 FROM python:3.13-slim
 
 ENV VIRTUAL_ENV=/opt/venv
-RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ENV RTLAMR2MQTT_USE_MOCK=1
 
 COPY mock/ /usr/bin/
 COPY requirements.txt /tmp
-COPY ./app/ $VIRTUAL_ENV/app/
 
-RUN pip install -r /tmp/requirements.txt \
-    && rm -rf /usr/share/doc /tmp/requirements.txt
+RUN apt-get update && \
+    apt-get install -o Dpkg::Options::="--force-confnew" -y \
+      libusb-1.0-0 \
+      expect && \
+    python3 -m venv $VIRTUAL_ENV && \
+    pip install -r /tmp/requirements.txt && \
+    rm -rf /usr/share/doc /tmp/requirements.txt
+
+COPY ./app/ $VIRTUAL_ENV/app/
 
 STOPSIGNAL SIGTERM
 
