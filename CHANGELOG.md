@@ -1,3 +1,13 @@
+### 2025-06-02
+
+- Fixed `rtl_tcp` hanging forever
+- Fixed logic to use remote `rtl_tcp`
+- Added logic to get MQTT user and password from Mosquitto Add-On
+
+### 2025-06-01 - First release
+
+- This version is broken
+
 ### 2025-05-28 - Major changes!!!
 
 **MAJOR REWRITE**
