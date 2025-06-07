@@ -1,3 +1,8 @@
+### 2025-06-03
+
+- Fix: No MQTT messages from RTLAMR #288
+- Fix: Dockerfile.mock now works out-of-the-box
+
 ### 2025-06-02
 
 - Fixed `rtl_tcp` hanging forever

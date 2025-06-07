@@ -2,6 +2,7 @@
 Helper functions for building command for rtl_tcp and rtlamr
 """
 
+from os import environ
 import helpers.usb_utils as usbutils
 
 def get_comma_separated_str(key, list_of_dict):
@@ -73,7 +74,8 @@ def build_rtltcp_args(config):
     if 'rtltcp' in config['custom_parameters']:
         custom_parameters = config['custom_parameters']['rtltcp']
     device_id = config['general']['device_id']
-    sdl_devices = usbutils.find_rtl_sdr_devices()
+    if 'RTLAMR2MQTT_USE_MOCK' not in dict(environ):
+        sdl_devices = usbutils.find_rtl_sdr_devices()
     dev_arg = '-d 0'
     if device_id != '0' and device_id in sdl_devices:
         dev_arg = f'-d {sdl_devices.index(device_id)}'
