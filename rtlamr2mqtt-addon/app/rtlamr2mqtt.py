@@ -104,7 +104,7 @@ def get_iso8601_timestamp():
 def start_rtltcp(config):
     """ Start RTL_TCP process """
     # Check if we are using a remote RTL_TCP server
-    is_remote = config["general"]["rtltcp_host"].split(':') not in [ '127.0.1', 'localhost' ]
+    is_remote = config["general"]["rtltcp_host"].split(':')[0] not in [ '127.0.0.1', 'localhost' ]
 
     if is_remote:
         return 'remote'
@@ -131,10 +131,6 @@ def start_rtltcp(config):
 
     rtltcp_args = cmd.build_rtltcp_args(config)
     rtltcp_full_command = [which("rtl_tcp")] + rtltcp_args
-
-    if rtltcp_args is None and LOG_LEVEL >= 3:
-        logger.info(f'Using remote RTL_TCP host on {config["general"]["rtltcp_host"]}.')
-        return 'remote'
 
     if LOG_LEVEL >= 3:
         logger.info('Starting RTL_TCP using: %s', " ".join(rtltcp_full_command))
@@ -170,11 +166,11 @@ def start_rtltcp(config):
                 rtltcp_is_ready = True
                 if LOG_LEVEL >= 3:
                     logger.info('RTL_TCP started!')
-    # Check rtl_tcp status
-    rtltcp.poll()
-    if rtltcp.returncode is not None:
-        logger.critical('RTL_TCP failed to start errcode: %d', int(rtltcp.returncode))
-        return None
+        # Check rtl_tcp status
+        rtltcp.poll()
+        if rtltcp.returncode is not None:
+            logger.critical('RTL_TCP failed to start errcode: %d', int(rtltcp.returncode))
+            return None
 
     return rtltcp
 
@@ -218,11 +214,11 @@ def start_rtlamr(config):
                 rtlamr_is_ready = True
                 if LOG_LEVEL >= 3:
                     logger.info('RTLAMR started!')
-    # Check rtl_tcp status
-    rtlamr.poll()
-    if rtlamr.returncode is not None:
-        logger.critical('RTLAMR failed to start errcode: %d', rtlamr.returncode)
-        return None
+        # Check rtl_tcp status
+        rtlamr.poll()
+        if rtlamr.returncode is not None:
+            logger.critical('RTLAMR failed to start errcode: %d', rtlamr.returncode)
+            return None
 
     return rtlamr
 
