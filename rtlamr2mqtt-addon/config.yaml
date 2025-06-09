@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2025.6.3
+version: 2025.6.4
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
@@ -40,7 +40,7 @@ schema:
   general:
     sleep_for: "int?"
     verbosity: "list(debug|info|warning|critical|none)?"
-    device_id: "match((^0|^(0[xX])?[A-Fa-f0-9]+:(0[xX])?[A-Fa-f0-9]+$))?"
+    device_id: "match(^\d{3}:\d{3}$)?"
     rtltcp_host: match(([\w\d\.]+):(\d+))?
   mqtt:
     host: "str?"
