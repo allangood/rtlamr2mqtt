@@ -3,18 +3,18 @@ general:
   # If this value is 0, it means we will never stop reading
   sleep_for: 0
   # Verbose output. It can be: debug, info, warning, error, none
-  verbosity: info
+  verbosity: debug
   # if you have multiple RTL devices, set the device id to use with this instance.
   # Get the ID running the lsusb command. If not specified, the first device will be used.
   # Example:
   # device_id: '001:010'
   # RTL_TCP host and port to connect. Default, use the internal server
   # If you want to use a remote rtl_tcp server, set the host and port here
-  # rtltcp_host: 'remote_host:1234'
+  # rtltcp_host: "remote_host:1234"
 
 mqtt:
   # Broker host
-  host: 127.0.0.1
+  host: 172.17.0.1
   # Broker port
   port: 1883
   # Username
@@ -34,7 +34,7 @@ mqtt:
   # Which topic for the auto discover to use?
   ha_autodiscovery_topic: homeassistant
   # Home Assistant status topic
-  ha_status_topic: hass/status
+  ha_status_topic: homeassistant/status
   # Base topic to send status and state information
   # i.e.: status = <base_topic>/status
   base_topic: "rtlamr"

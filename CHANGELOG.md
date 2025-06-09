@@ -1,3 +1,7 @@
+### 2025-06-09
+
+- Fix rtlamr hanging forever during startup
+
 ### 2025-06-03
 
 - Fix: No MQTT messages from RTLAMR #288
