@@ -14,9 +14,9 @@ general:
 
 mqtt:
   # Broker host
-  host: 172.17.0.1
+  # host: 127.0.0.1
   # Broker port
-  port: 1883
+  # port: 1883
   # Username
   # user: test
   # Password
