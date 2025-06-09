@@ -210,7 +210,7 @@ def start_rtlamr(config):
         if rtlamr_output:
             if LOG_LEVEL >= 4:
                 logger.debug(rtlamr_output)
-            if 'set gain mode' in rtlamr_output:
+            if 'GainCount:' in rtlamr_output:
                 rtlamr_is_ready = True
                 if LOG_LEVEL >= 3:
                     logger.info('RTLAMR started!')
