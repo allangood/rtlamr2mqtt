@@ -32,6 +32,12 @@ def meter_discover_payload(base_topic, meter_config):
             f"{meter_id}_reading": {
                 "platform": "sensor",
                 "name": "Reading",
+                "unit_of_measurement": meter_config['unit_of_measurement'],
+                "icon": meter_config.get('icon', 'mdi:guage'),
+                "device_class": meter_config['device_class'],
+                "state_class": meter_config.get('state_class', 'total'),
+                "expire_after": meter_config.get('expire_after', 0),
+                "force_update": meter_config.get('force_update', True),
                 "value_template": "{{ value_json.reading|float }}",
                 "json_attributes_topic": f"{base_topic}/{meter_id}/attributes",
                 "unique_id": f"{meter_id}_reading"
