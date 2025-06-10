@@ -90,13 +90,13 @@ def load_config(config_path=None):
     mqtt['host'] = mqtt.get('host', None)
     if mqtt['host'] is None:
         mqtt = get_mqtt_info_from_supervisor(mqtt)
-        if mqtt['host'] is None:
-            return ('error', 'No MQTT broker information found.', None)
     else:
         mqtt['port'] = int(mqtt.get('port', 1883))
         mqtt['user'] = mqtt.get('user', None)
         mqtt['password'] = mqtt.get('password', None)
         mqtt['tls_enabled'] = bool(mqtt.get('tls_enabled', False))
+    if mqtt['host'] is None:
+            return ('error', 'No MQTT broker information found.', None)
     mqtt['tls_insecure'] = bool(mqtt.get('tls_insecure', False))
     mqtt['tls_ca'] = mqtt.get('tls_ca', None)
     mqtt['tls_cert'] = mqtt.get('tls_cert', None)
