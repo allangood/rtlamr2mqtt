@@ -157,7 +157,6 @@ def start_rtltcp(config):
             rtltcp_output = rtltcp.stdout.readline().strip()
         except Exception as e:
             logger.critical(e)
-            rtlamr_is_ready = False
             return None
         if rtltcp_output:
             if LOG_LEVEL >= 4:
@@ -259,13 +258,6 @@ def main():
 
     # Get a list of meters ids to watch
     meter_ids_list = list(config['meters'].keys())
-
-    # Create the info reading variable
-    # This variable stores the number of readings for each meter
-    # It is used to help with the sleep_for logic
-    reading_info = {}
-    for m_id in meter_ids_list:
-        reading_info[m_id] = { 'n_readings': 0, 'last_reading': 0 }
 
     # Create MQTT Client and connect to the broker
     mqtt_client = m.MQTTClient(
@@ -372,10 +364,6 @@ def main():
                 if reading['meter_id'] not in read_counter:
                     read_counter.append(reading['meter_id'])
 
-                # Update the reading info
-                reading_info[reading['meter_id']]['n_readings'] += 1
-                reading_info[reading['meter_id']]['last_reading'] = int(time())
-
                 if config['meters'][reading['meter_id']]['format'] is not None:
                     r = ro.format_number(reading['consumption'], config['meters'][reading['meter_id']]['format'])
                 else:
@@ -400,7 +388,7 @@ def main():
                     retain=False
                 )
 
-            if config['general']['sleep_for'] > 0 and len(missing_readings) == 0:
+            if config['general']['sleep_for'] > 0 and len(read_counter) == len(meter_ids_list):
                 # We have our readings, so we can sleep
                 if LOG_LEVEL >= 3:
                     logger.info('All readings received.')

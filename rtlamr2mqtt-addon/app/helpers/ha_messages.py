@@ -39,7 +39,7 @@ def meter_discover_payload(base_topic, meter_config):
             f"{meter_id}_lastseen": {
                 "platform": "sensor",
                 "name": "Last Seen",
-                "device_class": "date",
+                "device_class": "timestamp",
                 "value_template":"{{ value_json.lastseen }}",
                 "unique_id": f"{meter_id}_lastseen"
             }
