@@ -40,13 +40,11 @@ def build_rtlamr_args(config):
     # Build the command line arguments for the rtlamr command
     # based on the configuration file
     meters = config['meters']
-    default_args = [ '-format=json' ]
+    default_args = [ '-format=json', '-unique=true' ]
     rtltcp_host = [ f'-server={config["general"]["rtltcp_host"]}' ]
     if 'rtlamr' in config['custom_parameters']:
-        custom_parameters = [ config['custom_parameters']['rtlamr'] ]
-        custom_parameters = partial_match_remove('server', custom_parameters)
-    else:
-        custom_parameters = [ '-unique=true' ]
+        custom_parameters = config['custom_parameters']['rtlamr'].split()
+        custom_parameters = partial_match_remove('-server', custom_parameters)
 
     # Build a comma-separated string of meter IDs
     ids = ','.join(list(meters.keys()))
@@ -56,7 +54,7 @@ def build_rtlamr_args(config):
     msgtypes = get_comma_separated_str('protocol', meters)
     msgtype_arg = [ f'-msgtype={msgtypes}' ]
 
-    return default_args + rtltcp_host + custom_parameters + filterid_arg + msgtype_arg
+    return list(set(default_args + rtltcp_host + custom_parameters + filterid_arg + msgtype_arg))
 
 def build_rtltcp_args(config):
     """
@@ -79,4 +77,4 @@ def build_rtltcp_args(config):
     dev_arg = '-d 0'
     if device_id != '0' and device_id in sdl_devices:
         dev_arg = f'-d {sdl_devices.index(device_id)}'
-    return [ custom_parameters, dev_arg]
+    return list(set([ custom_parameters, dev_arg]))
