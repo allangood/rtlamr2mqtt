@@ -9,9 +9,10 @@ def meter_discover_payload(base_topic, meter_config):
     Returns the discovery payload for Home Assistant.
     """
 
-    meter_id = meter_config.pop('id')
-    meter_name = meter_config.get('name', 'Unknown Meter')
-    meter_config.pop('name', None)
+    if 'id' in meter_config:
+        meter_id = meter_config['id']
+        meter_name = meter_config.get('name', 'Unknown Meter')
+        meter_config['name']
 
     template_payload = {
         "device": {
