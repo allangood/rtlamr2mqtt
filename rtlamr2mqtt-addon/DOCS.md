@@ -2,6 +2,39 @@
 
 ## Updates:
 
+**2025.6.6**
+
+One of the main causes of problems has been addresses in this release: Non-blocking readings!
+
+- fix: #319 Publish discover messages when Home Assiatant restarts
+- fix: #318 Restart `rtl_tcp` and/or `rtl_amr` if their process die
+- enhancement: Make `state_class = total_increasing` if not specified
+- enhancement: Make readings non-blocking!
+
+**2025.6.5**
+
+- fix: Error when multiple arguments were used in custom_parameters
+- fix: Version information (ouch!)
+- fix: Error regarding missing_readings when sleep_for > 0 is used
+- fix: Stop accepting wrong device_id numbers
+- enhancement: Changed last_seen sensor to timestamp
+- breaking change: The device_id parameter will fail if is not formatted in the 000:000 usb device id way
+
+Special thanks to:
+@nrdufour
+@airdrummingfool
+
+**2025.6.4**
+
+- fix: Fix bug #288 rtlamr hanging forever during startup
+- Thanks to @nrdufour
+
+**2025.6.3**
+
+- fix: No MQTT messages from RTLAMR #288
+- fix: Added logic to ignore usb scan when rtl_tcp is defined as remote
+- chore: Dockerfile.mock now works out-of-the-box
+
 **2025.6.2**
 
 - Fixed `rtl_tcp` hanging forever

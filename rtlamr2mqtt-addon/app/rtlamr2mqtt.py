@@ -16,7 +16,7 @@ import subprocess
 import signal
 from datetime import datetime
 from json import dumps
-from time import sleep, time
+from time import sleep
 from shutil import which
 import helpers.config as cnf
 import helpers.buildcmd as cmd
@@ -35,7 +35,7 @@ logger.info('Starting rtlamr2mqtt %s', i.version())
 
 
 
-def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr'):
+def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', offline=False):
     """ Shutdown function to terminate processes and clean up """
     if LOG_LEVEL >= 3:
         logger.info('Shutting down...')
@@ -65,7 +65,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr'):
             rtltcp.communicate()
         if LOG_LEVEL >= 3:
             logger.info('RTL_TCP Terminitaed.')
-    if mqtt_client is not None:
+    if mqtt_client is not None and offline:
         mqtt_client.publish(
             topic=f'{base_topic}/status',
             payload='offline',
@@ -82,14 +82,6 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr'):
 def signal_handler(signum, frame):
     """ Signal handler for SIGINT and SIGTERM """
     raise RuntimeError(f'Signal {signum} received.')
-
-
-
-
-def on_message(client, userdata, message):
-    """ Callback function for MQTT messages """
-    if LOG_LEVEL >= 3:
-        logger.info('Received message "%s" on topic "%s"', message.payload.decode(), message.topic)
 
 
 
@@ -145,6 +137,8 @@ def start_rtltcp(config):
             stderr=subprocess.STDOUT,
             bufsize=1)
 
+        os.set_blocking(rtltcp.stdout.fileno(), False)
+
     except Exception as e:
         logger.critical('Failed to start RTL_TCP. %s', e)
         return None
@@ -193,6 +187,7 @@ def start_rtlamr(config):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             bufsize=1)
+        os.set_blocking(rtlamr.stdout.fileno(), False)
 
     except Exception:
         logger.critical('Failed to start RTLAMR. Exiting...')
@@ -289,7 +284,7 @@ def main():
         sys.exit(1)
 
     # Set on_message callback
-    mqtt_client.set_on_message_callback(on_message)
+    # mqtt_client.set_on_message_callback(on_message)
 
     # Subscribe to Home Assistant status topic
     mqtt_client.subscribe(config['mqtt']['ha_status_topic'], qos=1)
@@ -318,33 +313,87 @@ def main():
     )
 
     ##################################################################
+    # Is rtl_tcp configured to run on a remote host?
+    is_rtltcp_remote = config["general"]["rtltcp_host"].split(':')[0] not in [ '127.0.0.1', 'localhost' ]
+    #
+    rtltcp = None
+    rtlamr = None
     keep_reading = True
     while keep_reading:
-        read_counter = []
-        # Start RTL_TCP
-        rtltcp = start_rtltcp(config)
-        if rtltcp is None:
-            logger.critical('Failed to start RTL_TCP. Exiting...')
-            shutdown(rtlamr=None, rtltcp=None, mqtt_client=mqtt_client, base_topic=config["mqtt"]["base_topic"])
-            sys.exit(1)
-        elif rtltcp == 'remote':
-            logger.info('Using remote RTL_TCP server at %s', config['general']['rtltcp_host'])
-            # If we are using a remote RTL_TCP server, we can skip the rest of the setup
-            # and just read from the remote server
-            rtltcp = None
+        try:
+            if mqtt_client.last_message is not None:
+                if LOG_LEVEL >= 3:
+                    logger.debug('Received MQTT message: %s on topic %s',
+                        mqtt_client.last_message.payload.decode(),
+                        mqtt_client.last_message.topic
+                    )
+                    for meter in config['meters']:
+                        discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
+                        mqtt_client.publish(
+                            topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
+                            payload=dumps(discovery_payload),
+                            qos=1,
+                            retain=False
+                        )
+                mqtt_client.last_message = None
+            read_counter = []
+            # Start RTL_TCP if not remote
+            if not is_rtltcp_remote:
+                if rtltcp is None:
+                    rtltcp = start_rtltcp(config)
+                if rtltcp is not None:
+                    rtltcp.poll()
+                if rtltcp.returncode is not None:
+                    if LOG_LEVEL >= 3:
+                        logger.critical('RTL_TCP has died, trying to restart...')
+                    rtltcp = start_rtltcp(config)
+                    if rtltcp is not None:
+                        rtltcp.poll()
+                if rtltcp is None:
+                    logger.critical('Failed to start RTL_TCP. Exiting...')
+                    shutdown(
+                                rtlamr=None,
+                                rtltcp=rtltcp,
+                                mqtt_client=mqtt_client,
+                                base_topic=config['mqtt']['base_topic'],
+                                offline=True
+                            )
+                    sys.exit(1)
+            else:
+                logger.info('Using remote RTL_TCP server at %s', config['general']['rtltcp_host'])
+                # If we are using a remote RTL_TCP server, we can skip the rest of the setup
+                # and just read from the remote server
+                rtltcp = None
 
-        # Start RTLAMR
-        rtlamr = start_rtlamr(config)
-        if rtlamr is None:
-            logger.critical('Failed to start RTLAMR. Exiting...')
-            shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config["mqtt"]["base_topic"])
-            sys.exit(1)
-        ##################################################################
+            ##################################################################
 
-        # Read the output from RTLAMR
-        while keep_reading:
+            # Read the output from RTLAMR
+            # Start RTLAMR if not already running
+            if rtlamr is None:
+                rtlamr = start_rtlamr(config)
+            if rtlamr is not None:
+                rtlamr.poll()
+            if rtlamr is not None and rtlamr.returncode is not None:
+                if LOG_LEVEL >= 3:
+                    logger.critical('RTLAMR has died, trying to restart...')
+                rtlamr = start_rtlamr(config)
+                if rtlamr is not None:
+                    rtlamr.poll()
+            if rtlamr is None:
+                if LOG_LEVEL >= 3:
+                    logger.critical('Failed to start RTLAMR. Exiting...')
+                shutdown(
+                            rtlamr=rtlamr,
+                            rtltcp=rtltcp,
+                            mqtt_client=mqtt_client,
+                            base_topic=config['mqtt']['base_topic'],
+                            offline=True
+                        )
+                sys.exit(1)
+
             try:
                 rtlamr_output = rtlamr.stdout.readline().strip()
+                # rtlamr_output = rtlamr.stdout.read1().strip()
             except KeyboardInterrupt:
                 logger.critical('Interrupted by user.')
                 keep_reading = False
@@ -353,6 +402,7 @@ def main():
                 logger.critical(e)
                 keep_reading = False
                 break
+
             # Search for ID in the output
             reading = ro.get_message_for_ids(
                 rtlamr_output = rtlamr_output,
@@ -370,6 +420,14 @@ def main():
                     r = reading['consumption']
 
                 # Publish the reading to MQTT
+                # First, make sure the status is set to online
+                mqtt_client.publish(
+                    topic=f'{config["mqtt"]["base_topic"]}/status',
+                    payload='online',
+                    qos=1,
+                    retain=False
+                )
+                # Then, send the reading
                 payload = { 'reading': r, 'lastseen': get_iso8601_timestamp() }
                 mqtt_client.publish(
                     topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/state',
@@ -390,7 +448,7 @@ def main():
 
             if config['general']['sleep_for'] > 0 and len(read_counter) == len(meter_ids_list):
                 # We have our readings, so we can sleep
-                if LOG_LEVEL >= 3:
+                if LOG_LEVEL >= 2:
                     logger.info('All readings received.')
                     logger.info('Sleeping for %d seconds...', config["general"]["sleep_for"])
                 # Shutdown everything, but mqtt_client
@@ -400,19 +458,42 @@ def main():
                 except KeyboardInterrupt:
                     logger.critical('Interrupted by user.')
                     keep_reading = False
-                    shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config['mqtt']['base_topic'])
+                    shutdown(
+                        rtlamr=rtlamr,
+                        rtltcp=rtltcp,
+                        mqtt_client=mqtt_client,
+                        base_topic=config['mqtt']['base_topic'],
+                        offline=True
+                    )
                     break
                 except Exception:
                     logger.critical('Term siganal received. Exiting...')
                     keep_reading = False
-                    shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=mqtt_client, base_topic=config['mqtt']['base_topic'])
+                    shutdown(
+                        rtlamr=rtlamr,
+                        rtltcp=rtltcp,
+                        mqtt_client=mqtt_client,
+                        base_topic=config['mqtt']['base_topic'],
+                        offline=True
+                    )
                     break
                 if LOG_LEVEL >= 3:
                     logger.info('Time to wake up!')
                 break
+            sleep(1)  # Sleep for a short time to avoid busy waiting
+        except RuntimeError as e:
+            # Handle the signal received
+            logger.critical('Runtime error: %s', e)
+            keep_reading = False
 
     # Shutdown
-    shutdown(rtlamr = rtlamr, rtltcp = rtltcp, mqtt_client = mqtt_client, base_topic=config['mqtt']['base_topic'])
+    shutdown(
+        rtlamr = rtlamr,
+        rtltcp = rtltcp,
+        mqtt_client = mqtt_client,
+        base_topic=config['mqtt']['base_topic'],
+        offline=True
+    )
 
 
 if __name__ == '__main__':

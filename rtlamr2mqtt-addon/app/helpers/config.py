@@ -125,6 +125,7 @@ def load_config(config_path=None):
     ]
     for m in config['meters']:
         # Get only allowed keys and drop anything else
+        m['state_class'] = m.get('state_class', 'total_increasing')  # Default to 'total_increasing' if not set
         meters[str(m['id'])] = { key: value for key, value in m.items() if key in meters_allowed_keys }
 
     # Build config
@@ -134,4 +135,5 @@ def load_config(config_path=None):
         'custom_parameters': custom_parameters,
         'meters': meters,
     }
+
     return ('success', 'Config loaded successfully', config)
