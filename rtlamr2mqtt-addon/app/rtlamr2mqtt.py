@@ -158,7 +158,7 @@ def start_rtltcp(config):
             if "listening..." in rtltcp_output:
                 rtltcp_is_ready = True
                 if LOG_LEVEL >= 3:
-                    logger.info('RTL_TCP started!')
+                    logger.info('RTL_TCP has started!')
         # Check rtl_tcp status
         rtltcp.poll()
         if rtltcp.returncode is not None:
@@ -207,7 +207,7 @@ def start_rtlamr(config):
             if 'GainCount:' in rtlamr_output:
                 rtlamr_is_ready = True
                 if LOG_LEVEL >= 3:
-                    logger.info('RTLAMR started!')
+                    logger.info('RTLAMR has started!')
         # Check rtl_tcp status
         rtlamr.poll()
         if rtlamr.returncode is not None:
@@ -319,6 +319,7 @@ def main():
     rtltcp = None
     rtlamr = None
     keep_reading = True
+    read_counter = []
     while keep_reading:
         try:
             if mqtt_client.last_message is not None:
@@ -336,7 +337,7 @@ def main():
                             retain=False
                         )
                 mqtt_client.last_message = None
-            read_counter = []
+
             # Start RTL_TCP if not remote
             if not is_rtltcp_remote:
                 if rtltcp is None:
@@ -368,17 +369,22 @@ def main():
             ##################################################################
 
             # Read the output from RTLAMR
-            # Start RTLAMR if not already running
+            # Start RTLAMR if it is not already running
             if rtlamr is None:
                 rtlamr = start_rtlamr(config)
-            if rtlamr is not None:
+            else:
                 rtlamr.poll()
-            if rtlamr is not None and rtlamr.returncode is not None:
-                if LOG_LEVEL >= 3:
-                    logger.critical('RTLAMR has died, trying to restart...')
-                rtlamr = start_rtlamr(config)
-                if rtlamr is not None:
-                    rtlamr.poll()
+                if rtlamr.returncode is not None:
+                    if LOG_LEVEL >= 3:
+                        logger.critical('RTLAMR has died, trying to restart...')
+                    if int(config['general']['sleep_for']) > 0:
+                        if LOG_LEVEL >= 2:
+                            logger.info('Sleep for is set to %d seconds...', int(config['general']['sleep_for']))
+                        sleep(int(config['general']['sleep_for']))
+                    rtlamr = start_rtlamr(config)
+                    if rtlamr is not None:
+                        rtlamr.poll()
+
             if rtlamr is None:
                 if LOG_LEVEL >= 3:
                     logger.critical('Failed to start RTLAMR. Exiting...')
@@ -453,6 +459,7 @@ def main():
                     logger.info('Sleeping for %d seconds...', config["general"]["sleep_for"])
                 # Shutdown everything, but mqtt_client
                 shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=None)
+                read_counter = []
                 try:
                     sleep(int(config['general']['sleep_for']))
                 except KeyboardInterrupt:
@@ -479,7 +486,7 @@ def main():
                     break
                 if LOG_LEVEL >= 3:
                     logger.info('Time to wake up!')
-                break
+
             sleep(1)  # Sleep for a short time to avoid busy waiting
         except RuntimeError as e:
             # Handle the signal received
