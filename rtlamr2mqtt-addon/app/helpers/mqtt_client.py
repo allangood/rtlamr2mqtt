@@ -4,6 +4,7 @@ Helper functions for MQTT connection
 
 import ssl
 import paho.mqtt.client as mqtt
+from uuid import uuid4
 
 class MQTTClient:
     """
@@ -13,11 +14,12 @@ class MQTTClient:
         """
         Initialize the MQTT client.
         """
-        self.client = mqtt.Client(client_id='rtlamr2mqtt')
+        self.client = mqtt.Client(client_id=f'rtlamr2mqtt-{uuid4().hex[-8:]}')
         self.broker = broker
         self.port = port
         self.logger = logger
         self.log_level = log_level
+        self.last_message = None
 
         # Set username and password if provided
         if username and password:
@@ -47,6 +49,7 @@ class MQTTClient:
         if self.log_level >= 3:
             self.logger.info(f"Connecting to MQTT broker at {self.broker}:{self.port}")
         self.client.connect(self.broker, self.port)
+        self.client.on_message = self.on_message
 
     def publish(self, topic, payload, qos=0, retain=False):
         """
@@ -64,11 +67,11 @@ class MQTTClient:
             self.logger.info(f"Subscribing to {topic}")
         self.client.subscribe(topic, qos=qos)
 
-    def set_on_message_callback(self, callback):
+    def on_message(self, client, userdata, message):
         """
-        Set the callback for incoming messages.
+        Default callback for incoming messages.
         """
-        self.client.on_message = callback
+        self.last_message = message
 
     def loop_start(self):
         """
