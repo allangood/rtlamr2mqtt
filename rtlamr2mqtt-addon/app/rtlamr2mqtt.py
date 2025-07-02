@@ -361,7 +361,8 @@ def main():
                             )
                     sys.exit(1)
             else:
-                logger.info('Using remote RTL_TCP server at %s', config['general']['rtltcp_host'])
+                if LOG_LEVEL >= 3:
+                    logger.info('Using remote RTL_TCP server at %s', config['general']['rtltcp_host'])
                 # If we are using a remote RTL_TCP server, we can skip the rest of the setup
                 # and just read from the remote server
                 rtltcp = None
