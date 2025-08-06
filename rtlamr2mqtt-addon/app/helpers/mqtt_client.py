@@ -56,7 +56,7 @@ class MQTTClient:
         Publish a message to a topic.
         """
         if self.log_level >= 3:
-            self.logger.info(f"Publishing to {topic}: {payload}")
+            self.logger.info(f"Publishing to {topic} with {qos=} and {retain=}: {payload}")
         self.client.publish(topic, payload=payload, qos=qos, retain=retain)
 
     def subscribe(self, topic, qos=0):

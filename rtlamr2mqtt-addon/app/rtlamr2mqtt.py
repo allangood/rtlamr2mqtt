@@ -70,7 +70,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
             topic=f'{base_topic}/status',
             payload='offline',
             qos=1,
-            retain=False
+            retain=config['mqtt']['retain']
         )
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
@@ -274,7 +274,7 @@ def main():
         topic=f'{config["mqtt"]["base_topic"]}/status',
         payload="offline",
         qos=1,
-        retain=False
+        retain=config['mqtt']['retain']
     )
 
     try:
@@ -299,7 +299,7 @@ def main():
             topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
             payload=dumps(discovery_payload),
             qos=1,
-            retain=False
+            retain=config['mqtt']['retain']
         )
 
     # Give some time for the MQTT client to connect and publish
@@ -309,7 +309,7 @@ def main():
         topic=f'{config["mqtt"]["base_topic"]}/status',
         payload='online',
         qos=1,
-        retain=False
+        retain=config['mqtt']['retain']
     )
 
     ##################################################################
@@ -334,7 +334,7 @@ def main():
                             topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
                             payload=dumps(discovery_payload),
                             qos=1,
-                            retain=False
+                            retain=config['mqtt']['retain']
                         )
                 mqtt_client.last_message = None
 
@@ -431,7 +431,7 @@ def main():
                     topic=f'{config["mqtt"]["base_topic"]}/status',
                     payload='online',
                     qos=1,
-                    retain=False
+                    retain=config['mqtt']['retain']
                 )
                 # Then, send the reading
                 payload = { 'reading': r, 'lastseen': get_iso8601_timestamp() }
@@ -439,7 +439,7 @@ def main():
                     topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/state',
                     payload=dumps(payload),
                     qos=1,
-                    retain=False
+                    retain=config['mqtt']['retain']
                 )
 
                 # Publish the meter attributes to MQTT
@@ -449,7 +449,7 @@ def main():
                     topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/attributes',
                     payload=dumps(reading['message']),
                     qos=1,
-                    retain=False
+                    retain=config['mqtt']['retain']
                 )
 
             if config['general']['sleep_for'] > 0 and len(read_counter) == len(meter_ids_list):
