@@ -6,6 +6,7 @@ import os
 import requests
 from json import load
 from yaml import safe_load
+from paho.mqtt.enums import MQTTProtocolVersion
 
 
 def get_mqtt_info_from_supervisor(mqtt_config):
@@ -105,6 +106,12 @@ def load_config(config_path=None):
     mqtt['ha_status_topic'] = str(mqtt.get('ha_status_topic', 'homeassistant/status'))
     mqtt['ha_autodiscovery_topic'] = mqtt.get('ha_autodiscovery_topic', 'homeassistant')
     mqtt['retain'] = bool(mqtt.get('retain', False))
+    try:
+        mqtt['protocol'] = int(mqtt.get('protocol', 4))
+    except ValueError as e:
+        return ('error', f"Invalid protocol version {mqtt['protocol']} for MQTT.", None)
+    if mqtt['protocol'] not in [p.value for p in MQTTProtocolVersion]:
+        return ('error', f"Invalid protocol version {mqtt['protocol']} for MQTT.", None)
 
     # Custom parameters section
     custom_parameters['rtltcp'] = str(custom_parameters.get('rtltcp', '-s 2048000'))

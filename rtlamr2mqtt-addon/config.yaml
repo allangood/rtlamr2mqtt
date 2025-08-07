@@ -56,6 +56,7 @@ schema:
     ha_status_topic: "str?"
     base_topic: "str?"
     retain: "bool?"
+    protocol: "list(3|4|5)"
   custom_parameters:
     rtltcp: "str?"
     rtlamr: "str?"

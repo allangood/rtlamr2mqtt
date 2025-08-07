@@ -265,6 +265,7 @@ def main():
         ca_cert=config['mqtt']['tls_ca'],
         client_cert=config['mqtt']['tls_cert'],
         client_key=config['mqtt']['tls_keyfile'],
+        protocol=config['mqtt']['protocol'],
         log_level=LOG_LEVEL,
         logger=logger,
     )

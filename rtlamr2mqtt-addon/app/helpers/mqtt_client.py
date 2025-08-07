@@ -4,18 +4,18 @@ Helper functions for MQTT connection
 
 import ssl
 import paho.mqtt.client as mqtt
-from paho.mqtt.enums import MQTTErrorCode,CallbackAPIVersion
+from paho.mqtt.enums import MQTTErrorCode,CallbackAPIVersion,MQTTProtocolVersion
 from uuid import uuid4
 
 class MQTTClient:
     """
     A class to handle MQTT client operations.
     """
-    def __init__(self, logger, broker, port, username=None, password=None, tls_enabled=False, ca_cert=None, client_cert=None, tls_insecure=False, client_key=None, log_level=4):
+    def __init__(self, logger, broker, port, username=None, password=None, tls_enabled=False, ca_cert=None, client_cert=None, tls_insecure=False, client_key=None, log_level=4, protocol=MQTTProtocolVersion.MQTTv311):
         """
         Initialize the MQTT client.
         """
-        self.client = mqtt.Client(client_id=f'rtlamr2mqtt-{uuid4().hex[-8:]}', callback_api_version = CallbackAPIVersion.VERSION2)
+        self.client = mqtt.Client(client_id=f'rtlamr2mqtt-{uuid4().hex[-8:]}', callback_api_version = CallbackAPIVersion.VERSION2, protocol=protocol)
         self.broker = broker
         self.port = port
         self.logger = logger
