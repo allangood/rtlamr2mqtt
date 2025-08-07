@@ -104,6 +104,7 @@ def load_config(config_path=None):
     mqtt['base_topic'] = str(mqtt.get('base_topic', 'rtlamr'))
     mqtt['ha_status_topic'] = str(mqtt.get('ha_status_topic', 'homeassistant/status'))
     mqtt['ha_autodiscovery_topic'] = mqtt.get('ha_autodiscovery_topic', 'homeassistant')
+    mqtt['retain'] = bool(mqtt.get('retain', False))
 
     # Custom parameters section
     custom_parameters['rtltcp'] = str(custom_parameters.get('rtltcp', '-s 2048000'))

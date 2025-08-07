@@ -55,6 +55,7 @@ schema:
     ha_autodiscovery_topic: "str?"
     ha_status_topic: "str?"
     base_topic: "str?"
+    retain: "bool?"
   custom_parameters:
     rtltcp: "str?"
     rtlamr: "str?"

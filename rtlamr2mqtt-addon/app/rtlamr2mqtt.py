@@ -299,7 +299,7 @@ def main():
             topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
             payload=dumps(discovery_payload),
             qos=1,
-            retain=False
+            retain=config['mqtt']['retain']
         )
 
     # Give some time for the MQTT client to connect and publish
@@ -334,7 +334,7 @@ def main():
                             topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
                             payload=dumps(discovery_payload),
                             qos=1,
-                            retain=False
+                            retain=config['mqtt']['retain']
                         )
                 mqtt_client.last_message = None
 

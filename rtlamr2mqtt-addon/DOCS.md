@@ -106,6 +106,11 @@ mqtt:
   # Base topic to send status and state information
   # i.e.: status = <base_topic>/status
   base_topic: "rtlamr"
+  # Set to true to tell the MQTT broker to retain (store) device configuration
+  # messages. This is usually not necessary.
+  # BEFORE ASKING FOR SUPPORT, CHANGE TO false, STOP,
+  # DELETE RETAINED MESSAGES, AND RESTART
+  retain: false
 
 # Optional section
 # If you need to pass parameters to rtl_tcp or rtlamr
