@@ -265,6 +265,7 @@ def main():
         ca_cert=config['mqtt']['tls_ca'],
         client_cert=config['mqtt']['tls_cert'],
         client_key=config['mqtt']['tls_keyfile'],
+        protocol=config['mqtt']['protocol'],
         log_level=LOG_LEVEL,
         logger=logger,
     )
@@ -286,11 +287,21 @@ def main():
     # Set on_message callback
     # mqtt_client.set_on_message_callback(on_message)
 
-    # Subscribe to Home Assistant status topic
-    mqtt_client.subscribe(config['mqtt']['ha_status_topic'], qos=1)
-
     # Start the MQTT client loop
     mqtt_client.loop_start()
+
+    # Give some time for the MQTT client to connect and publish
+    attempts = 0
+    max_attempts = 10
+    while not mqtt_client.is_connected():
+        attempts += 1
+        if attempts >= max_attempts:
+            logger.critical('Failed to connect to MQTT broker')
+            sys.exit(1)
+        sleep(1)
+
+    # Subscribe to Home Assistant status topic
+    mqtt_client.subscribe(config['mqtt']['ha_status_topic'], qos=1)
 
     # Publish the discovery messages for all meters
     for meter in config['meters']:
@@ -302,8 +313,6 @@ def main():
             retain=config['mqtt']['retain']
         )
 
-    # Give some time for the MQTT client to connect and publish
-    sleep(1)
     # Publish the initial status
     mqtt_client.publish(
         topic=f'{config["mqtt"]["base_topic"]}/status',

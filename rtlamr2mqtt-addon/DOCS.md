@@ -111,6 +111,9 @@ mqtt:
   # BEFORE ASKING FOR SUPPORT, CHANGE TO false, STOP,
   # DELETE RETAINED MESSAGES, AND RESTART
   retain: false
+  # MQTT protocol version. Valid values are 3, 4, and 5, corresponding to 3.1,
+  # 3.1.1, and 5. Defaults to 4.
+  protocol: 4
 
 # Optional section
 # If you need to pass parameters to rtl_tcp or rtlamr
