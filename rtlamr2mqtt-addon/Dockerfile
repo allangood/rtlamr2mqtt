@@ -29,6 +29,7 @@ RUN apt-get update \
     && apt-get install -o Dpkg::Options::="--force-confnew" -y \
       libusb-1.0-0 \
       expect \
+      dumb-init \
     && apt-get --purge autoremove -y \
     && apt-get clean \
     && find /var/lib/apt/lists/ -type f -delete \
@@ -37,4 +38,5 @@ RUN apt-get update \
 
 STOPSIGNAL SIGTERM
 
-ENTRYPOINT ["python", "/opt/venv/app/rtlamr2mqtt.py"]
+ENTRYPOINT ["dumb-init"]
+CMD ["python", "/opt/venv/app/rtlamr2mqtt.py"]
