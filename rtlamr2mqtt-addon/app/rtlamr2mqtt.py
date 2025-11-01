@@ -323,11 +323,14 @@ def main():
     while keep_reading:
         try:
             if mqtt_client.last_message is not None:
+                message_payload = mqtt_client.last_message.payload.decode()
                 if LOG_LEVEL >= 3:
                     logger.debug('Received MQTT message: %s on topic %s',
-                        mqtt_client.last_message.payload.decode(),
+                        message_payload,
                         mqtt_client.last_message.topic
                     )
+                # When Home Assistant comes back online, republish discovery and status
+                if message_payload == 'online':
                     for meter in config['meters']:
                         discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
                         mqtt_client.publish(
@@ -336,6 +339,13 @@ def main():
                             qos=1,
                             retain=False
                         )
+                    # Republish online status so HA knows we're still here
+                    mqtt_client.publish(
+                        topic=f'{config["mqtt"]["base_topic"]}/status',
+                        payload='online',
+                        qos=1,
+                        retain=False
+                    )
                 mqtt_client.last_message = None
 
             # Start RTL_TCP if not remote
