@@ -51,7 +51,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
             rtlamr.kill()
             rtlamr.communicate()
         if LOG_LEVEL >= 3:
-            logger.info('RTLAMR Terminitaed.')
+            logger.info('RTLAMR Terminated.')
     # Terminate RTL_TCP
     if rtltcp not in [None, 'remote']:
         if LOG_LEVEL >= 3:
@@ -64,7 +64,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
             rtltcp.kill()
             rtltcp.communicate()
         if LOG_LEVEL >= 3:
-            logger.info('RTL_TCP Terminitaed.')
+            logger.info('RTL_TCP Terminated.')
     if mqtt_client is not None and offline:
         mqtt_client.publish(
             topic=f'{base_topic}/status',
@@ -118,7 +118,7 @@ def start_rtltcp(config):
 
     if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote:
         if LOG_LEVEL >= 3:
-            logger.debug('Reseting USB device: %s', usb_id)
+            logger.debug('Resetting USB device: %s', usb_id)
         usbutil.reset_usb_device(usb_id)
 
     rtltcp_args = cmd.build_rtltcp_args(config)
@@ -484,7 +484,7 @@ def main():
                     )
                     break
                 except Exception:
-                    logger.critical('Term siganal received. Exiting...')
+                    logger.critical('Term signal received. Exiting...')
                     keep_reading = False
                     shutdown(
                         rtlamr=rtlamr,
