@@ -18,6 +18,7 @@ from datetime import datetime
 from json import dumps
 from time import sleep
 from shutil import which
+import helpers.log as log
 import helpers.config as cnf
 import helpers.buildcmd as cmd
 import helpers.mqtt_client as m
@@ -30,18 +31,18 @@ import helpers.info as i
 # Set up logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
-LOG_LEVEL = 0
+LOG_LEVEL = log.Level.NONE.value
 logger.info('Starting rtlamr2mqtt %s', i.version())
 
 
 
 def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', offline=False):
     """ Shutdown function to terminate processes and clean up """
-    if LOG_LEVEL >= 3:
+    if LOG_LEVEL >= log.Level.INFO.value:
         logger.info('Shutting down...')
     # Terminate RTLAMR
     if rtlamr is not None:
-        if LOG_LEVEL >= 3:
+        if LOG_LEVEL >= log.Level.INFO.value:
             logger.info('Terminating RTLAMR...')
         rtlamr.stdout.close()
         rtlamr.terminate()
@@ -50,11 +51,11 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
         except subprocess.TimeoutExpired:
             rtlamr.kill()
             rtlamr.communicate()
-        if LOG_LEVEL >= 3:
+        if LOG_LEVEL >= log.Level.INFO.value:
             logger.info('RTLAMR Terminated.')
     # Terminate RTL_TCP
     if rtltcp not in [None, 'remote']:
-        if LOG_LEVEL >= 3:
+        if LOG_LEVEL >= log.Level.INFO.value:
             logger.info('Terminating RTL_TCP...')
         rtltcp.stdout.close()
         rtltcp.terminate()
@@ -63,7 +64,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
         except subprocess.TimeoutExpired:
             rtltcp.kill()
             rtltcp.communicate()
-        if LOG_LEVEL >= 3:
+        if LOG_LEVEL >= log.Level.INFO.value:
             logger.info('RTL_TCP Terminated.')
     if mqtt_client is not None and offline:
         mqtt_client.publish(
@@ -74,7 +75,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
         )
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
-    if LOG_LEVEL >= 3:
+    if LOG_LEVEL >= log.Level.INFO.value:
         logger.info('All done. Bye!')
 
 
@@ -117,14 +118,14 @@ def start_rtltcp(config):
 
 
     if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote:
-        if LOG_LEVEL >= 3:
+        if LOG_LEVEL >= log.Level.INFO.value:
             logger.debug('Resetting USB device: %s', usb_id)
         usbutil.reset_usb_device(usb_id)
 
     rtltcp_args = cmd.build_rtltcp_args(config)
     rtltcp_full_command = [which("rtl_tcp")] + rtltcp_args
 
-    if LOG_LEVEL >= 3:
+    if LOG_LEVEL >= log.Level.INFO.value:
         logger.info('Starting RTL_TCP using: %s', " ".join(rtltcp_full_command))
 
     try:
@@ -153,11 +154,11 @@ def start_rtltcp(config):
             logger.critical(e)
             return None
         if rtltcp_output:
-            if LOG_LEVEL >= 4:
+            if LOG_LEVEL >= log.Level.DEBUG.value:
                 logger.debug(rtltcp_output)
             if "listening..." in rtltcp_output:
                 rtltcp_is_ready = True
-                if LOG_LEVEL >= 3:
+                if LOG_LEVEL >= log.Level.INFO.value:
                     logger.info('RTL_TCP has started!')
         # Check rtl_tcp status
         rtltcp.poll()
@@ -177,7 +178,7 @@ def start_rtlamr(config):
     # Tickle the rtl_tcp server to wake it up
     usbutil.tickle_rtl_tcp(config['general']['rtltcp_host'])
 
-    if LOG_LEVEL >= 3:
+    if LOG_LEVEL >= log.Level.INFO.value:
         logger.info('Starting RTLAMR using: %s', " ".join(rtlamr_full_command))
     try:
         rtlamr = subprocess.Popen(["/usr/bin/unbuffer"] + rtlamr_full_command,
@@ -202,11 +203,11 @@ def start_rtlamr(config):
             rtlamr_is_ready = False
             return None
         if rtlamr_output:
-            if LOG_LEVEL >= 4:
+            if LOG_LEVEL >= log.Level.DEBUG.value:
                 logger.debug(rtlamr_output)
             if 'GainCount:' in rtlamr_output:
                 rtlamr_is_ready = True
-                if LOG_LEVEL >= 3:
+                if LOG_LEVEL >= log.Level.INFO.value:
                     logger.info('RTLAMR has started!')
         # Check rtl_tcp status
         rtlamr.poll()
@@ -242,7 +243,7 @@ def main():
     global LOG_LEVEL
     # Convert verbosity to a number and store as LOG_LEVEL
     LOG_LEVEL = ['none', 'error', 'warning', 'info', 'debug'].index(config['general']['verbosity'])
-    if LOG_LEVEL >= 3:
+    if LOG_LEVEL >= log.Level.INFO.value:
         logger.info(msg)
     ##################################################################
 
@@ -332,7 +333,7 @@ def main():
     while keep_reading:
         try:
             if mqtt_client.last_message is not None:
-                if LOG_LEVEL >= 3:
+                if LOG_LEVEL >= log.Level.INFO.value:
                     logger.debug('Received MQTT message: %s on topic %s',
                         mqtt_client.last_message.payload.decode(),
                         mqtt_client.last_message.topic
@@ -354,7 +355,7 @@ def main():
                 if rtltcp is not None:
                     rtltcp.poll()
                 if rtltcp.returncode is not None:
-                    if LOG_LEVEL >= 3:
+                    if LOG_LEVEL >= log.Level.INFO.value:
                         logger.critical('RTL_TCP has died, trying to restart...')
                     rtltcp = start_rtltcp(config)
                     if rtltcp is not None:
@@ -385,10 +386,10 @@ def main():
             else:
                 rtlamr.poll()
                 if rtlamr.returncode is not None:
-                    if LOG_LEVEL >= 3:
+                    if LOG_LEVEL >= log.Level.INFO.value:
                         logger.critical('RTLAMR has died, trying to restart...')
                     if int(config['general']['sleep_for']) > 0:
-                        if LOG_LEVEL >= 2:
+                        if LOG_LEVEL >= log.Level.WARNING.value:
                             logger.info('Sleep for is set to %d seconds...', int(config['general']['sleep_for']))
                         sleep(int(config['general']['sleep_for']))
                     rtlamr = start_rtlamr(config)
@@ -396,7 +397,7 @@ def main():
                         rtlamr.poll()
 
             if rtlamr is None:
-                if LOG_LEVEL >= 3:
+                if LOG_LEVEL >= log.Level.INFO.value:
                     logger.critical('Failed to start RTLAMR. Exiting...')
                 shutdown(
                             rtlamr=rtlamr,
@@ -464,7 +465,7 @@ def main():
 
             if config['general']['sleep_for'] > 0 and len(read_counter) == len(meter_ids_list):
                 # We have our readings, so we can sleep
-                if LOG_LEVEL >= 2:
+                if LOG_LEVEL >= log.Level.WARNING.value:
                     logger.info('All readings received.')
                     logger.info('Sleeping for %d seconds...', config["general"]["sleep_for"])
                 # Shutdown everything, but mqtt_client
@@ -496,7 +497,7 @@ def main():
                         offline=True
                     )
                     break
-                if LOG_LEVEL >= 3:
+                if LOG_LEVEL >= log.Level.INFO.value:
                     logger.info('Time to wake up!')
 
             sleep(1)  # Sleep for a short time to avoid busy waiting
