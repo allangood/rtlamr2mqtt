@@ -69,3 +69,5 @@ schema:
       state_class: list(measurement|total|total_increasing)?
       expire_after: int?
       force_update: bool?
+      manufacturer: "str?"
+      model: "str?"
