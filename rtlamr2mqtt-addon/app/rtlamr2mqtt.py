@@ -344,7 +344,7 @@ def main():
                     rtltcp = start_rtltcp(config)
                 if rtltcp is not None:
                     rtltcp.poll()
-                if rtltcp.returncode is not None:
+                if rtltcp is not None and rtltcp.returncode is not None:
                     if LOG_LEVEL >= 3:
                         logger.critical('RTL_TCP has died, trying to restart...')
                     rtltcp = start_rtltcp(config, reset_usb=True)
