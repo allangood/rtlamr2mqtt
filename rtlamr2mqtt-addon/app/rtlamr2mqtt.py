@@ -93,7 +93,7 @@ def get_iso8601_timestamp():
 
 
 
-def start_rtltcp(config):
+def start_rtltcp(config, reset_usb=False):
     """ Start RTL_TCP process """
     # Check if we are using a remote RTL_TCP server
     is_remote = config["general"]["rtltcp_host"].split(':')[0] not in [ '127.0.0.1', 'localhost' ]
@@ -116,7 +116,7 @@ def start_rtltcp(config):
             return None
 
 
-    if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote:
+    if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote and reset_usb:
         if LOG_LEVEL >= 3:
             logger.debug('Reseting USB device: %s', usb_id)
         usbutil.reset_usb_device(usb_id)
@@ -347,7 +347,7 @@ def main():
                 if rtltcp.returncode is not None:
                     if LOG_LEVEL >= 3:
                         logger.critical('RTL_TCP has died, trying to restart...')
-                    rtltcp = start_rtltcp(config)
+                    rtltcp = start_rtltcp(config, reset_usb=True)
                     if rtltcp is not None:
                         rtltcp.poll()
                 if rtltcp is None:
@@ -459,6 +459,11 @@ def main():
                     logger.info('Sleeping for %d seconds...', config["general"]["sleep_for"])
                 # Shutdown everything, but mqtt_client
                 shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=None)
+                # Reset process references so the next loop iteration
+                # creates fresh processes instead of detecting the
+                # intentionally-terminated ones as crashed
+                rtlamr = None
+                rtltcp = None
                 read_counter = []
                 try:
                     sleep(int(config['general']['sleep_for']))
