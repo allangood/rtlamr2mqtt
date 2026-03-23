@@ -459,6 +459,11 @@ def main():
                     logger.info('Sleeping for %d seconds...', config["general"]["sleep_for"])
                 # Shutdown everything, but mqtt_client
                 shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=None)
+                # Reset process references so the next loop iteration
+                # creates fresh processes instead of detecting the
+                # intentionally-terminated ones as crashed
+                rtlamr = None
+                rtltcp = None
                 read_counter = []
                 try:
                     sleep(int(config['general']['sleep_for']))
