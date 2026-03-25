@@ -70,7 +70,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
             topic=f'{base_topic}/status',
             payload='offline',
             qos=1,
-            retain=False
+            retain=True
         )
         mqtt_client.loop_stop()
         mqtt_client.disconnect()
@@ -274,7 +274,7 @@ def main():
         topic=f'{config["mqtt"]["base_topic"]}/status',
         payload="offline",
         qos=1,
-        retain=False
+        retain=True
     )
 
     try:
@@ -309,7 +309,7 @@ def main():
         topic=f'{config["mqtt"]["base_topic"]}/status',
         payload='online',
         qos=1,
-        retain=False
+        retain=True
     )
 
     ##################################################################
@@ -328,6 +328,7 @@ def main():
                         mqtt_client.last_message.payload.decode(),
                         mqtt_client.last_message.topic
                     )
+                if mqtt_client.last_message.payload.decode() == 'online':
                     for meter in config['meters']:
                         discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
                         mqtt_client.publish(
@@ -336,6 +337,12 @@ def main():
                             qos=1,
                             retain=False
                         )
+                    mqtt_client.publish(
+                        topic=f'{config["mqtt"]["base_topic"]}/status',
+                        payload='online',
+                        qos=1,
+                        retain=True
+                    )
                 mqtt_client.last_message = None
 
             # Start RTL_TCP if not remote
@@ -431,7 +438,7 @@ def main():
                     topic=f'{config["mqtt"]["base_topic"]}/status',
                     payload='online',
                     qos=1,
-                    retain=False
+                    retain=True
                 )
                 # Then, send the reading
                 payload = { 'reading': r, 'lastseen': get_iso8601_timestamp() }
