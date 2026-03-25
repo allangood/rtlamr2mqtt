@@ -51,7 +51,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
             rtlamr.kill()
             rtlamr.communicate()
         if LOG_LEVEL >= 3:
-            logger.info('RTLAMR Terminitaed.')
+            logger.info('RTLAMR Terminated.')
     # Terminate RTL_TCP
     if rtltcp not in [None, 'remote']:
         if LOG_LEVEL >= 3:
@@ -64,7 +64,7 @@ def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', of
             rtltcp.kill()
             rtltcp.communicate()
         if LOG_LEVEL >= 3:
-            logger.info('RTL_TCP Terminitaed.')
+            logger.info('RTL_TCP Terminated.')
     if mqtt_client is not None and offline:
         mqtt_client.publish(
             topic=f'{base_topic}/status',
