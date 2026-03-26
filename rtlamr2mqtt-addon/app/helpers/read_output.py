@@ -4,13 +4,20 @@ Helper functions for loading rtlamr output
 
 from json import loads
 
-def list_intersection(a, b):
-    """
-    Find the first element in the intersection of two lists
-    """
-    result = list(set(a).intersection(set(b)))
-    return result[0] if result else None
 
+# Ordered by priority: most specific first
+METER_ID_KEYS = ['EndpointID', 'ERTSerialNumber', 'ID']
+CONSUMPTION_KEYS = ['Consumption', 'LastConsumptionCount', 'LastConsumption']
+
+
+def first_matching_key(dictionary, keys):
+    """
+    Return the first key from `keys` that exists in `dictionary`, or None.
+    """
+    for key in keys:
+        if key in dictionary:
+            return key
+    return None
 
 
 def format_number(number, f):
@@ -20,11 +27,12 @@ def format_number(number, f):
     return str(f.replace('#', '{}').format(*str(number).zfill(f.count('#'))))
 
 
-
 def is_json(test_string):
     """
     Check if a string is valid JSON
     """
+    if not test_string:
+        return False
     try:
         loads(test_string)
     except ValueError:
@@ -32,34 +40,38 @@ def is_json(test_string):
     return True
 
 
-
 def read_rtlamr_output(output):
     """
-    Read a line a check if it is valid JSON
+    Read a line and check if it is valid JSON
     """
     if is_json(output):
         return loads(output)
-
+    return None
 
 
 def get_message_for_ids(rtlamr_output, meter_ids_list):
     """
     Search for meter IDs in the rtlamr output and return the first match.
     """
-    meter_id, consumption = None, None
     json_output = read_rtlamr_output(rtlamr_output)
-    if json_output is not None and 'Message' in json_output:
-        message = json_output['Message']
-        meter_id_key = list_intersection(message, ['EndpointID', 'ID', 'ERTSerialNumber'])
-        if meter_id_key is not None:
-            meter_id = str(message[meter_id_key])
-            if meter_id in meter_ids_list:
-                message.pop(meter_id_key)
-                consumption_key = list_intersection(message, ['Consumption', 'LastConsumption', 'LastConsumptionCount'])
-                if consumption_key is not None:
-                    consumption = message[consumption_key]
-                    message.pop(consumption_key)
+    if json_output is None or 'Message' not in json_output:
+        return None
 
-        if meter_id is not None and consumption is not None:
-            return { 'meter_id': str(meter_id), 'consumption': int(consumption), 'message': message }
-    return None
+    message = json_output['Message']
+
+    meter_id_key = first_matching_key(message, METER_ID_KEYS)
+    if meter_id_key is None:
+        return None
+
+    meter_id = str(message[meter_id_key])
+    if meter_id not in meter_ids_list:
+        return None
+
+    message.pop(meter_id_key)
+
+    consumption_key = first_matching_key(message, CONSUMPTION_KEYS)
+    if consumption_key is None:
+        return None
+
+    consumption = message.pop(consumption_key)
+    return {'meter_id': meter_id, 'consumption': int(consumption), 'message': message}
