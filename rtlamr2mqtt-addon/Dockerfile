@@ -13,7 +13,7 @@ RUN go install github.com/bemasher/rtlamr@latest \
     && make \
     && make install
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ARG BUILD_VERSION
 ARG BUILD_ARCH
