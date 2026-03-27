@@ -40,7 +40,7 @@ schema:
   general:
     sleep_for: "int?"
     verbosity: "list(debug|info|warning|critical|none)?"
-    device_id: "match(^[0-9]{3}:[0-9]{3})?"
+    device_id: "int?"
     rtltcp_host: match(([\w\d\.]+):(\d+))?
   mqtt:
     host: "str?"
