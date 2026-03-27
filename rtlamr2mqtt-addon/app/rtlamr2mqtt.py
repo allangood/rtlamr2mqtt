@@ -27,6 +27,7 @@ from mqtt_publisher import MQTTPublisher
 # Logging verbosity map
 VERBOSITY_MAP = {
     'none': logging.CRITICAL + 1,
+    'critical': logging.CRITICAL,
     'error': logging.ERROR,
     'warning': logging.WARNING,
     'info': logging.INFO,
