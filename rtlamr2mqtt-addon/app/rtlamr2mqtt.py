@@ -9,505 +9,169 @@ This add-on uses the code from:
 - https://git.osmocom.org/rtl-sdr
 """
 
+import asyncio
 import os
 import sys
-import logging
-import subprocess
 import signal
-from datetime import datetime
-from json import dumps
-from time import sleep
+import logging
 from shutil import which
+
 import helpers.config as cnf
 import helpers.buildcmd as cmd
-import helpers.mqtt_client as m
-import helpers.ha_messages as ha_msgs
-import helpers.read_output as ro
 import helpers.usb_utils as usbutil
 import helpers.info as i
+from process_manager import ManagedProcess
+from meter_reader import MeterReader
+from mqtt_publisher import MQTTPublisher
+
+# Logging verbosity map
+VERBOSITY_MAP = {
+    'none': logging.CRITICAL + 1,
+    'error': logging.ERROR,
+    'warning': logging.WARNING,
+    'info': logging.INFO,
+    'debug': logging.DEBUG,
+}
+
+logger = logging.getLogger('rtlamr2mqtt')
 
 
-# Set up logging
-logger = logging.getLogger(__name__)
-logging.basicConfig(format='[%(asctime)s] %(levelname)s:%(message)s', level=logging.DEBUG)
-LOG_LEVEL = 0
-logger.info('Starting rtlamr2mqtt %s', i.version())
+def setup_logging(verbosity: str):
+    """Configure logging with the given verbosity level."""
+    logging.basicConfig(
+        format='[%(asctime)s] %(levelname)s: %(message)s',
+        level=VERBOSITY_MAP.get(verbosity, logging.INFO),
+    )
+    logger.setLevel(VERBOSITY_MAP.get(verbosity, logging.INFO))
 
 
-
-def shutdown(rtlamr=None, rtltcp=None, mqtt_client=None, base_topic='rtlamr', offline=False):
-    """ Shutdown function to terminate processes and clean up """
-    if LOG_LEVEL >= 3:
-        logger.info('Shutting down...')
-    # Terminate RTLAMR
-    if rtlamr is not None:
-        if LOG_LEVEL >= 3:
-            logger.info('Terminating RTLAMR...')
-        rtlamr.stdout.close()
-        rtlamr.terminate()
-        try:
-            rtlamr.communicate(timeout=1)
-        except subprocess.TimeoutExpired:
-            rtlamr.kill()
-            rtlamr.communicate()
-        if LOG_LEVEL >= 3:
-            logger.info('RTLAMR Terminitaed.')
-    # Terminate RTL_TCP
-    if rtltcp not in [None, 'remote']:
-        if LOG_LEVEL >= 3:
-            logger.info('Terminating RTL_TCP...')
-        rtltcp.stdout.close()
-        rtltcp.terminate()
-        try:
-            rtltcp.communicate(timeout=1)
-        except subprocess.TimeoutExpired:
-            rtltcp.kill()
-            rtltcp.communicate()
-        if LOG_LEVEL >= 3:
-            logger.info('RTL_TCP Terminitaed.')
-    if mqtt_client is not None and offline:
-        mqtt_client.publish(
-            topic=f'{base_topic}/status',
-            payload='offline',
-            qos=1,
-            retain=False
-        )
-        mqtt_client.loop_stop()
-        mqtt_client.disconnect()
-    if LOG_LEVEL >= 3:
-        logger.info('All done. Bye!')
-
-
-
-def signal_handler(signum, frame):
-    """ Signal handler for SIGINT and SIGTERM """
-    raise RuntimeError(f'Signal {signum} received.')
-
-
-
-def get_iso8601_timestamp():
-    """
-    Get the current timestamp in ISO 8601 format
-    """
-    return datetime.now().astimezone().replace(microsecond=0).isoformat()
-
-
-
-def start_rtltcp(config, reset_usb=False):
-    """ Start RTL_TCP process """
-    # Check if we are using a remote RTL_TCP server
-    is_remote = config["general"]["rtltcp_host"].split(':')[0] not in [ '127.0.0.1', 'localhost' ]
-
-    if is_remote:
-        return 'remote'
-
-    if 'RTLAMR2MQTT_USE_MOCK' in dict(os.environ) or is_remote:
-        usb_id_list = [ '001:001']
-    else:
-        # Search for RTL-SDR devices
-        usb_id_list = usbutil.find_rtl_sdr_devices()
-
-    usb_id = config['general']['device_id']
-    if config['general']['device_id'] == '0':
-        if len(usb_id_list) > 0:
-            usb_id = usb_id_list[0]
-        else:
-            logger.critical('No RTL-SDR devices found. Exiting...')
-            return None
-
-
-    if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote and reset_usb:
-        if LOG_LEVEL >= 3:
-            logger.debug('Reseting USB device: %s', usb_id)
-        usbutil.reset_usb_device(usb_id)
-
-    rtltcp_args = cmd.build_rtltcp_args(config)
-    rtltcp_full_command = [which("rtl_tcp")] + rtltcp_args
-
-    if LOG_LEVEL >= 3:
-        logger.info('Starting RTL_TCP using: %s', " ".join(rtltcp_full_command))
-
-    try:
-        # rtltcp = subprocess.Popen(["strace", "--output=out.trace", "rtl_tcp"] + rtltcp_args,
-        rtltcp = subprocess.Popen(["/usr/bin/unbuffer"] + rtltcp_full_command,
-            start_new_session=True,
-            text=True,
-            close_fds=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            bufsize=1)
-
-        os.set_blocking(rtltcp.stdout.fileno(), False)
-
-    except Exception as e:
-        logger.critical('Failed to start RTL_TCP. %s', e)
-        return None
-
-    rtltcp_is_ready = False
-    # Wait for rtl_tcp to be ready
-
-    while not rtltcp_is_ready:
-        try:
-            rtltcp_output = rtltcp.stdout.readline().strip()
-        except Exception as e:
-            logger.critical(e)
-            return None
-        if rtltcp_output:
-            if LOG_LEVEL >= 4:
-                logger.debug(rtltcp_output)
-            if "listening..." in rtltcp_output:
-                rtltcp_is_ready = True
-                if LOG_LEVEL >= 3:
-                    logger.info('RTL_TCP has started!')
-        # Check rtl_tcp status
-        rtltcp.poll()
-        if rtltcp.returncode is not None:
-            logger.critical('RTL_TCP failed to start errcode: %d', int(rtltcp.returncode))
-            return None
-
-    return rtltcp
-
-
-
-def start_rtlamr(config):
-    """ Start RTLAMR process """
-    rtlamr_args = cmd.build_rtlamr_args(config)
-    rtlamr_full_command = [which("rtlamr")] + rtlamr_args
-
-    # Tickle the rtl_tcp server to wake it up
-    usbutil.tickle_rtl_tcp(config['general']['rtltcp_host'])
-
-    if LOG_LEVEL >= 3:
-        logger.info('Starting RTLAMR using: %s', " ".join(rtlamr_full_command))
-    try:
-        rtlamr = subprocess.Popen(["/usr/bin/unbuffer"] + rtlamr_full_command,
-            close_fds=True,
-            text=True,
-            start_new_session=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            bufsize=1)
-        os.set_blocking(rtlamr.stdout.fileno(), False)
-
-    except Exception:
-        logger.critical('Failed to start RTLAMR. Exiting...')
-        return None
-
-    rtlamr_is_ready = False
-    while not rtlamr_is_ready:
-        try:
-            rtlamr_output = rtlamr.stdout.readline().strip()
-        except Exception as e:
-            logger.critical(e)
-            rtlamr_is_ready = False
-            return None
-        if rtlamr_output:
-            if LOG_LEVEL >= 4:
-                logger.debug(rtlamr_output)
-            if 'GainCount:' in rtlamr_output:
-                rtlamr_is_ready = True
-                if LOG_LEVEL >= 3:
-                    logger.info('RTLAMR has started!')
-        # Check rtl_tcp status
-        rtlamr.poll()
-        if rtlamr.returncode is not None:
-            logger.critical('RTLAMR failed to start errcode: %d', rtlamr.returncode)
-            return None
-
-    return rtlamr
-
-
-
-def main():
-    """
-    Main function
-    """
-    # Signal handlers/call back
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
-
-    # Load the configuration file
+def load_and_validate_config():
+    """Load config, set up logging, return config dict or exit."""
     if len(sys.argv) == 2:
         config_path = os.path.join(os.path.dirname(__file__), sys.argv[1])
     else:
         config_path = None
-    err, msg, config = cnf.load_config(config_path)
 
-    if err != 'success':
-        # Error loading configuration file
+    status, msg, config = cnf.load_config(config_path)
+    if status != 'success':
+        # Use basic logging since we don't have config yet
+        logging.basicConfig(format='[%(asctime)s] %(levelname)s: %(message)s')
         logger.critical(msg)
         sys.exit(1)
-    # Configuration file loaded successfully
-    # Use LOG_LEVEL as a global variable
-    global LOG_LEVEL
-    # Convert verbosity to a number and store as LOG_LEVEL
-    LOG_LEVEL = ['none', 'error', 'warning', 'info', 'debug'].index(config['general']['verbosity'])
-    if LOG_LEVEL >= 3:
-        logger.info(msg)
-    ##################################################################
 
-    # ToDo:
-    # Here is were it will be defined how the code will search
-    # for a meter_id based on a value.
-    # res = list((sub for sub in config['meters'] if config['meters'][sub]['name'][-7:] == "_FINDME"))
+    setup_logging(config['general']['verbosity'])
+    logger.info('Starting rtlamr2mqtt %s', i.version())
+    logger.info(msg)
+    return config
 
-    # Get a list of meters ids to watch
-    meter_ids_list = list(config['meters'].keys())
 
-    # Create MQTT Client and connect to the broker
-    mqtt_client = m.MQTTClient(
-        broker=config['mqtt']['host'],
-        port=config['mqtt']['port'],
-        username=config['mqtt']['user'],
-        password=config['mqtt']['password'],
-        tls_enabled=config['mqtt']['tls_enabled'],
-        tls_insecure=config['mqtt']['tls_insecure'],
-        ca_cert=config['mqtt']['tls_ca'],
-        client_cert=config['mqtt']['tls_cert'],
-        client_key=config['mqtt']['tls_keyfile'],
-        log_level=LOG_LEVEL,
-        logger=logger,
+async def main():
+    """Main async entry point."""
+    config = load_and_validate_config()
+
+    shutdown_event = asyncio.Event()
+    reading_queue = asyncio.Queue(maxsize=100)
+
+    # Signal handlers
+    loop = asyncio.get_event_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, shutdown_event.set)
+
+    # Determine if rtl_tcp is remote
+    rtltcp_host = config['general']['rtltcp_host']
+    is_remote = rtltcp_host.split(':')[0] not in ['127.0.0.1', 'localhost']
+
+    # USB setup (sync, before async work)
+    if not is_remote and 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
+        device_index = config['general']['device_id']
+        devices = usbutil.find_rtl_sdr_devices()
+        if device_index >= len(devices):
+            if len(devices) == 0:
+                logger.critical('No RTL-SDR devices found')
+            else:
+                logger.critical('Device index %d out of range (found %d devices)', device_index, len(devices))
+            sys.exit(1)
+        logger.info('Found %d RTL-SDR device(s), using index %d', len(devices), device_index)
+
+    # Build commands
+    rtltcp_cmd = None
+    if not is_remote:
+        rtltcp_args = cmd.build_rtltcp_args(config)
+        rtltcp_bin = which('rtl_tcp')
+        if rtltcp_bin and rtltcp_args is not None:
+            rtltcp_cmd = [rtltcp_bin] + rtltcp_args
+
+    rtlamr_args = cmd.build_rtlamr_args(config)
+    rtlamr_bin = which('rtlamr')
+    if not rtlamr_bin:
+        logger.critical('rtlamr binary not found in PATH')
+        sys.exit(1)
+    rtlamr_cmd = [rtlamr_bin] + rtlamr_args
+
+    # Create managed processes
+    rtltcp_proc = ManagedProcess(
+        name='rtl_tcp',
+        command=rtltcp_cmd or ['echo', 'remote'],
+        ready_pattern='listening...',
+        ready_timeout=30.0,
     )
 
-    # Set Last Will and Testament
-    mqtt_client.set_last_will(
-        topic=f'{config["mqtt"]["base_topic"]}/status',
-        payload="offline",
-        qos=1,
-        retain=False
+    rtlamr_proc = ManagedProcess(
+        name='rtlamr',
+        command=rtlamr_cmd,
+        ready_pattern='GainCount:',
+        ready_timeout=30.0,
     )
 
-    try:
-        mqtt_client.connect()
-    except Exception as e:
-        logger.critical('Failed to connect to MQTT broker: %s', e)
+    # Start rtl_tcp if local
+    if not is_remote:
+        if not await rtltcp_proc.start_with_retry():
+            logger.critical('Failed to start rtl_tcp')
+            sys.exit(1)
+
+    # Tickle rtl_tcp to wake it up
+    usbutil.tickle_rtl_tcp(rtltcp_host)
+
+    # Start rtlamr
+    if not await rtlamr_proc.start_with_retry():
+        logger.critical('Failed to start rtlamr')
+        if not is_remote:
+            await rtltcp_proc.stop()
         sys.exit(1)
 
-    # Set on_message callback
-    # mqtt_client.set_on_message_callback(on_message)
-
-    # Subscribe to Home Assistant status topic
-    mqtt_client.subscribe(config['mqtt']['ha_status_topic'], qos=1)
-
-    # Start the MQTT client loop
-    mqtt_client.loop_start()
-
-    # Publish the discovery messages for all meters
-    for meter in config['meters']:
-        discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
-        mqtt_client.publish(
-            topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
-            payload=dumps(discovery_payload),
-            qos=1,
-            retain=False
-        )
-
-    # Give some time for the MQTT client to connect and publish
-    sleep(1)
-    # Publish the initial status
-    mqtt_client.publish(
-        topic=f'{config["mqtt"]["base_topic"]}/status',
-        payload='online',
-        qos=1,
-        retain=False
+    # Create reader and publisher
+    reader = MeterReader(
+        config=config,
+        rtlamr=rtlamr_proc,
+        rtltcp=rtltcp_proc,
+        reading_queue=reading_queue,
+        shutdown_event=shutdown_event,
+        is_remote=is_remote,
     )
 
-    ##################################################################
-    # Is rtl_tcp configured to run on a remote host?
-    is_rtltcp_remote = config["general"]["rtltcp_host"].split(':')[0] not in [ '127.0.0.1', 'localhost' ]
-    #
-    rtltcp = None
-    rtlamr = None
-    keep_reading = True
-    read_counter = []
-    while keep_reading:
-        try:
-            if mqtt_client.last_message is not None:
-                if LOG_LEVEL >= 3:
-                    logger.debug('Received MQTT message: %s on topic %s',
-                        mqtt_client.last_message.payload.decode(),
-                        mqtt_client.last_message.topic
-                    )
-                    for meter in config['meters']:
-                        discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
-                        mqtt_client.publish(
-                            topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
-                            payload=dumps(discovery_payload),
-                            qos=1,
-                            retain=False
-                        )
-                mqtt_client.last_message = None
-
-            # Start RTL_TCP if not remote
-            if not is_rtltcp_remote:
-                if rtltcp is None:
-                    rtltcp = start_rtltcp(config)
-                if rtltcp is not None:
-                    rtltcp.poll()
-                if rtltcp.returncode is not None:
-                    if LOG_LEVEL >= 3:
-                        logger.critical('RTL_TCP has died, trying to restart...')
-                    rtltcp = start_rtltcp(config, reset_usb=True)
-                    if rtltcp is not None:
-                        rtltcp.poll()
-                if rtltcp is None:
-                    logger.critical('Failed to start RTL_TCP. Exiting...')
-                    shutdown(
-                                rtlamr=None,
-                                rtltcp=rtltcp,
-                                mqtt_client=mqtt_client,
-                                base_topic=config['mqtt']['base_topic'],
-                                offline=True
-                            )
-                    sys.exit(1)
-            else:
-                logger.info('Using remote RTL_TCP server at %s', config['general']['rtltcp_host'])
-                # If we are using a remote RTL_TCP server, we can skip the rest of the setup
-                # and just read from the remote server
-                rtltcp = None
-
-            ##################################################################
-
-            # Read the output from RTLAMR
-            # Start RTLAMR if it is not already running
-            if rtlamr is None:
-                rtlamr = start_rtlamr(config)
-            else:
-                rtlamr.poll()
-                if rtlamr.returncode is not None:
-                    if LOG_LEVEL >= 3:
-                        logger.critical('RTLAMR has died, trying to restart...')
-                    if int(config['general']['sleep_for']) > 0:
-                        if LOG_LEVEL >= 2:
-                            logger.info('Sleep for is set to %d seconds...', int(config['general']['sleep_for']))
-                        sleep(int(config['general']['sleep_for']))
-                    rtlamr = start_rtlamr(config)
-                    if rtlamr is not None:
-                        rtlamr.poll()
-
-            if rtlamr is None:
-                if LOG_LEVEL >= 3:
-                    logger.critical('Failed to start RTLAMR. Exiting...')
-                shutdown(
-                            rtlamr=rtlamr,
-                            rtltcp=rtltcp,
-                            mqtt_client=mqtt_client,
-                            base_topic=config['mqtt']['base_topic'],
-                            offline=True
-                        )
-                sys.exit(1)
-
-            try:
-                rtlamr_output = rtlamr.stdout.readline().strip()
-                # rtlamr_output = rtlamr.stdout.read1().strip()
-            except KeyboardInterrupt:
-                logger.critical('Interrupted by user.')
-                keep_reading = False
-                break
-            except Exception as e:
-                logger.critical(e)
-                keep_reading = False
-                break
-
-            # Search for ID in the output
-            reading = ro.get_message_for_ids(
-                rtlamr_output = rtlamr_output,
-                meter_ids_list = meter_ids_list
-            )
-
-            if reading is not None:
-                # Add the meter_id to the read_counter
-                if reading['meter_id'] not in read_counter:
-                    read_counter.append(reading['meter_id'])
-
-                if config['meters'][reading['meter_id']]['format'] is not None:
-                    r = ro.format_number(reading['consumption'], config['meters'][reading['meter_id']]['format'])
-                else:
-                    r = reading['consumption']
-
-                # Publish the reading to MQTT
-                # First, make sure the status is set to online
-                mqtt_client.publish(
-                    topic=f'{config["mqtt"]["base_topic"]}/status',
-                    payload='online',
-                    qos=1,
-                    retain=False
-                )
-                # Then, send the reading
-                payload = { 'reading': r, 'lastseen': get_iso8601_timestamp() }
-                mqtt_client.publish(
-                    topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/state',
-                    payload=dumps(payload),
-                    qos=1,
-                    retain=False
-                )
-
-                # Publish the meter attributes to MQTT
-                # Add the meter protocol to the list of attributes
-                reading['message']['protocol'] = config['meters'][reading['meter_id']]['protocol']
-                mqtt_client.publish(
-                    topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/attributes',
-                    payload=dumps(reading['message']),
-                    qos=1,
-                    retain=False
-                )
-
-            if config['general']['sleep_for'] > 0 and len(read_counter) == len(meter_ids_list):
-                # We have our readings, so we can sleep
-                if LOG_LEVEL >= 2:
-                    logger.info('All readings received.')
-                    logger.info('Sleeping for %d seconds...', config["general"]["sleep_for"])
-                # Shutdown everything, but mqtt_client
-                shutdown(rtlamr=rtlamr, rtltcp=rtltcp, mqtt_client=None)
-                # Reset process references so the next loop iteration
-                # creates fresh processes instead of detecting the
-                # intentionally-terminated ones as crashed
-                rtlamr = None
-                rtltcp = None
-                read_counter = []
-                try:
-                    sleep(int(config['general']['sleep_for']))
-                except KeyboardInterrupt:
-                    logger.critical('Interrupted by user.')
-                    keep_reading = False
-                    shutdown(
-                        rtlamr=rtlamr,
-                        rtltcp=rtltcp,
-                        mqtt_client=mqtt_client,
-                        base_topic=config['mqtt']['base_topic'],
-                        offline=True
-                    )
-                    break
-                except Exception:
-                    logger.critical('Term siganal received. Exiting...')
-                    keep_reading = False
-                    shutdown(
-                        rtlamr=rtlamr,
-                        rtltcp=rtltcp,
-                        mqtt_client=mqtt_client,
-                        base_topic=config['mqtt']['base_topic'],
-                        offline=True
-                    )
-                    break
-                if LOG_LEVEL >= 3:
-                    logger.info('Time to wake up!')
-
-            sleep(1)  # Sleep for a short time to avoid busy waiting
-        except RuntimeError as e:
-            # Handle the signal received
-            logger.critical('Runtime error: %s', e)
-            keep_reading = False
-
-    # Shutdown
-    shutdown(
-        rtlamr = rtlamr,
-        rtltcp = rtltcp,
-        mqtt_client = mqtt_client,
-        base_topic=config['mqtt']['base_topic'],
-        offline=True
+    publisher = MQTTPublisher(
+        config=config,
+        reading_queue=reading_queue,
+        shutdown_event=shutdown_event,
     )
+
+    # Run reader and publisher concurrently
+    try:
+        async with asyncio.TaskGroup() as tg:
+            tg.create_task(reader.run())
+            tg.create_task(publisher.run())
+    except* Exception as eg:
+        for exc in eg.exceptions:
+            if not isinstance(exc, asyncio.CancelledError):
+                logger.error('Task error: %s', exc)
+
+    # Cleanup
+    logger.info('Shutting down...')
+    await rtlamr_proc.stop()
+    if not is_remote:
+        await rtltcp_proc.stop()
+    logger.info('Goodbye!')
 
 
 if __name__ == '__main__':
-    # Call main function
-    main()
+    asyncio.run(main())
