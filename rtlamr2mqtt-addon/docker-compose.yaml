@@ -1,0 +1,22 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports:
+      - "1883:1883"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -i healthcheck -W 3"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  rtlamr2mqtt:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock
+    volumes:
+      - ./test-config.yaml:/etc/rtlamr2mqtt.yaml:ro
+    depends_on:
+      mosquitto:
+        condition: service_healthy

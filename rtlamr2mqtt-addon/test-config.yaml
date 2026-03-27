@@ -1,0 +1,27 @@
+general:
+  sleep_for: 30
+  verbosity: debug
+
+mqtt:
+  host: mosquitto
+  port: 1883
+  tls_enabled: false
+  ha_autodiscovery_topic: homeassistant
+  ha_status_topic: homeassistant/status
+  base_topic: rtlamr
+
+meters:
+  - id: 33333333
+    protocol: scm+
+    name: my_water_meter
+    format: "######.###"
+    unit_of_measurement: "m³"
+    icon: mdi:gauge
+    device_class: water
+  - id: 22222222
+    protocol: r900
+    name: my_energy_meter
+    format: "######.###"
+    unit_of_measurement: "KWh"
+    icon: mdi:gauge
+    device_class: energy
