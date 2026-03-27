@@ -4,6 +4,7 @@ Helper functions for MQTT connection
 
 import ssl
 import paho.mqtt.client as mqtt
+from paho.mqtt.enums import CallbackAPIVersion
 from uuid import uuid4
 
 class MQTTClient:
@@ -14,12 +15,13 @@ class MQTTClient:
         """
         Initialize the MQTT client.
         """
-        self.client = mqtt.Client(client_id=f'rtlamr2mqtt-{uuid4().hex[-8:]}')
+        self.client = mqtt.Client(CallbackAPIVersion.VERSION2, client_id=f'rtlamr2mqtt-{uuid4().hex[-8:]}')
         self.broker = broker
         self.port = port
         self.logger = logger
         self.log_level = log_level
         self.last_message = None
+        self.subscriptions = []
 
         # Set username and password if provided
         if username and password:
@@ -36,6 +38,42 @@ class MQTTClient:
             )
             self.client.tls_insecure_set(tls_insecure)
 
+        # Set callbacks
+        self.client.on_connect = self.on_connect
+        self.client.on_disconnect = self.on_disconnect
+        self.client.on_message = self.on_message
+        if self.log_level >= 4:
+            self.client.on_log = self.on_log
+
+    def on_connect(self, client, userdata, flags, reason_code, properties):
+        """
+        Callback for when the client receives a CONNACK response from the server.
+        """
+        if reason_code == 0:
+            if self.log_level >= 3:
+                self.logger.info("Connected to MQTT broker")
+            # Re-subscribe to topics on connect/reconnect
+            for topic, qos in self.subscriptions:
+                if self.log_level >= 3:
+                    self.logger.info(f"Subscribing to {topic}")
+                self.client.subscribe(topic, qos)
+        else:
+            self.logger.error(f"Failed to connect to MQTT broker: {reason_code}")
+
+    def on_disconnect(self, client, userdata, flags, reason_code, properties):
+        """
+        Callback for when the client disconnects from the broker.
+        """
+        if self.log_level >= 3:
+            self.logger.warning(f"Disconnected from MQTT broker: {reason_code}")
+
+    def on_log(self, client, userdata, level, buf):
+        """
+        Callback for MQTT logging.
+        """
+        if self.log_level >= 4:
+            self.logger.debug(f"MQTT Log: {buf}")
+
     def set_last_will(self, topic, payload, qos=0, retain=False):
         """
         Set the Last Will and Testament (LWT).
@@ -49,7 +87,6 @@ class MQTTClient:
         if self.log_level >= 3:
             self.logger.info(f"Connecting to MQTT broker at {self.broker}:{self.port}")
         self.client.connect(self.broker, self.port)
-        self.client.on_message = self.on_message
 
     def publish(self, topic, payload, qos=0, retain=False):
         """
@@ -63,9 +100,12 @@ class MQTTClient:
         """
         Subscribe to a topic.
         """
-        if self.log_level >= 3:
-            self.logger.info(f"Subscribing to {topic}")
-        self.client.subscribe(topic, qos=qos)
+        if (topic, qos) not in self.subscriptions:
+            self.subscriptions.append((topic, qos))
+        if self.client.is_connected():
+            if self.log_level >= 3:
+                self.logger.info(f"Subscribing to {topic}")
+            self.client.subscribe(topic, qos)
 
     def on_message(self, client, userdata, message):
         """
