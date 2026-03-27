@@ -128,6 +128,44 @@ class TestManagedProcessRetry:
         assert result is True
         await proc.stop()
 
+    async def test_on_retry_callback_called(self, tmp_path):
+        script = tmp_path / 'fail.sh'
+        script.write_text('#!/bin/bash\nexit 1\n')
+        script.chmod(0o755)
+        callback_count = 0
+        def on_retry():
+            nonlocal callback_count
+            callback_count += 1
+        proc = ManagedProcess(
+            name='fail',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=1.0,
+            max_retries=3,
+            backoff=[0.1, 0.1, 0.1],
+            on_retry=on_retry,
+        )
+        result = await proc.start_with_retry()
+        assert result is False
+        assert callback_count == 3
+
+    async def test_on_retry_not_called_on_first_attempt(self, mock_script_dir):
+        callback_count = 0
+        def on_retry():
+            nonlocal callback_count
+            callback_count += 1
+        proc = ManagedProcess(
+            name='rtl_tcp',
+            command=[os.path.join(mock_script_dir, 'rtl_tcp')],
+            ready_pattern='listening...',
+            ready_timeout=10.0,
+            on_retry=on_retry,
+        )
+        result = await proc.start_with_retry()
+        assert result is True
+        assert callback_count == 0
+        await proc.stop()
+
     async def test_start_with_retry_exhausted(self, tmp_path):
         script = tmp_path / 'fail.sh'
         script.write_text('#!/bin/bash\nexit 1\n')

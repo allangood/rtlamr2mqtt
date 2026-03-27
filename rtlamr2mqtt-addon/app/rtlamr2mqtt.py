@@ -109,12 +109,20 @@ async def main():
         sys.exit(1)
     rtlamr_cmd = [rtlamr_bin] + rtlamr_args
 
+    # USB reset callback for rtl_tcp retries (only when not using mock or remote)
+    def reset_usb():
+        if not is_remote and 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
+            device_index = config['general']['device_id']
+            logger.info('Resetting USB device at index %d before retry', device_index)
+            usbutil.reset_usb_device(device_index)
+
     # Create managed processes
     rtltcp_proc = ManagedProcess(
         name='rtl_tcp',
         command=rtltcp_cmd or ['echo', 'remote'],
         ready_pattern='listening...',
         ready_timeout=30.0,
+        on_retry=reset_usb if not is_remote else None,
     )
 
     rtlamr_proc = ManagedProcess(

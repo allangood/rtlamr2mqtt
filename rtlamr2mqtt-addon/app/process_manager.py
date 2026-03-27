@@ -5,6 +5,7 @@ Generic async subprocess manager with ready detection, retry, and clean shutdown
 import asyncio
 import signal
 import logging
+from typing import Callable
 from shutil import which
 
 logger = logging.getLogger('rtlamr2mqtt')
@@ -28,6 +29,7 @@ class ManagedProcess:
         ready_timeout: float = 30.0,
         max_retries: int = 5,
         backoff: list[float] | None = None,
+        on_retry: Callable | None = None,
     ):
         self.name = name
         self.command = command
@@ -35,6 +37,7 @@ class ManagedProcess:
         self.ready_timeout = ready_timeout
         self.max_retries = max_retries
         self.backoff = backoff if backoff is not None else [2, 5, 10, 20, 30]
+        self.on_retry = on_retry
         self._process: asyncio.subprocess.Process | None = None
 
     @property
@@ -153,6 +156,11 @@ class ManagedProcess:
                 '%s failed to start, retry %d/%d in %.1fs',
                 self.name, attempt + 1, self.max_retries, delay,
             )
+            if self.on_retry:
+                try:
+                    self.on_retry()
+                except Exception as e:
+                    logger.warning('on_retry callback for %s failed: %s', self.name, e)
             await asyncio.sleep(delay)
             if await self.start():
                 return True
