@@ -19,7 +19,7 @@ class TestMeterDiscoverPayload:
         payload = meter_discover_payload('rtlamr', meter_config)
 
         device = payload['device']
-        assert device['identifiers'] == 'meter_33333333'
+        assert device['identifiers'] == ['meter_33333333']
         assert device['name'] == 'my_water_meter'
         assert device['serial_number'] == 33333333
 

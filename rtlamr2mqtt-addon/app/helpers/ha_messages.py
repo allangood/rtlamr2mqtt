@@ -31,7 +31,7 @@ def meter_discover_payload(base_topic, meter_config):
 
     return {
         'device': {
-            'identifiers': f'meter_{meter_id}',
+            'identifiers': [f'meter_{meter_id}'],
             'name': meter_name,
             'manufacturer': meter_config.get('manufacturer', 'RTLAMR2MQTT'),
             'model': meter_config.get('model', 'Smart Meter'),

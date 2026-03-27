@@ -13,7 +13,11 @@ RUN go install github.com/bemasher/rtlamr@latest \
     && make \
     && make install
 
-FROM python:3.13-slim
+ARG BUILD_FROM=python:3.13-slim
+FROM ${BUILD_FROM}
+
+ARG BUILD_VERSION
+ARG BUILD_ARCH
 
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
@@ -34,6 +38,11 @@ RUN apt-get update \
     && find /var/lib/apt/lists/ -type f -delete \
     && pip install -r /tmp/requirements.txt \
     && rm -rf /usr/share/doc /tmp/requirements.txt
+
+LABEL \
+    io.hass.version="${BUILD_VERSION}" \
+    io.hass.type="addon" \
+    io.hass.arch="${BUILD_ARCH}"
 
 STOPSIGNAL SIGTERM
 
