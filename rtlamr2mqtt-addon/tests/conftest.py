@@ -31,8 +31,8 @@ def sample_config():
             'ha_autodiscovery_topic': 'homeassistant',
         },
         'custom_parameters': {
-            'rtltcp': '-s 2048000',
-            'rtlamr': '-unique=true',
+            'rtltcp': '',
+            'rtlamr': '',
         },
         'meters': {
             '33333333': {

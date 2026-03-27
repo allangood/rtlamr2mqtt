@@ -105,9 +105,10 @@ def load_config(config_path=None):
     mqtt['ha_status_topic'] = str(mqtt.get('ha_status_topic', 'homeassistant/status'))
     mqtt['ha_autodiscovery_topic'] = mqtt.get('ha_autodiscovery_topic', 'homeassistant')
 
-    # Custom parameters section
-    custom_parameters['rtltcp'] = str(custom_parameters.get('rtltcp', '-s 2048000'))
-    custom_parameters['rtlamr'] = str(custom_parameters.get('rtlamr', '-unique=true'))
+    # Custom parameters section (defaults like -s 2048000 and -unique=true
+    # are applied in buildcmd.py only when not overridden here)
+    custom_parameters['rtltcp'] = str(custom_parameters.get('rtltcp', ''))
+    custom_parameters['rtlamr'] = str(custom_parameters.get('rtlamr', ''))
 
     # Convert meters list to dict keyed by ID
     meters = {}

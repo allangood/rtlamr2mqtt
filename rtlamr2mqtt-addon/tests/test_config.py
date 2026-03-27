@@ -70,8 +70,8 @@ class TestLoadConfig:
             assert config['mqtt']['user'] is None
             assert config['mqtt']['tls_enabled'] is False
             assert config['mqtt']['base_topic'] == 'rtlamr'
-            assert config['custom_parameters']['rtltcp'] == '-s 2048000'
-            assert config['custom_parameters']['rtlamr'] == '-unique=true'
+            assert config['custom_parameters']['rtltcp'] == ''
+            assert config['custom_parameters']['rtlamr'] == ''
         finally:
             os.unlink(path)
 

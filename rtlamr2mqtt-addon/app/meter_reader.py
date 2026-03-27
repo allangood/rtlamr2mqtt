@@ -7,6 +7,7 @@ import asyncio
 import logging
 
 import helpers.read_output as ro
+import helpers.usb_utils as usbutil
 
 logger = logging.getLogger('rtlamr2mqtt')
 
@@ -34,6 +35,7 @@ class MeterReader:
         self.is_remote = is_remote
         self.meter_ids = list(config['meters'].keys())
         self.sleep_for = config['general']['sleep_for']
+        self.rtltcp_host = config['general']['rtltcp_host']
 
     async def run(self):
         """
@@ -57,6 +59,9 @@ class MeterReader:
                             logger.error('Failed to restart rtlamr, shutting down')
                             self.shutdown_event.set()
                             return
+                    else:
+                        # stdout closed but process alive — avoid tight loop
+                        await asyncio.sleep(0.1)
                     continue
 
                 if not line:
@@ -132,6 +137,9 @@ class MeterReader:
                 logger.error('Failed to restart rtl_tcp after sleep, shutting down')
                 self.shutdown_event.set()
                 return
+
+        # Tickle rtl_tcp to wake up the receiver
+        usbutil.tickle_rtl_tcp(self.rtltcp_host)
 
         # Restart rtlamr
         if not await self.rtlamr.start_with_retry():

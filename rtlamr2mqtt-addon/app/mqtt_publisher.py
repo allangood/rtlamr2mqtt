@@ -74,7 +74,14 @@ class MQTTPublisher:
                     will=will,
                 ) as client:
                     logger.info('Connected to MQTT broker at %s:%d', self.host, self.port)
-                    await self._run_connected(client)
+                    try:
+                        await self._run_connected(client)
+                    finally:
+                        # Publish offline on graceful disconnect (LWT only fires on unclean disconnect)
+                        try:
+                            await self.publish_status(client, 'offline')
+                        except Exception:
+                            pass
             except aiomqtt.MqttError as e:
                 if self.shutdown_event.is_set():
                     break
@@ -102,9 +109,17 @@ class MQTTPublisher:
     async def _listen_ha_status(self, client: aiomqtt.Client):
         """
         Listen for HA status messages. Re-publish discovery when HA restarts.
+        Exits cooperatively when shutdown_event is set.
         """
-        async for message in client.messages:
-            if self.shutdown_event.is_set():
+        while not self.shutdown_event.is_set():
+            try:
+                message = await asyncio.wait_for(
+                    anext(aiter(client.messages)),
+                    timeout=1.0,
+                )
+            except asyncio.TimeoutError:
+                continue
+            except (StopAsyncIteration, asyncio.CancelledError):
                 break
             if message.topic.matches(self.ha_status_topic):
                 payload = message.payload.decode('utf-8', errors='replace')

@@ -3,12 +3,16 @@ Generic async subprocess manager with ready detection, retry, and clean shutdown
 """
 
 import asyncio
+import os
 import signal
 import logging
 from typing import Callable
 from shutil import which
 
 logger = logging.getLogger('rtlamr2mqtt')
+
+# Cache stdbuf path at module load time
+_stdbuf_path = which('stdbuf')
 
 
 class ManagedProcess:
@@ -54,9 +58,8 @@ class ManagedProcess:
 
         # Prepend stdbuf for line-buffered output if available
         full_command = list(self.command)
-        stdbuf_path = which('stdbuf')
-        if stdbuf_path:
-            full_command = [stdbuf_path, '-oL'] + full_command
+        if _stdbuf_path:
+            full_command = [_stdbuf_path, '-oL'] + full_command
 
         logger.info('Starting %s: %s', self.name, ' '.join(full_command))
 
@@ -122,14 +125,18 @@ class ManagedProcess:
         logger.info('Stopping %s (pid %d)', self.name, self._process.pid)
 
         try:
-            self._process.send_signal(signal.SIGTERM)
+            # Signal the entire process group (includes stdbuf child)
+            os.killpg(self._process.pid, signal.SIGTERM)
             try:
                 await asyncio.wait_for(self._process.wait(), timeout=2.0)
             except asyncio.TimeoutError:
                 logger.warning('%s did not exit after SIGTERM, sending SIGKILL', self.name)
-                self._process.kill()
+                try:
+                    os.killpg(self._process.pid, signal.SIGKILL)
+                except (ProcessLookupError, BrokenPipeError):
+                    self._process.kill()
                 await self._process.wait()
-        except ProcessLookupError:
+        except (ProcessLookupError, BrokenPipeError):
             pass  # Already dead
 
         logger.info('%s stopped', self.name)
