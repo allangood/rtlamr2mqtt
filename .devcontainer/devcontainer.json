@@ -1,15 +1,27 @@
 {
-  "name": "Example devcontainer for add-on repositories",
-  "image": "ghcr.io/home-assistant/devcontainer:2-addons",
-  "appPort": ["7123:8123", "7357:4357"],
+  "name": "Example devcontainer for apps repositories",
+  "image": "ghcr.io/home-assistant/devcontainer:3-apps",
+  "appPort": [
+    "7123:8123",
+    "7357:4357"
+  ],
   "postStartCommand": "bash devcontainer_bootstrap",
-  "runArgs": ["-e", "GIT_EDITOR=code --wait", "--privileged"],
+  "runArgs": [
+    "-e",
+    "GIT_EDITOR=code --wait",
+    "--privileged"
+  ],
+  "workspaceFolder": "/mnt/supervisor/addons/local/${localWorkspaceFolderBasename}",
+  "workspaceMount": "source=${localWorkspaceFolder},target=${containerWorkspaceFolder},type=bind,consistency=cached",
   "containerEnv": {
     "WORKSPACE_DIRECTORY": "${containerWorkspaceFolder}"
   },
   "customizations": {
     "vscode": {
-      "extensions": ["timonwong.shellcheck", "esbenp.prettier-vscode"],
+      "extensions": [
+        "timonwong.shellcheck",
+        "esbenp.prettier-vscode"
+      ],
       "settings": {
         "terminal.integrated.profiles.linux": {
           "zsh": {

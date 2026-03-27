@@ -1,6 +1,4 @@
 # syntax=docker/dockerfile:1
-ARG BUILD_FROM=python:3.13-slim
-
 FROM golang:1.24 AS go-builder
 
 WORKDIR /go/src/app
@@ -15,7 +13,7 @@ RUN go install github.com/bemasher/rtlamr@latest \
     && make \
     && make install
 
-FROM ${BUILD_FROM}
+FROM python:3.13-slim
 
 ARG BUILD_VERSION
 ARG BUILD_ARCH
