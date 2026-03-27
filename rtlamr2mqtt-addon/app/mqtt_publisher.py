@@ -8,6 +8,7 @@ import ssl
 import logging
 from json import dumps
 from datetime import datetime
+from uuid import uuid4
 
 import aiomqtt
 
@@ -72,6 +73,7 @@ class MQTTPublisher:
                     password=self.password,
                     tls_context=self.tls_context,
                     will=will,
+                    identifier=f'rtlamr2mqtt-{uuid4().hex[-8:]}',
                 ) as client:
                     logger.info('Connected to MQTT broker at %s:%d', self.host, self.port)
                     try:
@@ -111,10 +113,11 @@ class MQTTPublisher:
         Listen for HA status messages. Re-publish discovery when HA restarts.
         Exits cooperatively when shutdown_event is set.
         """
+        messages = aiter(client.messages)
         while not self.shutdown_event.is_set():
             try:
                 message = await asyncio.wait_for(
-                    anext(aiter(client.messages)),
+                    anext(messages),
                     timeout=1.0,
                 )
             except asyncio.TimeoutError:
