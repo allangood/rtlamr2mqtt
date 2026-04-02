@@ -68,10 +68,13 @@ general:
   sleep_for: 0
   # Verbose output. It can be: debug, info, warning, error, none
   verbosity: debug
-  # if you have multiple RTL devices, set the device id to use with this instance.
-  # Get the ID running the lsusb command. If not specified, the first device will be used.
-  # Example:
-  # device_id: '001:010'
+  # if you have multiple RTL devices, set the device to use with this instance.
+  # You can identify the device by USB bus:device address (from lsusb) or by
+  # serial number (programmed via rtl_eeprom). Serial numbers are recommended
+  # for multi-dongle setups as they remain stable across reboots.
+  # If neither is specified, the first device will be used.
+  # device_id: '001:010'        # USB bus:device address
+  # device_serial: '00000200'   # RTL-SDR serial number (set with rtl_eeprom -s 00000200)
   # RTL_TCP host and port to connect. Default, use the internal server
   # If you want to use a remote rtl_tcp server, set the host and port here
   # rtltcp_host: "172.17.0.4:1234"

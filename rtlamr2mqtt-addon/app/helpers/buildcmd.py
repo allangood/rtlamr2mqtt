@@ -71,10 +71,16 @@ def build_rtltcp_args(config):
     custom_parameters = ''
     if 'rtltcp' in config['custom_parameters']:
         custom_parameters = config['custom_parameters']['rtltcp']
+    device_serial = config['general']['device_serial']
     device_id = config['general']['device_id']
-    if 'RTLAMR2MQTT_USE_MOCK' not in dict(environ):
-        sdl_devices = usbutils.find_rtl_sdr_devices()
-    dev_arg = '-d 0'
-    if device_id != '0' and device_id in sdl_devices:
-        dev_arg = f'-d {sdl_devices.index(device_id)}'
+    if device_serial:
+        # Serial number: pass directly to rtl_tcp (it supports -d <serial>)
+        dev_arg = f'-d {device_serial}'
+    else:
+        # Bus:device format or default '0': look up device index
+        if 'RTLAMR2MQTT_USE_MOCK' not in dict(environ):
+            sdl_devices = usbutils.find_rtl_sdr_devices()
+        dev_arg = '-d 0'
+        if device_id != '0' and device_id in sdl_devices:
+            dev_arg = f'-d {sdl_devices.index(device_id)}'
     return list(set([ custom_parameters, dev_arg]))

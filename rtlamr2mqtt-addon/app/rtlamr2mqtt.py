@@ -101,25 +101,40 @@ def start_rtltcp(config, reset_usb=False):
     if is_remote:
         return 'remote'
 
-    if 'RTLAMR2MQTT_USE_MOCK' in dict(os.environ) or is_remote:
-        usb_id_list = [ '001:001']
-    else:
-        # Search for RTL-SDR devices
-        usb_id_list = usbutil.find_rtl_sdr_devices()
+    device_serial = config['general']['device_serial']
 
-    usb_id = config['general']['device_id']
-    if config['general']['device_id'] == '0':
-        if len(usb_id_list) > 0:
-            usb_id = usb_id_list[0]
-        else:
-            logger.critical('No RTL-SDR devices found. Exiting...')
-            return None
-
-
-    if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote and reset_usb:
+    if device_serial:
+        # Serial number mode: resolve to bus:device for USB reset if needed
         if LOG_LEVEL >= 3:
-            logger.debug('Reseting USB device: %s', usb_id)
-        usbutil.reset_usb_device(usb_id)
+            logger.info('Using RTL-SDR device by serial number: %s', device_serial)
+        if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote and reset_usb:
+            bus_device = usbutil.find_bus_device_by_serial(device_serial)
+            if bus_device:
+                if LOG_LEVEL >= 3:
+                    logger.debug('Reseting USB device: %s (serial %s)', bus_device, device_serial)
+                usbutil.reset_usb_device(bus_device)
+            else:
+                logger.warning('Could not find USB device with serial %s for reset', device_serial)
+    else:
+        # Bus:device format or default '0'
+        if 'RTLAMR2MQTT_USE_MOCK' in dict(os.environ) or is_remote:
+            usb_id_list = [ '001:001']
+        else:
+            # Search for RTL-SDR devices
+            usb_id_list = usbutil.find_rtl_sdr_devices()
+
+        usb_id = config['general']['device_id']
+        if config['general']['device_id'] == '0':
+            if len(usb_id_list) > 0:
+                usb_id = usb_id_list[0]
+            else:
+                logger.critical('No RTL-SDR devices found. Exiting...')
+                return None
+
+        if 'RTLAMR2MQTT_USE_MOCK' not in dict(os.environ) and not is_remote and reset_usb:
+            if LOG_LEVEL >= 3:
+                logger.debug('Reseting USB device: %s', usb_id)
+            usbutil.reset_usb_device(usb_id)
 
     rtltcp_args = cmd.build_rtltcp_args(config)
     rtltcp_full_command = [which("rtl_tcp")] + rtltcp_args

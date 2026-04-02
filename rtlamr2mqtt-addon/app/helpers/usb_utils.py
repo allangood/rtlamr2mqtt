@@ -40,6 +40,26 @@ def find_rtl_sdr_devices():
                 break
     return devices_found
 
+def find_bus_device_by_serial(serial):
+    """
+    Find the USB bus:device address for an RTL-SDR device with the given serial number.
+    Returns the bus:device string (e.g. '001:003') or None if not found.
+    """
+    sdl_file_path = os.path.join(os.path.dirname(__file__), 'sdl_ids.txt')
+    DEVICE_IDS = load_id_file(sdl_file_path)
+    for dev in usb.core.find(find_all=True):
+        for known_dev in DEVICE_IDS:
+            usb_id, usb_vendor = known_dev.split(':')
+            if dev.idVendor == int(usb_id, 16) and dev.idProduct == int(usb_vendor, 16):
+                try:
+                    dev_serial = dev.serial_number
+                except (usb.core.USBError, ValueError):
+                    dev_serial = None
+                if dev_serial == serial:
+                    return f'{dev.bus:03d}:{dev.address:03d}'
+                break
+    return None
+
 def reset_usb_device(usbdev):
     """
     Reset USB port
