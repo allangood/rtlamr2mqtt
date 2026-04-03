@@ -46,13 +46,18 @@ def build_rtlamr_args(config):
         custom_parameters = config['custom_parameters']['rtlamr'].split()
         custom_parameters = partial_match_remove('-server', custom_parameters)
 
-    # Build a comma-separated string of meter IDs
-    ids = ','.join(list(meters.keys()))
-    filterid_arg = [ f'-filterid={ids}' ]
+    # In discovery mode, skip filterid and msgtype so ALL meters are captured
+    if config['general'].get('discovery_mode', False):
+        filterid_arg = []
+        msgtype_arg = []
+    else:
+        # Build a comma-separated string of meter IDs
+        ids = ','.join(list(meters.keys()))
+        filterid_arg = [ f'-filterid={ids}' ]
 
-    # Build a comma-separated string of message types
-    msgtypes = get_comma_separated_str('protocol', meters)
-    msgtype_arg = [ f'-msgtype={msgtypes}' ]
+        # Build a comma-separated string of message types
+        msgtypes = get_comma_separated_str('protocol', meters)
+        msgtype_arg = [ f'-msgtype={msgtypes}' ]
 
     return list(set(default_args + rtltcp_host + custom_parameters + filterid_arg + msgtype_arg))
 

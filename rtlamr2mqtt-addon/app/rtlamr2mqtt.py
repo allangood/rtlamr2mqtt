@@ -246,11 +246,6 @@ def main():
         logger.info(msg)
     ##################################################################
 
-    # ToDo:
-    # Here is were it will be defined how the code will search
-    # for a meter_id based on a value.
-    # res = list((sub for sub in config['meters'] if config['meters'][sub]['name'][-7:] == "_FINDME"))
-
     # Get a list of meters ids to watch
     meter_ids_list = list(config['meters'].keys())
 
@@ -292,15 +287,16 @@ def main():
     # Start the MQTT client loop
     mqtt_client.loop_start()
 
-    # Publish the discovery messages for all meters
-    for meter in config['meters']:
-        discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
-        mqtt_client.publish(
-            topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
-            payload=dumps(discovery_payload),
-            qos=1,
-            retain=False
-        )
+    # Publish the discovery messages for all meters (skip in discovery mode — no meters configured)
+    if not config['general']['discovery_mode']:
+        for meter in config['meters']:
+            discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
+            mqtt_client.publish(
+                topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
+                payload=dumps(discovery_payload),
+                qos=1,
+                retain=False
+            )
 
     # Give some time for the MQTT client to connect and publish
     sleep(1)
@@ -328,14 +324,15 @@ def main():
                         mqtt_client.last_message.payload.decode(),
                         mqtt_client.last_message.topic
                     )
-                    for meter in config['meters']:
-                        discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
-                        mqtt_client.publish(
-                            topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
-                            payload=dumps(discovery_payload),
-                            qos=1,
-                            retain=False
-                        )
+                    if not config['general']['discovery_mode']:
+                        for meter in config['meters']:
+                            discovery_payload = ha_msgs.meter_discover_payload(config["mqtt"]["base_topic"], config['meters'][meter])
+                            mqtt_client.publish(
+                                topic=f'{config["mqtt"]["ha_autodiscovery_topic"]}/device/{meter}/config',
+                                payload=dumps(discovery_payload),
+                                qos=1,
+                                retain=False
+                            )
                 mqtt_client.last_message = None
 
             # Start RTL_TCP if not remote
@@ -410,49 +407,74 @@ def main():
                 break
 
             # Search for ID in the output
-            reading = ro.get_message_for_ids(
-                rtlamr_output = rtlamr_output,
-                meter_ids_list = meter_ids_list
-            )
-
-            if reading is not None:
-                # Add the meter_id to the read_counter
-                if reading['meter_id'] not in read_counter:
-                    read_counter.append(reading['meter_id'])
-
-                if config['meters'][reading['meter_id']]['format'] is not None:
-                    r = ro.format_number(reading['consumption'], config['meters'][reading['meter_id']]['format'])
-                else:
-                    r = reading['consumption']
-
-                # Publish the reading to MQTT
-                # First, make sure the status is set to online
-                mqtt_client.publish(
-                    topic=f'{config["mqtt"]["base_topic"]}/status',
-                    payload='online',
-                    qos=1,
-                    retain=False
-                )
-                # Then, send the reading
-                payload = { 'reading': r, 'lastseen': get_iso8601_timestamp() }
-                mqtt_client.publish(
-                    topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/state',
-                    payload=dumps(payload),
-                    qos=1,
-                    retain=False
+            if config['general']['discovery_mode']:
+                # Discovery mode: accept any meter, no pre-configuration needed
+                reading = ro.get_any_message(rtlamr_output)
+                if reading is not None:
+                    meter_id = reading['meter_id']
+                    if meter_id not in read_counter:
+                        read_counter.append(meter_id)
+                        logger.info(
+                            'DISCOVERY: Found meter ID=%s protocol=%s consumption=%s raw=%s',
+                            meter_id, reading['protocol'], reading['consumption'], reading['message']
+                        )
+                    payload = {
+                        'meter_id': meter_id,
+                        'consumption': reading['consumption'],
+                        'protocol': reading['protocol'],
+                        'lastseen': get_iso8601_timestamp(),
+                        'raw': reading['message'],
+                    }
+                    mqtt_client.publish(
+                        topic=f'{config["mqtt"]["base_topic"]}/discovery/{meter_id}',
+                        payload=dumps(payload),
+                        qos=1,
+                        retain=True
+                    )
+            else:
+                reading = ro.get_message_for_ids(
+                    rtlamr_output = rtlamr_output,
+                    meter_ids_list = meter_ids_list
                 )
 
-                # Publish the meter attributes to MQTT
-                # Add the meter protocol to the list of attributes
-                reading['message']['protocol'] = config['meters'][reading['meter_id']]['protocol']
-                mqtt_client.publish(
-                    topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/attributes',
-                    payload=dumps(reading['message']),
-                    qos=1,
-                    retain=False
-                )
+                if reading is not None:
+                    # Add the meter_id to the read_counter
+                    if reading['meter_id'] not in read_counter:
+                        read_counter.append(reading['meter_id'])
 
-            if config['general']['sleep_for'] > 0 and len(read_counter) == len(meter_ids_list):
+                    if config['meters'][reading['meter_id']]['format'] is not None:
+                        r = ro.format_number(reading['consumption'], config['meters'][reading['meter_id']]['format'])
+                    else:
+                        r = reading['consumption']
+
+                    # Publish the reading to MQTT
+                    # First, make sure the status is set to online
+                    mqtt_client.publish(
+                        topic=f'{config["mqtt"]["base_topic"]}/status',
+                        payload='online',
+                        qos=1,
+                        retain=False
+                    )
+                    # Then, send the reading
+                    payload = { 'reading': r, 'lastseen': get_iso8601_timestamp() }
+                    mqtt_client.publish(
+                        topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/state',
+                        payload=dumps(payload),
+                        qos=1,
+                        retain=False
+                    )
+
+                    # Publish the meter attributes to MQTT
+                    # Add the meter protocol to the list of attributes
+                    reading['message']['protocol'] = config['meters'][reading['meter_id']]['protocol']
+                    mqtt_client.publish(
+                        topic=f'{config["mqtt"]["base_topic"]}/{reading["meter_id"]}/attributes',
+                        payload=dumps(reading['message']),
+                        qos=1,
+                        retain=False
+                    )
+
+            if not config['general']['discovery_mode'] and config['general']['sleep_for'] > 0 and len(read_counter) == len(meter_ids_list):
                 # We have our readings, so we can sleep
                 if LOG_LEVEL >= 2:
                     logger.info('All readings received.')

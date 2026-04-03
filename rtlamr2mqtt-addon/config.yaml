@@ -1,5 +1,5 @@
 ---
-name: rtlamr2mqtt_beta
+name: rtlamr2mqtt
 version: 2025.6.6
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
@@ -8,7 +8,7 @@ startup: application
 boot: auto
 map:
   - config:rw
-url: https://github.com/deflanko/rtlamr2mqtt
+url: https://github.com/DeFlanko/rtlamr2mqtt
 uart: true
 udev: true
 usb: true
@@ -23,6 +23,7 @@ options:
   general:
     sleep_for: 60
     verbosity: info
+    discovery_mode: false
   custom_parameters: {}
   mqtt:
     ha_autodiscovery_topic: homeassistant
@@ -42,6 +43,7 @@ schema:
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "match(^[0-9]{3}:[0-9]{3})?"
     rtltcp_host: match(([\w\d\.]+):(\d+))?
+    discovery_mode: "bool?"
   mqtt:
     host: "str?"
     port: "int?"
@@ -65,7 +67,7 @@ schema:
       format: "str?"
       unit_of_measurement: "str?"
       icon: "str?"
-      device_class: list(none|current|energy|gas|power|water)
+      device_class: list(none|current|energy|gas|power|water)?
       state_class: list(measurement|total|total_increasing)?
       expire_after: int?
       force_update: bool?
