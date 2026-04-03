@@ -1,5 +1,5 @@
 ---
-name: rtlamr2mqtt
+name: rtlamr2mqtt_beta
 version: 2025.6.6
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
@@ -8,7 +8,7 @@ startup: application
 boot: auto
 map:
   - config:rw
-url: https://github.com/allangood/rtlamr2mqtt
+url: https://github.com/deflanko/rtlamr2mqtt
 uart: true
 udev: true
 usb: true
