@@ -1,7 +1,7 @@
 ---
-name: rtlamr2mqtt
+name: rtlamr2mqtt-beta
 version: 2025.6.6
-slug: rtlamr2mqtt
+slug: rtlamr2mqtt-beta
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
 startup: application
