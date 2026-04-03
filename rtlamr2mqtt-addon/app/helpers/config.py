@@ -82,6 +82,7 @@ def load_config(config_path=None):
     if 'meters' not in config:
         return ('error', 'No meters section found in config file.', None)
     # General section
+    general['discovery_mode'] = bool(general.get('discovery_mode', False))
     general['sleep_for'] = int(general.get('sleep_for', 0))
     general['verbosity'] = str(general.get('verbosity', 'info'))
     general['device_id'] = str(general.get('device_id', '0'))
@@ -108,6 +109,10 @@ def load_config(config_path=None):
     # Custom parameters section
     custom_parameters['rtltcp'] = str(custom_parameters.get('rtltcp', '-s 2048000'))
     custom_parameters['rtlamr'] = str(custom_parameters.get('rtlamr', '-unique=true'))
+
+    # In discovery mode, an empty meters list is allowed
+    if not general['discovery_mode'] and not config['meters']:
+        return ('error', 'No meters found in config file.', None)
 
     # Convert meters to a dictionary with IDs as keys
     meters = {}
