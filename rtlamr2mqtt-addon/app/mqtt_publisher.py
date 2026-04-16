@@ -85,12 +85,33 @@ class MQTTPublisher:
                         except Exception:
                             pass
             except aiomqtt.MqttError as e:
+                # Direct MqttError — e.g. initial connection failure, broker
+                # unreachable. aiomqtt.Client().__aenter__() raises this
+                # before _run_connected is even called.
                 if self.shutdown_event.is_set():
                     break
                 logger.warning('MQTT connection lost: %s. Reconnecting in 5s...', e)
                 await asyncio.sleep(5)
-            except asyncio.CancelledError:
-                break
+            except BaseException as e:
+                # _run_connected uses a TaskGroup whose subtasks can raise
+                # MqttError when the broker drops mid-session. The TaskGroup
+                # wraps these in an ExceptionGroup — a distinct type that
+                # does NOT match `except MqttError` above (ExceptionGroup
+                # contains MqttError but is not a subclass of it).
+                if isinstance(e, asyncio.CancelledError):
+                    break
+                if isinstance(e, ExceptionGroup) and any(
+                    isinstance(sub, aiomqtt.MqttError) for sub in e.exceptions
+                ):
+                    if self.shutdown_event.is_set():
+                        break
+                    logger.warning(
+                        'MQTT connection lost (via TaskGroup): %s. Reconnecting in 5s...',
+                        e.exceptions[0],
+                    )
+                    await asyncio.sleep(5)
+                    continue
+                raise
 
         logger.info('MQTT publisher shutting down')
 
