@@ -84,8 +84,8 @@ def load_config(config_path=None):
     general['device_id'] = int(general.get('device_id', 0))
     general['rtltcp_host'] = str(general.get('rtltcp_host', '127.0.0.1:1234'))
 
-    if 'meters' not in config and not general['listen_mode']:
-        return ('error', 'No meters section found in config file.', None)
+    if not (config.get('meters') or []) and not general['listen_mode']:
+        return ('error', 'No meters configured. Add at least one meter or enable listen_mode to discover meter IDs.', None)
 
     if general['listen_mode']:
         general['sleep_for'] = 0
