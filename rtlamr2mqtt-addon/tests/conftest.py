@@ -29,6 +29,7 @@ def sample_config():
             'base_topic': 'rtlamr',
             'ha_status_topic': 'homeassistant/status',
             'ha_autodiscovery_topic': 'homeassistant',
+            'discovery_interval': 300,
         },
         'custom_parameters': {
             'rtltcp': '',
@@ -50,7 +51,7 @@ def sample_config():
                 'protocol': 'r900',
                 'name': 'my_energy_meter',
                 'format': '######.###',
-                'unit_of_measurement': 'KWh',
+                'unit_of_measurement': 'kWh',
                 'icon': 'mdi:gauge',
                 'device_class': 'energy',
                 'state_class': 'total_increasing',

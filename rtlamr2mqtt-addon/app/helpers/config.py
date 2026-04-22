@@ -104,6 +104,7 @@ def load_config(config_path=None):
     mqtt['base_topic'] = str(mqtt.get('base_topic', 'rtlamr'))
     mqtt['ha_status_topic'] = str(mqtt.get('ha_status_topic', 'homeassistant/status'))
     mqtt['ha_autodiscovery_topic'] = mqtt.get('ha_autodiscovery_topic', 'homeassistant')
+    mqtt['discovery_interval'] = int(mqtt.get('discovery_interval', 300))
 
     # Custom parameters section (defaults like -s 2048000 and -unique=true
     # are applied in buildcmd.py only when not overridden here)
