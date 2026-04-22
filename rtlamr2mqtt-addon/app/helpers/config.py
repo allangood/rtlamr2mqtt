@@ -72,19 +72,23 @@ def load_config(config_path=None):
     else:
         return ('error', 'Config file format not supported.', None)
 
-    if 'meters' not in config:
-        return ('error', 'No meters section found in config file.', None)
-
     # Parse sections with defaults
     general = config.get('general') or {}
     mqtt = config.get('mqtt') or {}
     custom_parameters = config.get('custom_parameters') or {}
 
     # General section
+    general['listen_mode'] = bool(general.get('listen_mode', False))
     general['sleep_for'] = int(general.get('sleep_for', 0))
     general['verbosity'] = str(general.get('verbosity', 'info'))
     general['device_id'] = int(general.get('device_id', 0))
     general['rtltcp_host'] = str(general.get('rtltcp_host', '127.0.0.1:1234'))
+
+    if 'meters' not in config and not general['listen_mode']:
+        return ('error', 'No meters section found in config file.', None)
+
+    if general['listen_mode']:
+        general['sleep_for'] = 0
 
     # MQTT section
     mqtt['host'] = mqtt.get('host', None)
@@ -118,7 +122,7 @@ def load_config(config_path=None):
         'icon', 'device_class', 'state_class', 'expire_after',
         'force_update', 'manufacturer', 'model',
     ]
-    for m in config['meters']:
+    for m in config.get('meters') or []:
         m['state_class'] = m.get('state_class', 'total_increasing')
         meters[str(m['id'])] = {key: value for key, value in m.items() if key in meters_allowed_keys}
 

@@ -51,13 +51,10 @@ def build_rtlamr_args(config):
 
     args.extend(custom_args)
 
-    # Meter IDs filter
-    ids = ','.join(list(meters.keys()))
-    args.append(f'-filterid={ids}')
-
-    # Message types
-    msgtypes = get_comma_separated_str('protocol', meters)
-    args.append(f'-msgtype={msgtypes}')
+    # Meter IDs filter and message types (omitted in listen mode when meters is empty)
+    if meters:
+        args.append(f'-filterid={",".join(meters.keys())}')
+        args.append(f'-msgtype={get_comma_separated_str("protocol", meters)}')
 
     return args
 

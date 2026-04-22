@@ -63,6 +63,12 @@ def load_and_validate_config():
     setup_logging(config['general']['verbosity'])
     logger.info('Starting rtlamr2mqtt %s', i.version())
     logger.info(msg)
+    if config['general']['listen_mode']:
+        logger.warning(
+            'LISTEN MODE ACTIVE — no meter filtering, no MQTT publishing. '
+            'Check logs for "New meter" lines to discover your meter ID, '
+            'then configure it and disable listen_mode.'
+        )
     return config
 
 
@@ -71,7 +77,8 @@ async def main():
     config = load_and_validate_config()
 
     shutdown_event = asyncio.Event()
-    reading_queue = asyncio.Queue(maxsize=100)
+    listen_mode = config['general']['listen_mode']
+    reading_queue = None if listen_mode else asyncio.Queue(maxsize=100)
 
     # Signal handlers
     loop = asyncio.get_event_loop()
@@ -148,7 +155,7 @@ async def main():
             await rtltcp_proc.stop()
         sys.exit(1)
 
-    # Create reader and publisher
+    # Create reader (and publisher when not in listen mode)
     reader = MeterReader(
         config=config,
         rtlamr=rtlamr_proc,
@@ -158,17 +165,19 @@ async def main():
         is_remote=is_remote,
     )
 
-    publisher = MQTTPublisher(
-        config=config,
-        reading_queue=reading_queue,
-        shutdown_event=shutdown_event,
-    )
-
-    # Run reader and publisher concurrently
     try:
-        async with asyncio.TaskGroup() as tg:
-            tg.create_task(reader.run())
-            tg.create_task(publisher.run())
+        if listen_mode:
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(reader.run())
+        else:
+            publisher = MQTTPublisher(
+                config=config,
+                reading_queue=reading_queue,
+                shutdown_event=shutdown_event,
+            )
+            async with asyncio.TaskGroup() as tg:
+                tg.create_task(reader.run())
+                tg.create_task(publisher.run())
     except* Exception as eg:
         for exc in eg.exceptions:
             if not isinstance(exc, asyncio.CancelledError):

@@ -64,3 +64,20 @@ class TestGetMessageForIds:
     def test_non_json_string(self):
         result = get_message_for_ids('GainCount: 29', ['33333333'])
         assert result is None
+
+    def test_empty_ids_list_accepts_any_meter(self, sample_rtlamr_scm_line):
+        """Empty meter_ids_list (listen mode) should return readings for any meter ID."""
+        result = get_message_for_ids(sample_rtlamr_scm_line, [])
+        assert result is not None
+        assert result['meter_id'] == '33333333'
+
+    def test_msg_type_in_result(self, sample_rtlamr_scm_line):
+        result = get_message_for_ids(sample_rtlamr_scm_line, ['33333333'])
+        assert result is not None
+        assert result['msg_type'] == 'SCM'
+
+    def test_msg_type_defaults_to_unknown(self):
+        line = '{"Offset":0,"Length":0,"Message":{"ID":12345,"Consumption":100}}'
+        result = get_message_for_ids(line, ['12345'])
+        assert result is not None
+        assert result['msg_type'] == 'unknown'
