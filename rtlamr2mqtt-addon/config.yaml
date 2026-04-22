@@ -23,6 +23,7 @@ options:
   general:
     sleep_for: 60
     verbosity: info
+    listen_mode: false
   custom_parameters: {}
   mqtt:
     ha_autodiscovery_topic: homeassistant
@@ -43,6 +44,7 @@ schema:
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "int?"
     rtltcp_host: "str?"
+    listen_mode: "bool?"
   mqtt:
     host: "str?"
     port: "int?"
@@ -60,7 +62,7 @@ schema:
   custom_parameters:
     rtltcp: "str?"
     rtlamr: "str?"
-  meters:
+  meters?:
     - id: int
       protocol: list(idm|netidm|r900|r900bcd|scm|scm+)
       name: "str"

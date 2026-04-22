@@ -15,6 +15,7 @@ def sample_config():
             'verbosity': 'info',
             'device_id': 0,
             'rtltcp_host': '127.0.0.1:1234',
+            'listen_mode': False,
         },
         'mqtt': {
             'host': '127.0.0.1',

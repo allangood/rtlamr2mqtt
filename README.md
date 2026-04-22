@@ -28,10 +28,6 @@ It works by running [rtl_tcp](https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr)
 > This version is a complete rewrite of the application internals. \
 > Your old entities should be cleaned manually from your MQTT broker.
 
-> [!CAUTION]
-> This version does **not** have the LISTEN MODE. \
-> It is planned, but not implemented yet.
-
 ### Changes from the previous version
 
 - **Async subprocess management** -- Replaced blocking `subprocess.Popen` with `asyncio.create_subprocess_exec`. The application no longer hangs when rtl_tcp or rtlamr stall, which was a recurring issue on resource-constrained devices like Raspberry Pi.
@@ -42,7 +38,9 @@ It works by running [rtl_tcp](https://osmocom.org/projects/rtl-sdr/wiki/Rtl-sdr)
 - **Standard Python logging** -- Replaced the custom numeric log level system with Python's built-in `logging` module. No more `if LOG_LEVEL >= 3:` checks scattered throughout the code.
 - **Replaced `unbuffer` with `stdbuf`** -- Removed the dependency on the `expect` package. Line-buffered subprocess output now uses `stdbuf -oL` from coreutils.
 - **HA discovery re-publish** -- When Home Assistant restarts, discovery messages are automatically re-published. This was previously broken (gated behind a log level check).
-- **Test coverage** -- Added 70 unit and integration tests using pytest and pytest-asyncio.
+- **Listen mode** -- New `general.listen_mode: true` option. Runs without any meter filter and logs every meter it hears, deduplicated per session. No MQTT connection is made. Useful for discovering your meter ID before configuring the add-on.
+- **Periodic HA discovery re-publish** -- Discovery payloads are re-sent on a configurable interval (`mqtt.discovery_interval`, default 300 s) in addition to on HA restart, so entities survive MQTT broker restarts even with `retain=false`.
+- **Test coverage** -- Added 90 unit tests using pytest and pytest-asyncio.
 - **Dual-purpose Dockerfile** -- Works both as a Home Assistant add-on (with `BUILD_FROM`) and as a standalone Docker container (defaults to `python:3.13-slim`).
 - **Bug fixes** -- Fixed: non-deterministic meter ID key lookup, undefined variable in mock mode, deprecated paho-mqtt API usage, USB file descriptor leak in reset, hardcoded TLS 1.2 protocol.
 
@@ -94,6 +92,56 @@ services:
       - /path/to/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro
 ```
 
+## Finding Your Meter ID (Listen Mode)
+
+If you don't know your meter ID, use **listen mode** to discover it. In this mode rtlamr2mqtt runs without any meter filter, logs every meter it receives, and makes no MQTT connection.
+
+### Home Assistant Add-On
+
+In the add-on configuration, set:
+
+```yaml
+general:
+  listen_mode: true
+```
+
+Leave the `meters` list empty (or remove it entirely). Start the add-on and open the **Log** tab. You will see a warning followed by one log line per discovered meter:
+
+```
+WARNING: LISTEN MODE ACTIVE — no meter filtering, no MQTT publishing. Check logs for "New meter" lines to discover your meter ID, then configure it and disable listen_mode.
+
+INFO: New meter | ID: 12345678 | Type: SCM  | Consumption: 1978226
+INFO: New meter | ID: 87654321 | Type: R900 | Consumption: 4555831
+```
+
+Each meter is logged **once per session** regardless of how many times it broadcasts. Note the **ID** and **Type** for the meter you want to track, then configure it normally and set `listen_mode: false`.
+
+### Docker / Standalone
+
+Create a minimal config file:
+
+```yaml
+general:
+  listen_mode: true
+  verbosity: info
+
+mqtt:
+  host: 127.0.0.1   # still required for standalone, but no connection is made
+```
+
+Run the container and watch the logs:
+
+```bash
+docker run --rm \
+  -v /path/to/listen.yaml:/etc/rtlamr2mqtt.yaml:ro \
+  --device /dev/bus/usb:/dev/bus/usb \
+  allangood/rtlamr2mqtt
+```
+
+Once you have found your meter ID, update your config with the full meter definition and set `listen_mode: false` (or remove the line — `false` is the default).
+
+---
+
 ## Configuration
 
 When running standalone (not as an HA add-on), create a `rtlamr2mqtt.yaml` file. Below is a complete example with all available options:
@@ -109,6 +157,8 @@ general:
   # RTL_TCP server address. Default: local server at 127.0.0.1:1234
   # Set to a remote address to use an external rtl_tcp instance.
   # rtltcp_host: "192.168.1.100:1234"
+  # Enable to log all received meters without MQTT. Useful for finding your meter ID.
+  # listen_mode: false
 
 mqtt:
   # MQTT broker connection (not needed when running as HA add-on)
@@ -126,6 +176,8 @@ mqtt:
   ha_autodiscovery_topic: homeassistant
   ha_status_topic: homeassistant/status
   base_topic: rtlamr
+  # How often (seconds) to re-publish HA discovery payloads. Keeps entities alive after broker restarts.
+  # discovery_interval: 300
 
 # Optional: pass extra arguments to rtl_tcp or rtlamr
 # custom_parameters:
@@ -158,6 +210,7 @@ meters:
 | `verbosity` | string | `info` | Log level: `debug`, `info`, `warning`, `error`, `critical`, `none` |
 | `device_id` | int | `0` | RTL-SDR device index. `0` = first device found. |
 | `rtltcp_host` | string | `127.0.0.1:1234` | RTL_TCP server address. Set to remote host to skip local rtl_tcp. |
+| `listen_mode` | bool | `false` | Log all received meters without filtering. No MQTT connection. See [Finding Your Meter ID](#finding-your-meter-id-listen-mode). |
 
 #### mqtt
 
@@ -175,6 +228,7 @@ meters:
 | `ha_autodiscovery_topic` | string | `homeassistant` | HA MQTT auto-discovery prefix. |
 | `ha_status_topic` | string | `homeassistant/status` | Topic to monitor HA restarts. |
 | `base_topic` | string | `rtlamr` | Base topic for status and readings. |
+| `discovery_interval` | int | `300` | Seconds between periodic HA discovery re-publishes. |
 
 #### meters[]
 

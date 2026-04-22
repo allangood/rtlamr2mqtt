@@ -124,6 +124,35 @@ class TestLoadConfig:
         finally:
             os.unlink(path)
 
+    def test_listen_mode_default_is_false(self):
+        path = write_temp_yaml(MINIMAL_YAML)
+        try:
+            status, msg, config = load_config(path)
+            assert status == 'success'
+            assert config['general']['listen_mode'] is False
+        finally:
+            os.unlink(path)
+
+    def test_listen_mode_no_meters_required(self):
+        content = "general:\n  listen_mode: true\nmqtt:\n  host: 127.0.0.1\n"
+        path = write_temp_yaml(content)
+        try:
+            status, msg, config = load_config(path)
+            assert status == 'success'
+            assert config['general']['listen_mode'] is True
+        finally:
+            os.unlink(path)
+
+    def test_listen_mode_forces_sleep_for_zero(self):
+        content = "general:\n  listen_mode: true\n  sleep_for: 60\nmqtt:\n  host: 127.0.0.1\n"
+        path = write_temp_yaml(content)
+        try:
+            status, msg, config = load_config(path)
+            assert status == 'success'
+            assert config['general']['sleep_for'] == 0
+        finally:
+            os.unlink(path)
+
     def test_device_id_as_integer(self):
         content = """
 general:

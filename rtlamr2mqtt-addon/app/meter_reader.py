@@ -36,6 +36,8 @@ class MeterReader:
         self.meter_ids = list(config['meters'].keys())
         self.sleep_for = config['general']['sleep_for']
         self.rtltcp_host = config['general']['rtltcp_host']
+        self.listen_mode = config['general']['listen_mode']
+        self._seen_ids: set = set()
 
     async def run(self):
         """
@@ -73,20 +75,30 @@ class MeterReader:
                 if reading is None:
                     continue
 
-                # Enqueue the reading
-                try:
-                    self.reading_queue.put_nowait(reading)
-                except asyncio.QueueFull:
-                    # Drop oldest reading to make room
-                    try:
-                        self.reading_queue.get_nowait()
-                    except asyncio.QueueEmpty:
-                        pass
-                    self.reading_queue.put_nowait(reading)
-                    logger.warning('Reading queue full, dropped oldest reading')
+                meter_id = reading['meter_id']
 
-                meters_seen.add(reading['meter_id'])
-                logger.debug('Meter %s reading: %s', reading['meter_id'], reading['consumption'])
+                if self.listen_mode:
+                    if meter_id not in self._seen_ids:
+                        self._seen_ids.add(meter_id)
+                        logger.info(
+                            'New meter | ID: %s | Type: %s | Consumption: %s',
+                            meter_id, reading['msg_type'], reading['consumption'],
+                        )
+                else:
+                    # Enqueue the reading
+                    try:
+                        self.reading_queue.put_nowait(reading)
+                    except asyncio.QueueFull:
+                        # Drop oldest reading to make room
+                        try:
+                            self.reading_queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            pass
+                        self.reading_queue.put_nowait(reading)
+                        logger.warning('Reading queue full, dropped oldest reading')
+
+                meters_seen.add(meter_id)
+                logger.debug('Meter %s reading: %s', meter_id, reading['consumption'])
 
                 # Check if all meters have been read (sleep_for mode)
                 if self.sleep_for > 0 and meters_seen == set(self.meter_ids):
