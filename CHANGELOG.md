@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026.4.22
+
+- Added **listen mode** (`general.listen_mode: true`) to discover meter IDs without connecting to MQTT; logs each new meter once per session
+- Fixed invalid `meters?:` schema syntax — HA Supervisor only supports `?` on scalar types. Default options now use `meters: []` and an empty meters list in non-listen mode returns a clear error
+
 ### 2026.4.21
 
 - Periodic HA discovery re-publish to recover from simultaneous broker/HA restarts (configurable via `mqtt.discovery_interval`, default 300s)
