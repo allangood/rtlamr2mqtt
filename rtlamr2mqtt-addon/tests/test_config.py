@@ -124,6 +124,14 @@ class TestLoadConfig:
         finally:
             os.unlink(path)
 
+    def test_empty_meters_list_without_listen_mode_fails(self):
+        path = write_temp_yaml("mqtt:\n  host: 127.0.0.1\nmeters: []\n")
+        try:
+            status, msg, config = load_config(path)
+            assert status == 'error'
+        finally:
+            os.unlink(path)
+
     def test_listen_mode_default_is_false(self):
         path = write_temp_yaml(MINIMAL_YAML)
         try:
