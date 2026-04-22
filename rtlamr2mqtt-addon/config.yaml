@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2026.3.26
+version: 2026.4.21
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
@@ -28,12 +28,13 @@ options:
     ha_autodiscovery_topic: homeassistant
     ha_status_topic: homeassistant/status
     base_topic: "rtlamr"
+    discovery_interval: 300
   meters:
     - id: 22222222
       protocol: r900
       name: my_energy_meter
       format: "######.###"
-      # device_class on HA
+      unit_of_measurement: "kWh"
       device_class: energy
 
 schema:
@@ -41,12 +42,12 @@ schema:
     sleep_for: "int?"
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "int?"
-    rtltcp_host: match(([\w\d\.]+):(\d+))?
+    rtltcp_host: "str?"
   mqtt:
     host: "str?"
     port: "int?"
     user: "str?"
-    password: str?
+    password: "str?"
     tls_enabled: "bool?"
     tls_insecure: "bool?"
     tls_ca: "str?"
@@ -55,6 +56,7 @@ schema:
     ha_autodiscovery_topic: "str?"
     ha_status_topic: "str?"
     base_topic: "str?"
+    discovery_interval: "int?"
   custom_parameters:
     rtltcp: "str?"
     rtlamr: "str?"
@@ -65,7 +67,7 @@ schema:
       format: "str?"
       unit_of_measurement: "str?"
       icon: "str?"
-      device_class: list(none|current|energy|gas|power|water)
+      device_class: list(current|energy|gas|power|water)?
       state_class: list(measurement|total|total_increasing)?
       expire_after: int?
       force_update: bool?

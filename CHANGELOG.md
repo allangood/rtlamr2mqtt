@@ -1,5 +1,12 @@
 # CHANGELOG
 
+### 2026.4.21
+
+- Periodic HA discovery re-publish to recover from simultaneous broker/HA restarts (configurable via `mqtt.discovery_interval`, default 300s)
+- Fixed `sw_version` in HA device discovery payload to reflect actual add-on version
+- Fixed `device_class: none` in add-on schema — field is now optional; omit it instead of using `none`
+- Fixed `unit_of_measurement` capitalisation for energy meters (`KWh` → `kWh`)
+
 ### 2026.3.26
 
 - Major rewrite of the codebase to improve maintainability and performance assisted by AI agent

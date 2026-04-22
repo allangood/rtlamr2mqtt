@@ -22,6 +22,6 @@ meters:
     protocol: r900
     name: my_energy_meter
     format: "######.###"
-    unit_of_measurement: "KWh"
+    unit_of_measurement: "kWh"
     icon: mdi:gauge
     device_class: energy

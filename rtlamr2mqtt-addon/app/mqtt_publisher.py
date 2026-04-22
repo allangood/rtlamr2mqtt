@@ -37,6 +37,7 @@ class MQTTPublisher:
         self.base_topic = mqtt_config['base_topic']
         self.ha_status_topic = mqtt_config['ha_status_topic']
         self.ha_autodiscovery_topic = mqtt_config['ha_autodiscovery_topic']
+        self.discovery_interval = mqtt_config['discovery_interval']
         self.meters = config['meters']
         self.reading_queue = reading_queue
         self.shutdown_event = shutdown_event
@@ -124,10 +125,11 @@ class MQTTPublisher:
         await self.publish_status(client, 'online')
         await client.subscribe(self.ha_status_topic, qos=1)
 
-        # Run HA status listener and reading consumer concurrently
+        # Run HA status listener, reading consumer, and periodic discovery concurrently
         async with asyncio.TaskGroup() as tg:
             tg.create_task(self._listen_ha_status(client))
             tg.create_task(self._consume_readings(client))
+            tg.create_task(self._periodic_discovery(client, self.discovery_interval))
 
     async def _listen_ha_status(self, client: aiomqtt.Client):
         """
@@ -220,6 +222,25 @@ class MQTTPublisher:
         )
 
         logger.info('Published reading for meter %s: %s', meter_id, formatted)
+
+    async def _periodic_discovery(self, client: aiomqtt.Client, interval: int = 300):
+        """
+        Re-publish HA discovery payloads every `interval` seconds.
+        Covers the race condition where HA and the broker restart simultaneously
+        and rtlamr2mqtt misses the homeassistant/status = online message.
+        """
+        while not self.shutdown_event.is_set():
+            try:
+                await asyncio.wait_for(
+                    self.shutdown_event.wait(),
+                    timeout=interval,
+                )
+                break
+            except asyncio.TimeoutError:
+                pass
+            if not self.shutdown_event.is_set():
+                logger.debug('Periodic re-publish of HA discovery payloads')
+                await self.publish_discovery(client)
 
     async def publish_status(self, client, status: str):
         """

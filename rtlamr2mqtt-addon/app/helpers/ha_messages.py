@@ -35,7 +35,7 @@ def meter_discover_payload(base_topic, meter_config):
             'name': meter_name,
             'manufacturer': meter_config.get('manufacturer', 'RTLAMR2MQTT'),
             'model': meter_config.get('model', 'Smart Meter'),
-            'sw_version': '1.0',
+            'sw_version': i.version(),
             'serial_number': meter_id,
             'hw_version': '1.0',
         },
