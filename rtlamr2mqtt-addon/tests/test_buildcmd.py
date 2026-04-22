@@ -50,6 +50,24 @@ class TestBuildRtlamrArgs:
         assert server_args[0] == '-server=127.0.0.1:1234'
 
 
+class TestBuildRtlamrArgsListenMode:
+    def test_no_filterid_when_no_meters(self, sample_config):
+        sample_config['meters'] = {}
+        args = build_rtlamr_args(sample_config)
+        assert not any(a.startswith('-filterid=') for a in args)
+
+    def test_no_msgtype_when_no_meters(self, sample_config):
+        sample_config['meters'] = {}
+        args = build_rtlamr_args(sample_config)
+        assert not any(a.startswith('-msgtype=') for a in args)
+
+    def test_format_and_server_still_present_in_listen_mode(self, sample_config):
+        sample_config['meters'] = {}
+        args = build_rtlamr_args(sample_config)
+        assert '-format=json' in args
+        assert '-server=127.0.0.1:1234' in args
+
+
 class TestBuildRtltcpArgs:
     def test_local_basic(self, sample_config):
         args = build_rtltcp_args(sample_config)

@@ -130,6 +130,79 @@ class TestMeterReaderSleepCycle:
         assert queue.qsize() == 2
 
 
+class TestMeterReaderListenMode:
+    @pytest.fixture
+    def listen_reader(self, sample_config, mock_rtlamr, mock_rtltcp):
+        sample_config['general']['listen_mode'] = True
+        sample_config['meters'] = {}
+        shutdown = asyncio.Event()
+        return MeterReader(
+            config=sample_config,
+            rtlamr=mock_rtlamr,
+            rtltcp=mock_rtltcp,
+            reading_queue=None,
+            shutdown_event=shutdown,
+            is_remote=False,
+        )
+
+    async def test_listen_mode_logs_not_enqueues(self, listen_reader, mock_rtlamr, sample_rtlamr_scm_line, caplog):
+        """In listen mode, readings should be logged but never put on a queue."""
+        import logging
+        call_count = 0
+        async def fake_read_line():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return sample_rtlamr_scm_line
+            listen_reader.shutdown_event.set()
+            return None
+        mock_rtlamr.read_line = fake_read_line
+
+        with caplog.at_level(logging.INFO, logger='rtlamr2mqtt'):
+            await listen_reader.run()
+
+        assert any('33333333' in r.message for r in caplog.records)
+        assert listen_reader.reading_queue is None
+
+    async def test_listen_mode_deduplication(self, listen_reader, mock_rtlamr, sample_rtlamr_scm_line, caplog):
+        """The same meter ID should only be logged once per session."""
+        import logging
+        call_count = 0
+        async def fake_read_line():
+            nonlocal call_count
+            call_count += 1
+            if call_count <= 2:
+                return sample_rtlamr_scm_line  # same line twice
+            listen_reader.shutdown_event.set()
+            return None
+        mock_rtlamr.read_line = fake_read_line
+
+        with caplog.at_level(logging.INFO, logger='rtlamr2mqtt'):
+            await listen_reader.run()
+
+        new_meter_logs = [r for r in caplog.records if '33333333' in r.message]
+        assert len(new_meter_logs) == 1
+
+    async def test_listen_mode_accepts_unknown_meter(self, listen_reader, mock_rtlamr, caplog):
+        """In listen mode, meters not in config should still be logged."""
+        import logging
+        unknown_line = '{"Time":"2025-05-05T21:25:10Z","Offset":0,"Length":0,"Type":"R900","Message":{"ID":9999999,"Unkn1":163,"NoUse":0,"BackFlow":0,"Consumption":100,"Unkn3":0,"Leak":0,"LeakNow":0}}'
+        call_count = 0
+        async def fake_read_line():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return unknown_line
+            listen_reader.shutdown_event.set()
+            return None
+        mock_rtlamr.read_line = fake_read_line
+
+        with caplog.at_level(logging.INFO, logger='rtlamr2mqtt'):
+            await listen_reader.run()
+
+        assert any('9999999' in r.message for r in caplog.records)
+
+
 class TestMeterReaderProcessRestart:
     async def test_restart_on_rtlamr_death(self, reader, mock_rtlamr):
         """If rtlamr dies (read_line returns None), it should be restarted."""
