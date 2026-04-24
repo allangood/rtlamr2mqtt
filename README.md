@@ -276,6 +276,81 @@ utility_meter:
     cycle: monthly
 ```
 
+### Water Leak Detection
+
+The cumulative reading published by this add-on lets you detect two common leak patterns: **overnight consumption** (running toilets, dripping fixtures) and **continuous flow** (slow pipe leaks, irrigation left on).
+
+First, add an hourly utility meter and a [derivative sensor](https://www.home-assistant.io/integrations/derivative/) that exposes the instantaneous flow rate:
+
+```yaml
+# configuration.yaml
+
+utility_meter:
+  hourly_water:
+    source: sensor.my_water_meter_reading
+    cycle: hourly
+
+sensor:
+  - platform: derivative
+    source: sensor.my_water_meter_reading
+    name: Water flow rate
+    unit_time: h
+    time_window: "00:30:00"   # 30-minute rolling window smooths out meter transmission gaps
+    round: 2
+```
+
+Then create two automations — the first catches leaks by time-of-day, the second catches any continuous flow regardless of hour:
+
+```yaml
+# automations.yaml
+
+- alias: Water leak — overnight consumption
+  description: Alert if any water is consumed between 02:00 and 05:00
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.hourly_water
+      above: 0
+      for:
+        minutes: 30
+  condition:
+    - condition: time
+      after: "02:00:00"
+      before: "05:00:00"
+  action:
+    - service: notify.notify
+      data:
+        title: "⚠️ Possible water leak"
+        message: >
+          {{ states('sensor.hourly_water') }}
+          {{ state_attr('sensor.hourly_water', 'unit_of_measurement') }}
+          used overnight. Check toilets and fixtures.
+
+- alias: Water leak — continuous flow
+  description: Alert when the flow rate stays above zero for 2+ hours straight
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.water_flow_rate
+      above: 0
+      for:
+        hours: 2
+  action:
+    - service: notify.notify
+      data:
+        title: "⚠️ Continuous water flow detected"
+        message: >
+          Water has been flowing for over 2 hours at
+          {{ states('sensor.water_flow_rate') }}
+          {{ state_attr('sensor.my_water_meter_reading', 'unit_of_measurement') }}/h.
+          Check for leaks or irrigation left on.
+```
+
+**Tuning tips:**
+
+- `above: 0` on the continuous-flow automation is the most sensitive setting. If you get false positives from a fridge icemaker or humidifier, raise it slightly (e.g. `above: 0.1`).
+- The overnight window (`02:00`–`05:00`) is a good starting point. Adjust for your household's schedule.
+- Replace `notify.notify` with your specific mobile app service (e.g. `notify.mobile_app_my_phone`) to target a single device.
+- The same pattern works for gas meters — swap `sensor.my_water_meter_reading` for your gas meter entity.
+
 ## Development
 
 ### Running Tests
