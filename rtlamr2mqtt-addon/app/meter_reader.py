@@ -56,7 +56,23 @@ class MeterReader:
                     if self.shutdown_event.is_set():
                         break
                     if not self.rtlamr.is_alive:
-                        logger.warning('rtlamr process died, attempting restart')
+                        logger.warning(
+                            'rtlamr process died (exit code: %s), attempting restart',
+                            self.rtlamr.exit_code,
+                        )
+                        if self.rtlamr.recent_output:
+                            logger.warning(
+                                'rtlamr last output before exit:\n  %s',
+                                '\n  '.join(self.rtlamr.recent_output),
+                            )
+                        # If rtl_tcp also died (e.g. shared USB error), restart it first
+                        # so rtlamr's reconnect attempts have something to talk to.
+                        if not self.is_remote and not self.rtltcp.is_alive:
+                            logger.warning('rtl_tcp also died, restarting it first')
+                            if not await self.rtltcp.start_with_retry():
+                                logger.error('Failed to restart rtl_tcp, shutting down')
+                                self.shutdown_event.set()
+                                return
                         if not await self.rtlamr.start_with_retry():
                             logger.error('Failed to restart rtlamr, shutting down')
                             self.shutdown_event.set()
@@ -151,7 +167,7 @@ class MeterReader:
                 return
 
         # Tickle rtl_tcp to wake up the receiver
-        usbutil.tickle_rtl_tcp(self.rtltcp_host)
+        await usbutil.tickle_rtl_tcp(self.rtltcp_host)
 
         # Restart rtlamr
         if not await self.rtlamr.start_with_retry():
