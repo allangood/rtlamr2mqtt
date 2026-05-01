@@ -1,6 +1,6 @@
 import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from helpers.usb_utils import load_id_file, find_rtl_sdr_devices, get_device_by_index, tickle_rtl_tcp
 
 
@@ -71,20 +71,21 @@ class TestGetDeviceByIndex:
 
 
 class TestTickleRtlTcp:
-    @patch('helpers.usb_utils.socket.socket')
-    def test_tickle_sends_commands(self, mock_socket_class):
-        mock_conn = MagicMock()
-        mock_socket_class.return_value = mock_conn
-        tickle_rtl_tcp('127.0.0.1:1234')
-        mock_conn.connect.assert_called_once()
-        assert mock_conn.send.call_count == 2
-        mock_conn.close.assert_called_once()
+    @patch('helpers.usb_utils.asyncio.open_connection', new_callable=AsyncMock)
+    async def test_tickle_sends_commands(self, mock_open_connection):
+        mock_writer = MagicMock()
+        mock_writer.drain = AsyncMock()
+        mock_writer.wait_closed = AsyncMock()
+        mock_open_connection.return_value = (MagicMock(), mock_writer)
 
-    @patch('helpers.usb_utils.socket.socket')
-    def test_tickle_handles_connection_error(self, mock_socket_class):
-        mock_conn = MagicMock()
-        mock_conn.connect.side_effect = ConnectionRefusedError("refused")
-        mock_socket_class.return_value = mock_conn
-        # Should not raise
-        tickle_rtl_tcp('127.0.0.1:1234')
-        mock_conn.close.assert_called_once()
+        await tickle_rtl_tcp('127.0.0.1:1234')
+
+        mock_open_connection.assert_called_once()
+        assert mock_writer.write.call_count == 2
+        mock_writer.close.assert_called_once()
+
+    @patch('helpers.usb_utils.asyncio.open_connection', new_callable=AsyncMock)
+    async def test_tickle_handles_connection_error(self, mock_open_connection):
+        mock_open_connection.side_effect = ConnectionRefusedError("refused")
+        # Should not raise — connection failure before writer is assigned
+        await tickle_rtl_tcp('127.0.0.1:1234')
