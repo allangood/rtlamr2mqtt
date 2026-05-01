@@ -79,7 +79,7 @@ class TestManagedProcessReadLine:
         proc = ManagedProcess(
             name='rtlamr',
             command=[os.path.join(mock_script_dir, 'rtlamr')],
-            ready_pattern='GainCount:',
+            ready_pattern='GainCount',
             ready_timeout=10.0,
         )
         await proc.start()

@@ -135,7 +135,7 @@ async def main():
     rtlamr_proc = ManagedProcess(
         name='rtlamr',
         command=rtlamr_cmd,
-        ready_pattern='GainCount:',
+        ready_pattern='GainCount',
         ready_timeout=30.0,
     )
 

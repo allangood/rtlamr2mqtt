@@ -3,7 +3,7 @@ FROM golang:1.24 AS go-builder
 
 WORKDIR /go/src/app
 
-RUN go install github.com/bemasher/rtlamr@latest \
+RUN go install github.com/bemasher/rtlamr@v0.9.5 \
     && apt-get update \
     && apt-get install -y libusb-1.0-0-dev build-essential git cmake \
     && git clone https://git.osmocom.org/rtl-sdr.git \
