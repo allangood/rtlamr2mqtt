@@ -2,13 +2,12 @@
 Helper functions for USB handling
 """
 
+import asyncio
 import os
 import re
-import socket
 import logging
 from random import randrange
 from struct import pack
-from time import sleep
 import usb.core
 
 logger = logging.getLogger('rtlamr2mqtt')
@@ -73,7 +72,7 @@ def reset_usb_device(device_index):
         return False
 
 
-def tickle_rtl_tcp(remote_server):
+async def tickle_rtl_tcp(remote_server):
     """
     Connect to rtl_tcp and change some tuner settings. This has proven to
     reset some receivers that are blocked and producing errors.
@@ -85,14 +84,23 @@ def tickle_rtl_tcp(remote_server):
     remote_host = parts[0]
     remote_port = int(parts[1]) if len(parts) > 1 else 1234
 
-    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    conn.settimeout(5)
-    send_cmd = lambda c, command, parameter: c.send(pack(">BI", int(command), int(parameter)))
+    writer = None
     try:
-        conn.connect((remote_host, remote_port))
-        send_cmd(conn, SET_FREQUENCY, 88e6 + randrange(0, 20) * 1e6)
-        sleep(0.2)
-        send_cmd(conn, SET_SAMPLERATE, 2048000)
-    except socket.error as err:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(remote_host, remote_port),
+            timeout=5.0,
+        )
+        writer.write(pack(">BI", SET_FREQUENCY, int(88e6 + randrange(0, 20) * 1e6)))
+        await writer.drain()
+        await asyncio.sleep(0.2)
+        writer.write(pack(">BI", SET_SAMPLERATE, 2048000))
+        await writer.drain()
+    except (OSError, asyncio.TimeoutError) as err:
         logger.debug('Could not tickle rtl_tcp at %s: %s', remote_server, err)
-    conn.close()
+    finally:
+        if writer is not None:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass

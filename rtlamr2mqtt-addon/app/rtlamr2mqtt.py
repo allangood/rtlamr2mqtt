@@ -146,7 +146,7 @@ async def main():
             sys.exit(1)
 
     # Tickle rtl_tcp to wake it up
-    usbutil.tickle_rtl_tcp(rtltcp_host)
+    await usbutil.tickle_rtl_tcp(rtltcp_host)
 
     # Start rtlamr
     if not await rtlamr_proc.start_with_retry():

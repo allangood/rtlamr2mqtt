@@ -6,6 +6,7 @@ import asyncio
 import os
 import signal
 import logging
+from collections import deque
 from typing import Callable
 from shutil import which
 
@@ -43,10 +44,19 @@ class ManagedProcess:
         self.backoff = backoff if backoff is not None else [2, 5, 10, 20, 30]
         self.on_retry = on_retry
         self._process: asyncio.subprocess.Process | None = None
+        self._recent_lines: deque = deque(maxlen=20)
 
     @property
     def is_alive(self) -> bool:
         return self._process is not None and self._process.returncode is None
+
+    @property
+    def exit_code(self) -> int | None:
+        return self._process.returncode if self._process is not None else None
+
+    @property
+    def recent_output(self) -> list[str]:
+        return list(self._recent_lines)
 
     async def start(self) -> bool:
         """
@@ -63,6 +73,7 @@ class ManagedProcess:
 
         logger.info('Starting %s: %s', self.name, ' '.join(full_command))
 
+        self._recent_lines.clear()
         try:
             self._process = await asyncio.create_subprocess_exec(
                 *full_command,
@@ -85,7 +96,11 @@ class ManagedProcess:
                 logger.info('%s is ready', self.name)
             return ready
         except asyncio.TimeoutError:
-            logger.error('%s did not become ready within %.1fs', self.name, self.ready_timeout)
+            logger.error(
+                '%s did not become ready within %.1fs (waiting for %r)',
+                self.name, self.ready_timeout, self.ready_pattern,
+            )
+            self._log_recent_output('last output before timeout')
             await self.stop()
             return False
 
@@ -102,13 +117,21 @@ class ManagedProcess:
                 # EOF — process exited
                 logger.error('%s exited before becoming ready (exit code: %s)',
                              self.name, self._process.returncode)
+                self._log_recent_output('last output before exit')
                 return False
 
             line = line_bytes.decode('utf-8', errors='replace').strip()
             if line:
+                self._recent_lines.append(line)
                 logger.debug('%s: %s', self.name, line)
             if self.ready_pattern in line:
                 return True
+
+    def _log_recent_output(self, label: str) -> None:
+        if self._recent_lines:
+            logger.error('%s %s:\n  %s', self.name, label, '\n  '.join(self._recent_lines))
+        else:
+            logger.error('%s produced no output', self.name)
 
     async def stop(self):
         """
@@ -135,7 +158,16 @@ class ManagedProcess:
                     os.killpg(self._process.pid, signal.SIGKILL)
                 except (ProcessLookupError, BrokenPipeError):
                     self._process.kill()
-                await self._process.wait()
+                # A process stuck in kernel D-state (uninterruptible USB I/O) ignores
+                # SIGKILL until the kernel releases it. Cap the wait so we don't hang.
+                try:
+                    await asyncio.wait_for(self._process.wait(), timeout=5.0)
+                except asyncio.TimeoutError:
+                    logger.error(
+                        '%s did not die after SIGKILL — likely stuck in kernel D-state. '
+                        'Continuing shutdown.',
+                        self.name,
+                    )
         except (ProcessLookupError, BrokenPipeError):
             pass  # Already dead
 
@@ -193,7 +225,10 @@ class ManagedProcess:
             # EOF
             return None
 
-        return line_bytes.decode('utf-8', errors='replace').strip()
+        line = line_bytes.decode('utf-8', errors='replace').strip()
+        if line:
+            self._recent_lines.append(line)
+        return line
 
     async def wait_for_exit(self):
         """

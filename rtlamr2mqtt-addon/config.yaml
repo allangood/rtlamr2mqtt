@@ -1,6 +1,6 @@
 ---
 name: rtlamr2mqtt
-version: 2026.4.22
+version: 2026.5.1
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
