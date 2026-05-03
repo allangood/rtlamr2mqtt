@@ -151,6 +151,10 @@ class MQTTPublisher:
                 payload = message.payload.decode('utf-8', errors='replace')
                 logger.info('HA status: %s', payload)
                 if payload == 'online':
+                    # HA fires `online` before its discovery handler is fully
+                    # ready; without a small delay the payload is silently
+                    # dropped and entities stay unavailable.
+                    await asyncio.sleep(2)
                     await self.publish_discovery(client)
                     await self.publish_status(client, 'online')
 
@@ -241,6 +245,7 @@ class MQTTPublisher:
             if not self.shutdown_event.is_set():
                 logger.debug('Periodic re-publish of HA discovery payloads')
                 await self.publish_discovery(client)
+                await self.publish_status(client, 'online')
 
     async def publish_status(self, client, status: str):
         """
