@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 2026.5.3
+
+- Added a 2-second delay between receiving `homeassistant/status = online` and re-publishing discovery payloads. HA fires `online` slightly before its discovery handler is fully ready, causing payloads to be silently dropped and entities to stay `unavailable` after a restart
+- Periodic discovery re-publish now also publishes the `online` status afterwards, matching the connect and HA-restart paths
+
 ### 2026.5.1
 
 - Added stuck-process diagnostics to `ManagedProcess`: rolling 20-line stdout buffer, `exit_code` and `recent_output` properties, and a dump of recent output on startup timeout, early exit during ready-wait, and runtime exit — failure logs now include what the process actually printed instead of a bare timeout message (failure modes proposed by [@crash0verride11](https://github.com/crash0verride11/rtlamr2mqtt/commit/f29ecc108971cf589b50c7454a933b98b5841a52))
