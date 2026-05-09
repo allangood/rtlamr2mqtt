@@ -56,10 +56,13 @@ class TestBuildRtlamrArgsListenMode:
         args = build_rtlamr_args(sample_config)
         assert not any(a.startswith('-filterid=') for a in args)
 
-    def test_no_msgtype_when_no_meters(self, sample_config):
+    def test_msgtype_all_when_no_meters(self, sample_config):
+        """Listen mode must use -msgtype=all so rtlamr decodes every protocol,
+        not just the SCM default."""
         sample_config['meters'] = {}
         args = build_rtlamr_args(sample_config)
-        assert not any(a.startswith('-msgtype=') for a in args)
+        msgtype_args = [a for a in args if a.startswith('-msgtype=')]
+        assert msgtype_args == ['-msgtype=all']
 
     def test_format_and_server_still_present_in_listen_mode(self, sample_config):
         sample_config['meters'] = {}

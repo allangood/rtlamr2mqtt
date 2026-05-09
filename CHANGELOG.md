@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 2026.5.9
+
+- Fixed listen mode to actually listen for **all** protocols. rtlamr defaults to `scm` only when `-msgtype` is omitted, so listen mode was silently missing scm+, idm, netidm, r900, and r900bcd meters. Now passes `-msgtype=all` when no meters are configured
+
 ### 2026.5.3
 
 - Added a 2-second delay between receiving `homeassistant/status = online` and re-publishing discovery payloads. HA fires `online` slightly before its discovery handler is fully ready, causing payloads to be silently dropped and entities to stay `unavailable` after a restart
