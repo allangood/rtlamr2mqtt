@@ -3,7 +3,7 @@ FROM golang:1.24 AS go-builder
 
 WORKDIR /go/src/app
 
-RUN go install github.com/bemasher/rtlamr@latest \
+RUN go install github.com/bemasher/rtlamr@v0.9.5 \
     && apt-get update \
     && apt-get install -y libusb-1.0-0-dev build-essential git cmake \
     && git clone https://git.osmocom.org/rtl-sdr.git \
@@ -13,7 +13,10 @@ RUN go install github.com/bemasher/rtlamr@latest \
     && make \
     && make install
 
-FROM python:3.13-slim
+FROM python:3.14-slim
+
+ARG BUILD_VERSION
+ARG BUILD_ARCH
 
 ENV VIRTUAL_ENV=/opt/venv
 RUN python3 -m venv $VIRTUAL_ENV
@@ -28,12 +31,17 @@ COPY ./app/ $VIRTUAL_ENV/app/
 RUN apt-get update \
     && apt-get install -o Dpkg::Options::="--force-confnew" -y \
       libusb-1.0-0 \
-      expect \
+      coreutils \
     && apt-get --purge autoremove -y \
     && apt-get clean \
     && find /var/lib/apt/lists/ -type f -delete \
     && pip install -r /tmp/requirements.txt \
     && rm -rf /usr/share/doc /tmp/requirements.txt
+
+LABEL \
+    io.hass.version="${BUILD_VERSION}" \
+    io.hass.type="addon" \
+    io.hass.arch="${BUILD_ARCH}"
 
 STOPSIGNAL SIGTERM
 

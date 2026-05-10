@@ -1,140 +1,40 @@
 # CHANGELOG
 
-### 2025.6.6
+### 2026.5.9
 
-One of the main causes of problems has been addresses in this release: Non-blocking readings!
+- Fixed listen mode to actually listen for **all** protocols. rtlamr defaults to `scm` only when `-msgtype` is omitted, so listen mode was silently missing scm+, idm, netidm, r900, and r900bcd meters. Now passes `-msgtype=all` when no meters are configured
 
-- fix: #319 Publish discover messages when Home Assiatant restarts
-- fix: #318 Restart `rtl_tcp` and/or `rtl_amr` if their process die
-- enhancement: Make `state_class = total_increasing` if not specified
-- enhancement: Make readings non-blocking!
+### 2026.5.3
 
-### 2025.6.5
+- Added a 2-second delay between receiving `homeassistant/status = online` and re-publishing discovery payloads. HA fires `online` slightly before its discovery handler is fully ready, causing payloads to be silently dropped and entities to stay `unavailable` after a restart
+- Periodic discovery re-publish now also publishes the `online` status afterwards, matching the connect and HA-restart paths
 
-- fix: Error when multiple arguments were used in custom_parameters
-- fix: Version information (ouch!)
-- fix: Error regarding missing_readings when sleep_for > 0 is used
-- fix: Stop accepting wrong device_id numbers
-- enhancement: Changed last_seen sensor to timestamp
-- breaking change: The device_id parameter will fail if is not formatted in the 000:000 usb device id way
+### 2026.5.1
 
-Special thanks to:
-@nrdufour
-@airdrummingfool
+- Added stuck-process diagnostics to `ManagedProcess`: rolling 20-line stdout buffer, `exit_code` and `recent_output` properties, and a dump of recent output on startup timeout, early exit during ready-wait, and runtime exit — failure logs now include what the process actually printed instead of a bare timeout message (failure modes proposed by [@crash0verride11](https://github.com/crash0verride11/rtlamr2mqtt/commit/f29ecc108971cf589b50c7454a933b98b5841a52))
+- Capped the post-SIGKILL `wait()` at 5 seconds to prevent an indefinite hang when a process is stuck in kernel D-state on USB I/O (Synology-class issue) (proposed by [@crash0verride11](https://github.com/crash0verride11/rtlamr2mqtt/commit/f29ecc108971cf589b50c7454a933b98b5841a52))
+- Made `tickle_rtl_tcp` async — replaces blocking `socket` + `time.sleep` calls with `asyncio.open_connection`, so the MQTT publisher and shutdown handler no longer stall during a tickle. Writer is closed in a `finally` so partial-write failures don't leak file descriptors (proposed by [@crash0verride11](https://github.com/crash0verride11/rtlamr2mqtt/commit/f29ecc108971cf589b50c7454a933b98b5841a52))
+- When rtlamr exits, restart rtl_tcp first if it also died — closes a gap where rtlamr's restart attempts would all hit `connection refused` after a shared USB error took both processes down together (proposed by [@crash0verride11](https://github.com/crash0verride11/rtlamr2mqtt/commit/f29ecc108971cf589b50c7454a933b98b5841a52))
+- Fixed rtlamr readiness check broken by upstream v0.9.5 slog migration — `ready_pattern` changed from `GainCount:` to `GainCount` to match both old (`GainCount: 29`) and new (`GainCount=29`) log formats, eliminating the 30s timeout-and-kill on every start (#404 by Adam Light)
+- Pinned rtlamr to v0.9.5 in the Dockerfile (was `@latest`) to prevent future breakage from upstream changes (#404 by Adam Light)
+- Updated mock `rtlamr` script and process-manager tests to match the slog output format (#404 by Adam Light)
+- Added a water-leak-detection automation example to the README (utility_meter + derivative sensor for overnight and sustained-flow patterns) (#403 by @allangood)
 
-### 2025.6.4
+### 2026.4.22
 
-- fix: Fix bug #288 rtlamr hanging forever during startup
-- Thanks to @nrdufour
+- Added **listen mode** (`general.listen_mode: true`) to discover meter IDs without connecting to MQTT; logs each new meter once per session (#399 by @allangood)
+- Fixed invalid `meters?:` schema syntax — HA Supervisor only supports `?` on scalar types. Default options now use `meters: []` and an empty meters list in non-listen mode returns a clear error (#402 by @allangood)
 
-### 2025-06-03
+### 2026.4.21
 
-- Fix: No MQTT messages from RTLAMR #288
-- Fix: Dockerfile.mock now works out-of-the-box
+- Periodic HA discovery re-publish to recover from simultaneous broker/HA restarts (configurable via `mqtt.discovery_interval`, default 300s) (#397 by @allangood)
+- Fixed `sw_version` in HA device discovery payload to reflect actual add-on version (#397 by @allangood)
+- Fixed `device_class: none` in add-on schema — field is now optional; omit it instead of using `none` (#397 by @allangood)
+- Fixed `unit_of_measurement` capitalisation for energy meters (`KWh` → `kWh`) (#397 by @allangood)
+- Fixed publisher reconnect loop to handle `MqttError` wrapped in an `ExceptionGroup` by the inner `TaskGroup` — previously, an MQTT broker restart (e.g. Mosquitto upgrade) would crash the add-on instead of triggering a reconnect (#396 by @trionnis)
 
-### 2025-06-02
+### 2026.3.26
 
-- Fixed `rtl_tcp` hanging forever
-- Fixed logic to use remote `rtl_tcp`
-- Added logic to get MQTT user and password from Mosquitto Add-On
-
-### 2025-06-01 - First release
-
-- This version is broken
-
-### 2025-05-28 - Major changes!!!
-
-**MAJOR REWRITE**
-After a long break without working on this project
-I am back with a major rewrite.
-The old code was too hard to maintain
-This is a completly new code.
-You old entities should be cleaned manually from your MQTT broker
-
-**Changes**
-
-- I've tried to keep the configuration compatible with this new version
-  but some of the parameters had to change and I had to add some others.
-  Please check the tlamr2mqtt.yaml` file to see all the changes
-
-### 2022-05-17
-
-- Bug fixes for remote rtl_tcp and usb_reset logic #123
-- Code changes to load config file and merge defaults
-- Added vscode files to test the Addon development (finally!)
-
-### 2022-04-12
-
-- **REMOVED PARAMETER** usb_reset
-- **ADDED PARAMETER** device_id
-- **Changed Dockerfile**: Much smaller docker container
-- Deprecated Anomaly detection (looks like no one is using it and it's not very reliable)
-
-### 2022-04-12
-
-- New `tls_enabled` parameter to avoid confusions
-- Some fixes for the Add-On regarding the TLS configuration
-
-### 2022-04-04
-
-- New TLS parameters to MQTT connection
-- New parameter: USB_RESET to address problem mentioned on #98
-
-### 2022-02-11
-
-- New configuration parameter: `state_class` (thanks to @JeffreyFalgout)
-- Automatic MQTT configuration when using the Addon (thanks to @JeffreyFalgout)
-- Fixed 255 characters limit for state value #86
-
-### 2022-01-11
-
-- Happy new year! :)
-- Added "tickle_rtl_tcp" parameter to enable/disable the feature (explained below)
-- Added date/time to the log output
-- Added device_class configuration option #66 (thanks to @phidauex)
-- Some clean up in the README file!
-- Machine Learning to detect leaks still experimental and needs a lot of love to work properly
-
-### 2021-12-01
-
-- Lots of changes!
-- Changed Docker container to use Debian Bullseye instead of Alpine
-- Added TinyDB to store past readings
-- Added Linear Regression to flag anomaly usage
-- Problems with the official python docker base image :(
-
-### 2021-10-27
-
-- Many fixes regarding error handling
-- More comments inside the code
-- Some code cleanup
-- Fix a bug for MQTT anonymous message publishing discovered by @jeffeb3
-- Using latest code for both rtl-sdr and rtamr in the Dockerfile
-
-### 2021-10-12
-
-- The HA-ADDON is working now! A shout-out to @AnthonyPluth for his hard work!!! \o/
-- New feature to allow this container to run with a remote rtl_tcp. Thanks to @jonbloom
-- A bug was introduced by #28 and has been fixed.
-
-### 2021-09-23:
-
-- New images are based on Alpine 3.14 **_ IMPORTANT _**
-  - If this container stops to work after you upgrade, please read this: [https://docs.linuxserver.io/faq](https://docs.linuxserver.io/faq)
-- We are working in a new image: HA-ADDON! Thanks to @AnthonyPluth ! Stay tuned for news about it!
-
-### 2021-09-13:
-
-- A new configuration parameter has been added: _verbosity_
-- Environment variable _DEBUG_ has been renamed to _LISTEN_ONLY_ to prevent confusion
-- Better error handling and output (still work in progress)
-
-### 2021-09-09
-
-- Added last Will and testment messages
-- Added availability status topic
-- Added RTL_MSGTYPE to debug mode
-
-### 2021-09-03
-
-- Added DEBUG Mode
+- Major rewrite of the codebase to improve maintainability and performance assisted by AI agent (by @allangood)
+- Using AsyncIO to deal with subprocess calls in a non-blocking way (by @allangood)
+- Using Async MQTT and Paho v2 (by @allangood)

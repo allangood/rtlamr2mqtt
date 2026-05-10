@@ -1,80 +1,95 @@
 """
-Helper functions for building command for rtl_tcp and rtlamr
+Helper functions for building commands for rtl_tcp and rtlamr
 """
 
-from os import environ
-import helpers.usb_utils as usbutils
 
-def get_comma_separated_str(key, list_of_dict):
+def get_comma_separated_str(key, meters_dict):
     """
-    Get a comma-separated string of values for a given key from a list of dictionaries.
+    Get a comma-separated string of values for a given key from a meters dictionary.
     """
-    c = []
-    for d in list_of_dict:
-        if key in list_of_dict[d]:
-            c.append(str(list_of_dict[d][key]))
-    return ','.join(c)
+    values = []
+    for meter_id in meters_dict:
+        if key in meters_dict[meter_id]:
+            values.append(str(meters_dict[meter_id][key]))
+    return ','.join(values)
 
-def partial_match_remove(k, l):
+
+def has_prefix(prefix, args_list):
     """
-    Remove items from a list of dictionaries that partially match a key.
-    Args:
-        k (str): The key to check for partial matches.
-        l (list): The list of dictionaries to check.
-    Returns:
-        l: The modified list of dictionaries.
+    Check if any item in args_list starts with prefix.
     """
-    for n in l:
-        if k in n:
-            l.remove(n)
-    return l
+    return any(arg.startswith(prefix) for arg in args_list)
+
+
+def partial_match_remove(prefix, args_list):
+    """
+    Remove items from a list that start with the given prefix.
+    Returns a new list (does not modify the original).
+    """
+    return [arg for arg in args_list if not arg.startswith(prefix)]
+
 
 def build_rtlamr_args(config):
     """
     Build the command line arguments for the rtlamr command.
-    Args:
-        config (dict): The configuration dictionary.
-    Returns:
-        list: The command line arguments.
+    Custom parameters can override defaults like -unique.
     """
-    # Build the command line arguments for the rtlamr command
-    # based on the configuration file
     meters = config['meters']
-    default_args = [ '-format=json', '-unique=true' ]
-    rtltcp_host = [ f'-server={config["general"]["rtltcp_host"]}' ]
+
+    # Parse custom parameters first so we can check for overrides
+    custom_args = []
     if 'rtlamr' in config['custom_parameters']:
-        custom_parameters = config['custom_parameters']['rtlamr'].split()
-        custom_parameters = partial_match_remove('-server', custom_parameters)
+        custom_args = config['custom_parameters']['rtlamr'].split()
+        custom_args = partial_match_remove('-server', custom_args)
 
-    # Build a comma-separated string of meter IDs
-    ids = ','.join(list(meters.keys()))
-    filterid_arg = [ f'-filterid={ids}' ]
+    args = ['-format=json']
+    args.append(f'-server={config["general"]["rtltcp_host"]}')
 
-    # Build a comma-separated string of message types
-    msgtypes = get_comma_separated_str('protocol', meters)
-    msgtype_arg = [ f'-msgtype={msgtypes}' ]
+    # Add -unique=true only if not overridden by custom parameters
+    if not has_prefix('-unique', custom_args):
+        args.append('-unique=true')
 
-    return list(set(default_args + rtltcp_host + custom_parameters + filterid_arg + msgtype_arg))
+    args.extend(custom_args)
+
+    # Meter IDs filter and message types. In listen mode (no meters configured),
+    # skip -filterid and use -msgtype=all so rtlamr decodes every supported
+    # protocol — without this it defaults to scm-only and misses idm, r900, etc.
+    if meters:
+        args.append(f'-filterid={",".join(meters.keys())}')
+        args.append(f'-msgtype={get_comma_separated_str("protocol", meters)}')
+    else:
+        args.append('-msgtype=all')
+
+    return args
+
 
 def build_rtltcp_args(config):
     """
     Build the command line arguments for the rtl_tcp command.
-    Args:
-        config (dict): The configuration dictionary.
-    Returns:
-        list: The command line arguments.
+    Custom parameters can override defaults like -s (sample rate).
+    Returns None if rtl_tcp host is remote.
     """
-    # Build the command line arguments for the rtlamr command
-    # based on the configuration file
-    if config["general"]["rtltcp_host"].split(':')[0] not in [ '127.0.0.1', 'localhost' ]:
+    host = config['general']['rtltcp_host'].split(':')[0]
+    if host not in ['127.0.0.1', 'localhost']:
         return None
-    custom_parameters = ''
+
+    # Parse custom parameters first so we can check for overrides
+    custom_args = []
     if 'rtltcp' in config['custom_parameters']:
-        custom_parameters = config['custom_parameters']['rtltcp']
+        custom = config['custom_parameters']['rtltcp']
+        if custom:
+            custom_args = custom.split()
+
+    args = []
+
+    # Add -s 2048000 only if not overridden by custom parameters
+    if not has_prefix('-s', custom_args):
+        args.extend(['-s', '2048000'])
+
+    args.extend(custom_args)
+
+    # Device index
     device_id = config['general']['device_id']
-    if 'RTLAMR2MQTT_USE_MOCK' not in dict(environ):
-        sdl_devices = usbutils.find_rtl_sdr_devices()
-    dev_arg = '-d 0'
-    if device_id != '0' and device_id in sdl_devices:
-        dev_arg = f'-d {sdl_devices.index(device_id)}'
-    return list(set([ custom_parameters, dev_arg]))
+    args.extend(['-d', str(device_id)])
+
+    return args
