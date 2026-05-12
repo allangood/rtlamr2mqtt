@@ -1,5 +1,5 @@
 aiomqtt>=2.0.0
 paho-mqtt>=2.1.0
 pyyaml==6.0.2
-requests==2.33.0
+requests==2.34.0
 pyusb==1.3.1
