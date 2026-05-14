@@ -39,6 +39,24 @@ class MeterReader:
         self.listen_mode = config['general']['listen_mode']
         self._seen_ids: set = set()
 
+    def _recent_output_contains(self, *needles: str) -> bool:
+        output = '\n'.join(self.rtlamr.recent_output).lower()
+        return all(needle.lower() in output for needle in needles)
+
+    async def _recover_rtltcp(self, reset_usb: bool) -> bool:
+        await self.rtltcp.stop()
+        if reset_usb:
+            device_index = self.config['general']['device_id']
+            logger.warning(
+                'Resetting USB device at index %d after rtlamr read timeout',
+                device_index,
+            )
+            usbutil.reset_usb_device(device_index)
+        if not await self.rtltcp.start_with_retry():
+            return False
+        await usbutil.tickle_rtl_tcp(self.rtltcp_host)
+        return True
+
     async def run(self):
         """
         Main reading loop. Reads from rtlamr, parses, enqueues.
@@ -65,11 +83,22 @@ class MeterReader:
                                 'rtlamr last output before exit:\n  %s',
                                 '\n  '.join(self.rtlamr.recent_output),
                             )
+                        if (
+                            not self.is_remote
+                            and self._recent_output_contains('rcvr.read', 'i/o timeout')
+                        ):
+                            logger.warning(
+                                'rtlamr exited after rtl_tcp read timeout, forcing rtl_tcp recovery'
+                            )
+                            if not await self._recover_rtltcp(reset_usb=True):
+                                logger.error('Failed to recover rtl_tcp, shutting down')
+                                self.shutdown_event.set()
+                                return
                         # If rtl_tcp also died (e.g. shared USB error), restart it first
                         # so rtlamr's reconnect attempts have something to talk to.
-                        if not self.is_remote and not self.rtltcp.is_alive:
+                        elif not self.is_remote and not self.rtltcp.is_alive:
                             logger.warning('rtl_tcp also died, restarting it first')
-                            if not await self.rtltcp.start_with_retry():
+                            if not await self._recover_rtltcp(reset_usb=False):
                                 logger.error('Failed to restart rtl_tcp, shutting down')
                                 self.shutdown_event.set()
                                 return

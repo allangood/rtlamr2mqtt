@@ -205,7 +205,7 @@ class TestMeterReaderListenMode:
 
 class TestMeterReaderProcessRestart:
     async def test_restart_on_rtlamr_death(self, reader, mock_rtlamr):
-        """If rtlamr dies (read_line returns None), it should be restarted."""
+        """If rtlamr dies without the timeout signature, only rtlamr should restart."""
         call_count = 0
         async def fake_read_line():
             nonlocal call_count
@@ -216,11 +216,14 @@ class TestMeterReaderProcessRestart:
             return None
         mock_rtlamr.read_line = fake_read_line
         mock_rtlamr.is_alive = False
+        mock_rtlamr.recent_output = ['unexpected EOF']
 
-        await reader.run()
+        with patch('meter_reader.usbutil.reset_usb_device') as reset_usb:
+            await reader.run()
 
         # Should have attempted to restart rtlamr
         assert mock_rtlamr.start_with_retry.call_count >= 1
+        reset_usb.assert_not_called()
 
     async def test_shutdown_on_failed_restart(self, reader, mock_rtlamr):
         """If rtlamr can't restart, shutdown_event should be set."""
@@ -231,3 +234,73 @@ class TestMeterReaderProcessRestart:
         await reader.run()
 
         assert reader.shutdown_event.is_set()
+
+    async def test_timeout_signature_forces_rtltcp_recovery(
+        self, reader, mock_rtlamr, mock_rtltcp
+    ):
+        """The rcvr.Read i/o timeout path should reset USB and restart rtl_tcp first."""
+        call_count = 0
+
+        async def fake_read_line():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return None
+            reader.shutdown_event.set()
+            return None
+
+        mock_rtlamr.read_line = fake_read_line
+        mock_rtlamr.is_alive = False
+        mock_rtlamr.recent_output = [
+            'time=2026-05-13T22:20:05.055-04:00 level=ERROR msg=receiver '
+            'error="read tcp 127.0.0.1:58502->127.0.0.1:1234: i/o timeout',
+            'rcvr.Read',
+        ]
+
+        with (
+            patch('meter_reader.usbutil.reset_usb_device') as reset_usb,
+            patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()) as tickle_rtl_tcp,
+        ):
+            await reader.run()
+
+        mock_rtltcp.stop.assert_awaited()
+        mock_rtltcp.start_with_retry.assert_awaited()
+        reset_usb.assert_called_once_with(0)
+        tickle_rtl_tcp.assert_awaited_once_with('127.0.0.1:1234')
+        mock_rtlamr.start_with_retry.assert_awaited()
+
+    async def test_remote_timeout_signature_skips_local_usb_recovery(
+        self, sample_config, mock_rtlamr, mock_rtltcp
+    ):
+        """Remote rtl_tcp should not try to stop/reset local USB on timeout."""
+        queue = asyncio.Queue()
+        shutdown = asyncio.Event()
+        reader = MeterReader(
+            config=sample_config,
+            rtlamr=mock_rtlamr,
+            rtltcp=mock_rtltcp,
+            reading_queue=queue,
+            shutdown_event=shutdown,
+            is_remote=True,
+        )
+        call_count = 0
+
+        async def fake_read_line():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return None
+            reader.shutdown_event.set()
+            return None
+
+        mock_rtlamr.read_line = fake_read_line
+        mock_rtlamr.is_alive = False
+        mock_rtlamr.recent_output = ['i/o timeout', 'rcvr.Read']
+
+        with patch('meter_reader.usbutil.reset_usb_device') as reset_usb:
+            await reader.run()
+
+        mock_rtltcp.stop.assert_not_awaited()
+        mock_rtltcp.start_with_retry.assert_not_awaited()
+        reset_usb.assert_not_called()
+        mock_rtlamr.start_with_retry.assert_awaited()
