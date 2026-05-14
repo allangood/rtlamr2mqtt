@@ -1,4 +1,4 @@
-aiomqtt>=2.0.0
+aiomqtt>=2.5.1
 paho-mqtt>=2.1.0
 pyyaml==6.0.2
 requests==2.34.0
