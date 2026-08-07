@@ -17,6 +17,7 @@ hassio_api: true
 arch:
   - amd64
   - aarch64
+image: "allangood/rtlamr2mqtt"
 services:
   - mqtt:need
 options:
