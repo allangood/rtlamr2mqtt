@@ -54,12 +54,22 @@ def get_device_by_index(index):
     return None
 
 
-def reset_usb_device(device_index):
+async def reset_usb_device(device_index, retries=4, retry_delay=0.5):
     """
     Reset the USB device at the given index.
+    The device can momentarily drop out of USB enumeration right after the
+    previous rtl_tcp process is killed, so the lookup is retried briefly
+    before giving up.
     Returns True if reset was successful, False otherwise.
     """
-    device = get_device_by_index(device_index)
+    device = None
+    for attempt in range(retries):
+        device = get_device_by_index(device_index)
+        if device is not None:
+            break
+        if attempt < retries - 1:
+            await asyncio.sleep(retry_delay)
+
     if device is None:
         logger.warning('No RTL-SDR device found at index %d', device_index)
         return False

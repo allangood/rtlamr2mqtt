@@ -51,7 +51,12 @@ class MeterReader:
                 'Resetting USB device at index %d after rtlamr read timeout',
                 device_index,
             )
-            usbutil.reset_usb_device(device_index)
+            if not await usbutil.reset_usb_device(device_index):
+                logger.error(
+                    'USB device at index %d not found, aborting rtl_tcp recovery',
+                    device_index,
+                )
+                return False
         if not await self.rtltcp.start_with_retry():
             return False
         await usbutil.tickle_rtl_tcp(self.rtltcp_host)

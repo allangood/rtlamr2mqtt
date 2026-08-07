@@ -3,6 +3,7 @@ Generic async subprocess manager with ready detection, retry, and clean shutdown
 """
 
 import asyncio
+import inspect
 import os
 import signal
 import logging
@@ -197,7 +198,9 @@ class ManagedProcess:
             )
             if self.on_retry:
                 try:
-                    self.on_retry()
+                    result = self.on_retry()
+                    if inspect.isawaitable(result):
+                        await result
                 except Exception as e:
                     logger.warning('on_retry callback for %s failed: %s', self.name, e)
             await asyncio.sleep(delay)

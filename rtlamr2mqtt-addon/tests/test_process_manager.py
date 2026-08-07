@@ -166,6 +166,32 @@ class TestManagedProcessRetry:
         assert callback_count == 0
         await proc.stop()
 
+    async def test_async_on_retry_callback_is_awaited(self, tmp_path):
+        """on_retry may be a coroutine function (e.g. the USB reset helper) —
+        it must be awaited, not fired-and-forgotten as an unawaited coroutine."""
+        script = tmp_path / 'fail.sh'
+        script.write_text('#!/bin/bash\nexit 1\n')
+        script.chmod(0o755)
+        callback_count = 0
+
+        async def on_retry():
+            nonlocal callback_count
+            await asyncio.sleep(0)
+            callback_count += 1
+
+        proc = ManagedProcess(
+            name='fail',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=1.0,
+            max_retries=3,
+            backoff=[0.1, 0.1, 0.1],
+            on_retry=on_retry,
+        )
+        result = await proc.start_with_retry()
+        assert result is False
+        assert callback_count == 3
+
     async def test_start_with_retry_exhausted(self, tmp_path):
         script = tmp_path / 'fail.sh'
         script.write_text('#!/bin/bash\nexit 1\n')
