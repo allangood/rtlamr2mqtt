@@ -54,7 +54,7 @@ def build_rtlamr_args(config):
     # Meter IDs filter and message types. In listen mode (no meters configured),
     # skip -filterid and use -msgtype=all so rtlamr decodes every supported
     # protocol — without this it defaults to scm-only and misses idm, r900, etc.
-    if meters:
+    if meters and not config['general']['listen_mode']:
         args.append(f'-filterid={",".join(meters.keys())}')
         args.append(f'-msgtype={get_comma_separated_str("protocol", meters)}')
     else:
