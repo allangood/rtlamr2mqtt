@@ -23,6 +23,7 @@ services:
 options:
   general:
     sleep_for: 60
+    max_scan_time: 0
     verbosity: info
     listen_mode: false
   custom_parameters: {}
@@ -36,6 +37,7 @@ options:
 schema:
   general:
     sleep_for: "int?"
+    max_scan_time: "int?"
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "int?"
     rtltcp_host: "str?"
@@ -70,3 +72,4 @@ schema:
       force_update: bool?
       manufacturer: "str?"
       model: "str?"
+      must_find: "bool?"

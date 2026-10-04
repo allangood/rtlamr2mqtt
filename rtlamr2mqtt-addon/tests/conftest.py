@@ -12,6 +12,7 @@ def sample_config():
     return {
         'general': {
             'sleep_for': 0,
+            'max_scan_time': 0,
             'verbosity': 'info',
             'device_id': 0,
             'rtltcp_host': '127.0.0.1:1234',

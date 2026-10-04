@@ -80,6 +80,7 @@ def load_config(config_path=None):
     # General section
     general['listen_mode'] = bool(general.get('listen_mode', False))
     general['sleep_for'] = int(general.get('sleep_for', 0))
+    general['max_scan_time'] = int(general.get('max_scan_time', 0))
     general['verbosity'] = str(general.get('verbosity', 'info'))
     general['device_id'] = int(general.get('device_id', 0))
     general['rtltcp_host'] = str(general.get('rtltcp_host', '127.0.0.1:1234'))
@@ -120,10 +121,11 @@ def load_config(config_path=None):
     meters_allowed_keys = [
         'id', 'protocol', 'name', 'format', 'unit_of_measurement',
         'icon', 'device_class', 'state_class', 'expire_after',
-        'force_update', 'manufacturer', 'model',
+        'force_update', 'manufacturer', 'model', 'must_find',
     ]
     for m in config.get('meters') or []:
         m['state_class'] = m.get('state_class', 'total_increasing')
+        m['must_find'] = bool(m.get('must_find', False))
         meters[str(m['id'])] = {key: value for key, value in m.items() if key in meters_allowed_keys}
 
     return ('success', 'Config loaded successfully', {
