@@ -121,7 +121,7 @@ class MeterReader:
                     continue
 
                 # Parse the line
-                reading = ro.get_message_for_ids(line, self.meter_ids)
+                reading = ro.get_message_for_ids(line, [] if self.listen_mode else self.meter_ids)
                 if reading is None:
                     continue
 
