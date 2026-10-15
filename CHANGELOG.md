@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### 2026.10.15
+
+- Recover from rtl_tcp stalls: when rtlamr exits after an `rcvr.read ... i/o timeout`, rtl_tcp is now stopped, the USB device reset, and rtl_tcp restarted and tickled before rtlamr comes back (#421 by Kevin David)
+- Fixed a silent hang after a failed USB reset during that recovery. `reset_usb_device()` is now async and retries the device lookup briefly (the dongle can drop out of enumeration right after rtl_tcp is killed); if the device still isn't found, recovery aborts and the add-on shuts down cleanly instead of running a pipeline with no data (#439 by @dewbot6)
+- `ManagedProcess.start_with_retry()` now awaits async `on_retry` callbacks (#439 by @dewbot6)
+- The HA add-on now pulls the prebuilt `allangood/rtlamr2mqtt` image from Docker Hub instead of building it locally (#440 by @dewbot6)
+- Dependency updates: `requests` 2.34.2, `aiomqtt` >=2.5.1; dev: `pytest` >=9.1.1, `pytest-asyncio` >=1.4.0; CI: `actions/checkout` v7, `actions/setup-python` v7
+
 ### 2026.5.9
 
 - Fixed listen mode to actually listen for **all** protocols. rtlamr defaults to `scm` only when `-msgtype` is omitted, so listen mode was silently missing scm+, idm, netidm, r900, and r900bcd meters. Now passes `-msgtype=all` when no meters are configured
