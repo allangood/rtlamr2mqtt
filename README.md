@@ -150,6 +150,9 @@ When running standalone (not as an HA add-on), create a `rtlamr2mqtt.yaml` file.
 general:
   # Seconds to sleep after all meters are read. 0 = continuous reading.
   sleep_for: 60
+  # Max seconds to scan for meters before sleeping, even if some were not heard.
+  # Only used when sleep_for > 0. 0 = scan until all meters are read.
+  # max_scan_time: 0
   # Log verbosity: debug, info, warning, error, critical, none
   verbosity: info
   # RTL-SDR device index (0 = first device). Use if you have multiple SDR dongles.
@@ -207,6 +210,7 @@ meters:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `sleep_for` | int | `0` | Seconds to sleep after all meters are read. `0` = continuous. |
+| `max_scan_time` | int | `0` | Max seconds to scan before sleeping, even if not every meter was heard. Missed meters are retried on the next cycle. Only used when `sleep_for > 0`. `0` = scan until all meters are read. |
 | `verbosity` | string | `info` | Log level: `debug`, `info`, `warning`, `error`, `critical`, `none` |
 | `device_id` | int | `0` | RTL-SDR device index. `0` = first device found. |
 | `rtltcp_host` | string | `127.0.0.1:1234` | RTL_TCP server address. Set to remote host to skip local rtl_tcp. |
