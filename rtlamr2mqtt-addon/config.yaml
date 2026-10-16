@@ -36,6 +36,7 @@ options:
 schema:
   general:
     sleep_for: "int?"
+    max_scan_time: "int?"
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "int?"
     rtltcp_host: "str?"
