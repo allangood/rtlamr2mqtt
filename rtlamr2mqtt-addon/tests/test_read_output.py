@@ -22,6 +22,13 @@ class TestFormatNumber:
     def test_zero_padded(self):
         assert format_number(42, '######.###') == '000000.042'
 
+    def test_more_digits_than_format_grows_integer_part(self):
+        """Digits beyond the format must not be dropped (e.g. after a meter rollover)."""
+        assert format_number(1234567, '####.##') == '12345.67'
+
+    def test_more_digits_than_format_without_decimal(self):
+        assert format_number(123456, '#####') == '123456'
+
 
 class TestReadRtlamrOutput:
     def test_valid_json_line(self, sample_rtlamr_scm_line):

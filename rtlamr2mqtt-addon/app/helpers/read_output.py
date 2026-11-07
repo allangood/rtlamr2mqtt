@@ -23,8 +23,12 @@ def first_matching_key(dictionary, keys):
 def format_number(number, f):
     """
     Format a number according to a given format.
+    If the number has more digits than the format has '#' placeholders, the
+    integer part grows to fit, so the decimal places stay where they belong.
     """
-    return str(f.replace('#', '{}').format(*str(number).zfill(f.count('#'))))
+    digits = str(number).zfill(f.count('#'))
+    f = '#' * (len(digits) - f.count('#')) + f
+    return str(f.replace('#', '{}').format(*digits))
 
 
 def is_json(test_string):
