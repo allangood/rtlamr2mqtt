@@ -39,6 +39,7 @@ class ManagedProcess:
         on_retry: Callable | None = None,
         drain_output: bool = False,
         shutdown_event: asyncio.Event | None = None,
+        stop_timeout: float = 2.0,
     ):
         self.name = name
         self.command = command
@@ -49,6 +50,7 @@ class ManagedProcess:
         self.on_retry = on_retry
         self.drain_output = drain_output
         self.shutdown_event = shutdown_event
+        self.stop_timeout = stop_timeout
         self._process: asyncio.subprocess.Process | None = None
         self._drain_task: asyncio.Task | None = None
         self._recent_lines: deque = deque(maxlen=20)
@@ -145,6 +147,29 @@ class ManagedProcess:
             if line:
                 logger.debug('%s: %s', self.name, line)
 
+    async def _terminate(self, timeout: float, interval: float = 0.25) -> bool:
+        """
+        SIGTERM the process group, re-sending it every `interval` seconds until
+        the process exits or `timeout` elapses. rtl_tcp only exits on a SIGTERM
+        received while idle: one that arrives while a client is connected or
+        being torn down just ends that session, and is then forgotten. We stop
+        it right after rtlamr disconnects, so the first signals are always lost.
+        Returns True if it exited.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            # Signal the entire process group (includes stdbuf child)
+            os.killpg(self._process.pid, signal.SIGTERM)
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return False
+            try:
+                await asyncio.wait_for(self._process.wait(), timeout=min(interval, remaining))
+                return True
+            except asyncio.TimeoutError:
+                pass
+
     async def _discard_output(self):
         """
         Read stdout to EOF so asyncio closes the pipe. If the read buffer was
@@ -165,7 +190,7 @@ class ManagedProcess:
 
     async def stop(self):
         """
-        Stop the process. Sends SIGTERM, waits 2 seconds, then SIGKILL.
+        Stop the process. Sends SIGTERM for up to `stop_timeout` seconds, then SIGKILL.
         """
         if self._drain_task is not None:
             self._drain_task.cancel()
@@ -187,11 +212,7 @@ class ManagedProcess:
         logger.info('Stopping %s (pid %d)', self.name, self._process.pid)
 
         try:
-            # Signal the entire process group (includes stdbuf child)
-            os.killpg(self._process.pid, signal.SIGTERM)
-            try:
-                await asyncio.wait_for(self._process.wait(), timeout=2.0)
-            except asyncio.TimeoutError:
+            if not await self._terminate(timeout=self.stop_timeout):
                 logger.warning('%s did not exit after SIGTERM, sending SIGKILL', self.name)
                 try:
                     os.killpg(self._process.pid, signal.SIGKILL)

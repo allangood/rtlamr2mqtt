@@ -139,6 +139,9 @@ async def main():
         on_retry=reset_usb if not is_remote else None,
         drain_output=True,
         shutdown_event=shutdown_event,
+        # After rtlamr disconnects, rtl_tcp can take ~5s to tear the session
+        # down (a 5s worker timeout) before a SIGTERM makes it exit
+        stop_timeout=7.0,
     )
 
     rtlamr_proc = ManagedProcess(
