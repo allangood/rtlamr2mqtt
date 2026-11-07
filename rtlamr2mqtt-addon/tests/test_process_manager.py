@@ -1,6 +1,7 @@
 import asyncio
 import os
 import pytest
+from unittest.mock import AsyncMock
 from process_manager import ManagedProcess
 
 
@@ -208,6 +209,29 @@ class TestManagedProcessRetry:
         result = await proc.start_with_retry()
         assert result is False
         assert callback_count == 3
+
+    async def test_shutdown_interrupts_backoff(self, tmp_path):
+        """A shutdown during the backoff sleep must stop retrying right away."""
+        script = tmp_path / 'fail.sh'
+        script.write_text('#!/bin/bash\nexit 1\n')
+        script.chmod(0o755)
+        shutdown = asyncio.Event()
+        proc = ManagedProcess(
+            name='fail',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=1.0,
+            max_retries=3,
+            backoff=[30],
+            shutdown_event=shutdown,
+        )
+        proc.start = AsyncMock(wraps=proc.start)
+        asyncio.get_running_loop().call_later(0.2, shutdown.set)
+
+        result = await asyncio.wait_for(proc.start_with_retry(), timeout=2)
+
+        assert result is False
+        assert proc.start.await_count == 1  # no retry after shutdown
 
     async def test_on_retry_not_called_on_first_attempt(self, mock_script_dir):
         callback_count = 0

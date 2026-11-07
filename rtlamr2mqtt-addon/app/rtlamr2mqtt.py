@@ -138,6 +138,7 @@ async def main():
         ready_timeout=30.0,
         on_retry=reset_usb if not is_remote else None,
         drain_output=True,
+        shutdown_event=shutdown_event,
     )
 
     rtlamr_proc = ManagedProcess(
@@ -145,11 +146,14 @@ async def main():
         command=rtlamr_cmd,
         ready_pattern='GainCount',
         ready_timeout=30.0,
+        shutdown_event=shutdown_event,
     )
 
     # Start rtl_tcp if local
     if not is_remote:
         if not await rtltcp_proc.start_with_retry():
+            if shutdown_event.is_set():
+                return
             logger.critical('Failed to start rtl_tcp')
             sys.exit(1)
 
@@ -158,9 +162,11 @@ async def main():
 
     # Start rtlamr
     if not await rtlamr_proc.start_with_retry():
-        logger.critical('Failed to start rtlamr')
         if not is_remote:
             await rtltcp_proc.stop()
+        if shutdown_event.is_set():
+            return
+        logger.critical('Failed to start rtlamr')
         sys.exit(1)
 
     # Create reader (and publisher when not in listen mode)
