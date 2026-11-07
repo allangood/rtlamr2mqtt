@@ -80,10 +80,17 @@ async def main():
     listen_mode = config['general']['listen_mode']
     reading_queue = None if listen_mode else asyncio.Queue(maxsize=100)
 
-    # Signal handlers
-    loop = asyncio.get_event_loop()
+    # Signal handlers. Tasks also set shutdown_event when they give up, so
+    # remember whether the shutdown was actually requested to pick the exit code.
+    stop_requested = asyncio.Event()
+
+    def request_stop():
+        stop_requested.set()
+        shutdown_event.set()
+
+    loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(sig, shutdown_event.set)
+        loop.add_signal_handler(sig, request_stop)
 
     # Determine if rtl_tcp is remote
     rtltcp_host = config['general']['rtltcp_host']
@@ -188,13 +195,18 @@ async def main():
     except* Exception as eg:
         for exc in eg.exceptions:
             if not isinstance(exc, asyncio.CancelledError):
-                logger.error('Task error: %s', exc)
+                logger.error('Task error: %s', exc, exc_info=exc)
 
     # Cleanup
     logger.info('Shutting down...')
     await rtlamr_proc.stop()
     if not is_remote:
         await rtltcp_proc.stop()
+
+    # A non-zero exit lets Docker's restart policy / the HA watchdog bring us back
+    if not stop_requested.is_set():
+        logger.critical('Exiting after an unrecoverable error')
+        sys.exit(1)
     logger.info('Goodbye!')
 
 
