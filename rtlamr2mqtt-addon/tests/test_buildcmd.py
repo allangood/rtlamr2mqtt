@@ -99,6 +99,24 @@ class TestBuildRtltcpArgs:
         assert '-d' in args
         assert '2' in args
 
+    def test_port_from_rtltcp_host(self, sample_config):
+        """rtl_tcp must listen on the port rtlamr is told to connect to."""
+        sample_config['general']['rtltcp_host'] = '127.0.0.1:1235'
+        args = build_rtltcp_args(sample_config)
+        assert args[args.index('-p') + 1] == '1235'
+
+    def test_no_port_in_rtltcp_host_uses_rtltcp_default(self, sample_config):
+        sample_config['general']['rtltcp_host'] = 'localhost'
+        args = build_rtltcp_args(sample_config)
+        assert '-p' not in args
+
+    def test_custom_port_parameter_wins(self, sample_config):
+        sample_config['general']['rtltcp_host'] = '127.0.0.1:1235'
+        sample_config['custom_parameters']['rtltcp'] = '-p 5555'
+        args = build_rtltcp_args(sample_config)
+        assert args.count('-p') == 1
+        assert args[args.index('-p') + 1] == '5555'
+
     def test_remote_returns_none(self, sample_config):
         sample_config['general']['rtltcp_host'] = '192.168.1.100:1234'
         args = build_rtltcp_args(sample_config)
