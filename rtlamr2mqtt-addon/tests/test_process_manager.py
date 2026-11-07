@@ -74,6 +74,66 @@ class TestManagedProcessStop:
         await proc.stop()
 
 
+class TestManagedProcessDrainOutput:
+    @staticmethod
+    def make_chatty_script(tmp_path):
+        # After READY, write well past the pipe buffer plus asyncio's ~128 KB read buffer,
+        # then leave a marker.
+        # If nobody reads stdout, the writes block and the marker never appears.
+        marker = tmp_path / 'done'
+        script = tmp_path / 'chatty.sh'
+        script.write_text(
+            '#!/bin/bash\n'
+            'echo "READY"\n'
+            'for i in $(seq 1 20000); do echo "ll+, now $i padding-padding-padding"; done\n'
+            f'touch {marker}\n'
+            'while true; do sleep 1; done\n'
+        )
+        script.chmod(0o755)
+        return script, marker
+
+    async def wait_for_file(self, path, timeout):
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while loop.time() < deadline:
+            if path.exists():
+                return True
+            await asyncio.sleep(0.05)
+        return False
+
+    async def test_drain_keeps_pipe_from_filling(self, tmp_path):
+        script, marker = self.make_chatty_script(tmp_path)
+        proc = ManagedProcess(
+            name='chatty',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=5.0,
+            drain_output=True,
+        )
+        assert await proc.start() is True
+        try:
+            assert await self.wait_for_file(marker, timeout=5.0)
+            assert proc.recent_output[-1].startswith('ll+, now 20000')
+        finally:
+            await proc.stop()
+        assert proc.is_alive is False
+
+    async def test_without_drain_pipe_fills_and_blocks(self, tmp_path):
+        """Guards the test above: proves the script really does block when not drained."""
+        script, marker = self.make_chatty_script(tmp_path)
+        proc = ManagedProcess(
+            name='chatty',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=5.0,
+        )
+        assert await proc.start() is True
+        try:
+            assert not await self.wait_for_file(marker, timeout=1.0)
+        finally:
+            await proc.stop()
+
+
 class TestManagedProcessReadLine:
     async def test_read_lines_from_mock_rtlamr(self, mock_script_dir):
         proc = ManagedProcess(
