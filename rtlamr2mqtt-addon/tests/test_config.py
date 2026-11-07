@@ -81,6 +81,7 @@ class TestLoadConfig:
             status, msg, config = load_config(path)
             assert status == 'success'
             assert config['general']['sleep_for'] == 60
+            assert config['general']['max_scan_time'] == 0
             assert config['general']['verbosity'] == 'debug'
             assert config['general']['device_id'] == 1
             assert config['general']['rtltcp_host'] == '192.168.1.100:1234'
@@ -158,6 +159,19 @@ class TestLoadConfig:
             status, msg, config = load_config(path)
             assert status == 'success'
             assert config['general']['sleep_for'] == 0
+        finally:
+            os.unlink(path)
+
+    def test_max_scan_time_parsed(self):
+        content = (
+            "general:\n  sleep_for: 60\n  max_scan_time: '300'\nmqtt:\n  host: 127.0.0.1\n"
+            "meters:\n  - id: 12345678\n    protocol: scm\n    name: m\n"
+        )
+        path = write_temp_yaml(content)
+        try:
+            status, msg, config = load_config(path)
+            assert status == 'success'
+            assert config['general']['max_scan_time'] == 300
         finally:
             os.unlink(path)
 
