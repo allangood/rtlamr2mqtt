@@ -35,6 +35,8 @@ class MeterReader:
         self.is_remote = is_remote
         self.meter_ids = list(config['meters'].keys())
         self.sleep_for = config['general']['sleep_for']
+        # Seconds without any rtlamr output before the receiver chain is restarted
+        self.watchdog_timeout = config['general'].get('watchdog_timeout', 0)
         self.rtltcp_host = config['general']['rtltcp_host']
         self.listen_mode = config['general']['listen_mode']
         self._seen_ids: set = set()
@@ -43,17 +45,18 @@ class MeterReader:
         output = '\n'.join(self.rtlamr.recent_output).lower()
         return all(needle.lower() in output for needle in needles)
 
-    async def _read_line(self) -> str | None:
+    async def _read_line(self, timeout: float | None = None) -> str | None:
         """
         Read one line from rtlamr, giving up early if shutdown is requested.
         rtlamr only prints when it decodes a meter, so a bare read can block
-        indefinitely. Returns None on shutdown.
+        indefinitely. Returns None on shutdown; raises TimeoutError on timeout.
         """
         read_task = asyncio.ensure_future(self.rtlamr.read_line())
         shutdown_task = asyncio.ensure_future(self.shutdown_event.wait())
         try:
             done, _ = await asyncio.wait(
                 [read_task, shutdown_task],
+                timeout=timeout,
                 return_when=asyncio.FIRST_COMPLETED,
             )
         finally:
@@ -63,7 +66,18 @@ class MeterReader:
             await asyncio.gather(read_task, shutdown_task, return_exceptions=True)
         if read_task in done:
             return read_task.result()
-        return None
+        if shutdown_task in done:
+            return None
+        raise asyncio.TimeoutError
+
+    async def _restart_receiver(self) -> bool:
+        await self.rtlamr.stop()
+        if not self.is_remote:
+            if not await self._recover_rtltcp(reset_usb=True):
+                return False
+        else:
+            await usbutil.tickle_rtl_tcp(self.rtltcp_host)
+        return await self.rtlamr.start_with_retry()
 
     async def _recover_rtltcp(self, reset_usb: bool) -> bool:
         await self.rtltcp.stop()
@@ -94,7 +108,20 @@ class MeterReader:
 
             # Read until shutdown or all meters seen (when sleep_for > 0)
             while not self.shutdown_event.is_set():
-                line = await self._read_line()
+                try:
+                    line = await self._read_line(self.watchdog_timeout or None)
+                except asyncio.TimeoutError:
+                    # rtlamr is alive but has decoded nothing: the receiver is
+                    # likely stuck, which no process exit would reveal
+                    logger.warning(
+                        'No output from rtlamr for %d seconds, restarting receiver',
+                        self.watchdog_timeout,
+                    )
+                    if not await self._restart_receiver():
+                        logger.error('Failed to restart receiver, shutting down')
+                        self.shutdown_event.set()
+                        return
+                    continue
 
                 if line is None:
                     # Process died or stdout closed
