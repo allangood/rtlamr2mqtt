@@ -38,6 +38,7 @@ class ManagedProcess:
         backoff: list[float] | None = None,
         on_retry: Callable | None = None,
         drain_output: bool = False,
+        shutdown_event: asyncio.Event | None = None,
     ):
         self.name = name
         self.command = command
@@ -47,6 +48,7 @@ class ManagedProcess:
         self.backoff = backoff if backoff is not None else [2, 5, 10, 20, 30]
         self.on_retry = on_retry
         self.drain_output = drain_output
+        self.shutdown_event = shutdown_event
         self._process: asyncio.subprocess.Process | None = None
         self._drain_task: asyncio.Task | None = None
         self._recent_lines: deque = deque(maxlen=20)
@@ -240,12 +242,28 @@ class ManagedProcess:
                         await result
                 except Exception as e:
                     logger.warning('on_retry callback for %s failed: %s', self.name, e)
-            await asyncio.sleep(delay)
+            if await self._shutdown_during(delay):
+                logger.info('Shutdown requested, giving up on starting %s', self.name)
+                return False
             if await self.start():
                 return True
 
         logger.error('%s failed to start after %d retries', self.name, self.max_retries)
         return False
+
+    async def _shutdown_during(self, delay: float) -> bool:
+        """
+        Sleep for `delay` seconds, waking early if shutdown is requested.
+        Returns True if shutdown was requested.
+        """
+        if self.shutdown_event is None:
+            await asyncio.sleep(delay)
+            return False
+        try:
+            await asyncio.wait_for(self.shutdown_event.wait(), timeout=delay)
+            return True
+        except asyncio.TimeoutError:
+            return False
 
     async def read_line(self) -> str | None:
         """
