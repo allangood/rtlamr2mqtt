@@ -1,5 +1,27 @@
 # CHANGELOG
 
+### 2026.11.7
+
+**New option**
+
+- `general.watchdog_timeout`: restart rtl_tcp and rtlamr (resetting the USB dongle when local) after this many seconds without any decoded message, to recover receivers that keep running but stop decoding. Default `0` (disabled); set it well above your meters' longest quiet period, since with the default `-unique=true` rtlamr stays silent while readings don't change (#457)
+
+**Fixes**
+
+- Formatted readings no longer lose digits when the value is wider than `format`: `'####.##'` with `1234567` now gives `12345.67` instead of `1234.56`, which Home Assistant read as a meter reset and which corrupted long-term statistics (#452)
+- rtl_tcp's output is now drained continuously. It was never read after startup, so a long-running instance could fill the pipe and block rtl_tcp, looking exactly like a stuck receiver. Stopping a process also no longer leaks a file descriptor (#453)
+- rtl_tcp now exits cleanly instead of being SIGKILLed on every sleep cycle, recovery and shutdown. It ignores SIGTERM while a client session is being torn down (~5s after rtlamr disconnects), so SIGTERM is now re-sent during a longer grace period (#458)
+- A local rtl_tcp now listens on the port given in `rtltcp_host` (e.g. `127.0.0.1:1235`); previously it always used 1234 and rtlamr could never connect (#460)
+- Shutdown (SIGTERM/SIGINT) no longer waits for rtlamr to decode a message, or for the retry backoff (up to ~1 minute) to finish (#454, #456)
+- The add-on now exits with a non-zero code after an unrecoverable error, so Docker's `restart: on-failure` policy and the Home Assistant watchdog restart it. Task errors are logged with a traceback (#455)
+- The USB reset log line no longer always says "after rtlamr read timeout" (#459)
+
+**Build and packaging**
+
+- The Docker image builds rtl-sdr from the `v2.0.3` tag instead of git HEAD, so builds are reproducible (#461)
+- The add-on no longer requests serial port (`uart`) access; the dongle only needs `usb` (#462)
+- Dependency updates: dev: `pytest` >=9.2.0 (#450)
+
 ### 2026.10.15
 
 - Recover from rtl_tcp stalls: when rtlamr exits after an `rcvr.read ... i/o timeout`, rtl_tcp is now stopped, the USB device reset, and rtl_tcp restarted and tickled before rtlamr comes back (#421 by Kevin David)
