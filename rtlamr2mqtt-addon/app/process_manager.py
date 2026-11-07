@@ -24,7 +24,8 @@ class ManagedProcess:
     - Timeout on ready wait
     - Retry with configurable backoff
     - Clean shutdown (SIGTERM -> SIGKILL)
-    - Async line reading
+    - Async line reading, or background draining of stdout for processes
+      whose output nobody reads (so a full pipe can't block them)
     """
 
     def __init__(
@@ -36,6 +37,7 @@ class ManagedProcess:
         max_retries: int = 5,
         backoff: list[float] | None = None,
         on_retry: Callable | None = None,
+        drain_output: bool = False,
     ):
         self.name = name
         self.command = command
@@ -44,7 +46,9 @@ class ManagedProcess:
         self.max_retries = max_retries
         self.backoff = backoff if backoff is not None else [2, 5, 10, 20, 30]
         self.on_retry = on_retry
+        self.drain_output = drain_output
         self._process: asyncio.subprocess.Process | None = None
+        self._drain_task: asyncio.Task | None = None
         self._recent_lines: deque = deque(maxlen=20)
 
     @property
@@ -95,6 +99,8 @@ class ManagedProcess:
             )
             if ready:
                 logger.info('%s is ready', self.name)
+                if self.drain_output:
+                    self._drain_task = asyncio.create_task(self._drain())
             return ready
         except asyncio.TimeoutError:
             logger.error(
@@ -128,6 +134,27 @@ class ManagedProcess:
             if self.ready_pattern in line:
                 return True
 
+    async def _drain(self):
+        """
+        Keep reading stdout until EOF. Without this, a process whose output is
+        never consumed eventually fills the pipe buffer and blocks on write.
+        """
+        while (line := await self.read_line()) is not None:
+            if line:
+                logger.debug('%s: %s', self.name, line)
+
+    async def _discard_output(self):
+        """
+        Read stdout to EOF so asyncio closes the pipe. If the read buffer was
+        full, reading is paused and the pipe (an fd) would otherwise leak.
+        """
+        if self._process.stdout is None:
+            return
+        try:
+            await asyncio.wait_for(self._process.stdout.read(), timeout=1.0)
+        except (asyncio.TimeoutError, OSError, ValueError):
+            pass
+
     def _log_recent_output(self, label: str) -> None:
         if self._recent_lines:
             logger.error('%s %s:\n  %s', self.name, label, '\n  '.join(self._recent_lines))
@@ -138,11 +165,20 @@ class ManagedProcess:
         """
         Stop the process. Sends SIGTERM, waits 2 seconds, then SIGKILL.
         """
+        if self._drain_task is not None:
+            self._drain_task.cancel()
+            try:
+                await self._drain_task
+            except asyncio.CancelledError:
+                pass
+            self._drain_task = None
+
         if self._process is None:
             return
 
         if self._process.returncode is not None:
             # Already exited
+            await self._discard_output()
             self._process = None
             return
 
@@ -172,6 +208,7 @@ class ManagedProcess:
         except (ProcessLookupError, BrokenPipeError):
             pass  # Already dead
 
+        await self._discard_output()
         logger.info('%s stopped', self.name)
         self._process = None
 

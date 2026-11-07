@@ -130,6 +130,7 @@ async def main():
         ready_pattern='listening...',
         ready_timeout=30.0,
         on_retry=reset_usb if not is_remote else None,
+        drain_output=True,
     )
 
     rtlamr_proc = ManagedProcess(
