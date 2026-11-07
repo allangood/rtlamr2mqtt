@@ -69,7 +69,7 @@ def build_rtltcp_args(config):
     Custom parameters can override defaults like -s (sample rate).
     Returns None if rtl_tcp host is remote.
     """
-    host = config['general']['rtltcp_host'].split(':')[0]
+    host, _, port = config['general']['rtltcp_host'].partition(':')
     if host not in ['127.0.0.1', 'localhost']:
         return None
 
@@ -87,6 +87,10 @@ def build_rtltcp_args(config):
         args.extend(['-s', '2048000'])
 
     args.extend(custom_args)
+
+    # Listen on the port rtlamr connects to (rtl_tcp defaults to 1234)
+    if port and not has_prefix('-p', custom_args):
+        args.extend(['-p', port])
 
     # Device index
     device_id = config['general']['device_id']
