@@ -225,6 +225,19 @@ class TestMeterReaderProcessRestart:
         assert mock_rtlamr.start_with_retry.call_count >= 1
         reset_usb.assert_not_called()
 
+    async def test_shutdown_while_rtlamr_silent(self, reader, mock_rtlamr):
+        """Shutdown must not wait for rtlamr to print: it only does so when a meter is decoded."""
+        async def fake_read_line():
+            await asyncio.sleep(3600)
+        mock_rtlamr.read_line = fake_read_line
+
+        task = asyncio.create_task(reader.run())
+        await asyncio.sleep(0.05)
+        reader.shutdown_event.set()
+
+        await asyncio.wait_for(task, timeout=1)
+        assert reader.reading_queue.qsize() == 0
+
     async def test_shutdown_on_failed_restart(self, reader, mock_rtlamr):
         """If rtlamr can't restart, shutdown_event should be set."""
         mock_rtlamr.read_line = AsyncMock(return_value=None)

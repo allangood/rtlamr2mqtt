@@ -43,6 +43,28 @@ class MeterReader:
         output = '\n'.join(self.rtlamr.recent_output).lower()
         return all(needle.lower() in output for needle in needles)
 
+    async def _read_line(self) -> str | None:
+        """
+        Read one line from rtlamr, giving up early if shutdown is requested.
+        rtlamr only prints when it decodes a meter, so a bare read can block
+        indefinitely. Returns None on shutdown.
+        """
+        read_task = asyncio.ensure_future(self.rtlamr.read_line())
+        shutdown_task = asyncio.ensure_future(self.shutdown_event.wait())
+        try:
+            done, _ = await asyncio.wait(
+                [read_task, shutdown_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+        finally:
+            for task in (read_task, shutdown_task):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(read_task, shutdown_task, return_exceptions=True)
+        if read_task in done:
+            return read_task.result()
+        return None
+
     async def _recover_rtltcp(self, reset_usb: bool) -> bool:
         await self.rtltcp.stop()
         if reset_usb:
@@ -72,7 +94,7 @@ class MeterReader:
 
             # Read until shutdown or all meters seen (when sleep_for > 0)
             while not self.shutdown_event.is_set():
-                line = await self.rtlamr.read_line()
+                line = await self._read_line()
 
                 if line is None:
                     # Process died or stdout closed
