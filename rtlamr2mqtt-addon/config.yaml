@@ -36,6 +36,7 @@ options:
 schema:
   general:
     sleep_for: "int?"
+    watchdog_timeout: "int?"
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "int?"
     rtltcp_host: "str?"

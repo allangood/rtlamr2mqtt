@@ -25,6 +25,7 @@ meters:
 FULL_YAML = """
 general:
   sleep_for: 60
+  watchdog_timeout: 1800
   verbosity: debug
   device_id: 1
   rtltcp_host: "192.168.1.100:1234"
@@ -63,6 +64,7 @@ class TestLoadConfig:
             status, msg, config = load_config(path)
             assert status == 'success'
             assert config['general']['sleep_for'] == 0
+            assert config['general']['watchdog_timeout'] == 0
             assert config['general']['verbosity'] == 'info'
             assert config['general']['device_id'] == 0
             assert config['general']['rtltcp_host'] == '127.0.0.1:1234'
@@ -81,6 +83,7 @@ class TestLoadConfig:
             status, msg, config = load_config(path)
             assert status == 'success'
             assert config['general']['sleep_for'] == 60
+            assert config['general']['watchdog_timeout'] == 1800
             assert config['general']['verbosity'] == 'debug'
             assert config['general']['device_id'] == 1
             assert config['general']['rtltcp_host'] == '192.168.1.100:1234'

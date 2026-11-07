@@ -339,3 +339,91 @@ class TestMeterReaderProcessRestart:
         mock_rtltcp.start_with_retry.assert_not_awaited()
         reset_usb.assert_not_called()
         mock_rtlamr.start_with_retry.assert_awaited()
+
+
+class TestMeterReaderWatchdog:
+    def make_reader(self, sample_config, mock_rtlamr, mock_rtltcp, is_remote=False):
+        sample_config['general']['watchdog_timeout'] = 1
+        reader = MeterReader(
+            config=sample_config,
+            rtlamr=mock_rtlamr,
+            rtltcp=mock_rtltcp,
+            reading_queue=asyncio.Queue(),
+            shutdown_event=asyncio.Event(),
+            is_remote=is_remote,
+        )
+        reader.watchdog_timeout = 0.1  # keep the tests fast
+        return reader
+
+    @staticmethod
+    def silent_then_shutdown(reader):
+        """rtlamr stays silent; once the receiver has been restarted, request shutdown."""
+        async def fake_read_line():
+            if reader.rtlamr.start_with_retry.await_count:
+                reader.shutdown_event.set()
+            await asyncio.sleep(10)
+        return fake_read_line
+
+    async def test_silence_restarts_local_receiver(self, sample_config, mock_rtlamr, mock_rtltcp):
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp)
+        mock_rtlamr.read_line = self.silent_then_shutdown(reader)
+
+        with (
+            patch(
+                'meter_reader.usbutil.reset_usb_device', new=AsyncMock(return_value=True)
+            ) as reset_usb,
+            patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()),
+        ):
+            await asyncio.wait_for(reader.run(), timeout=2)
+
+        mock_rtlamr.stop.assert_awaited()
+        mock_rtltcp.stop.assert_awaited()
+        reset_usb.assert_awaited_once_with(0)
+        mock_rtltcp.start_with_retry.assert_awaited_once()
+        mock_rtlamr.start_with_retry.assert_awaited_once()
+
+    async def test_silence_restarts_only_rtlamr_when_remote(
+        self, sample_config, mock_rtlamr, mock_rtltcp
+    ):
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp, is_remote=True)
+        mock_rtlamr.read_line = self.silent_then_shutdown(reader)
+
+        with (
+            patch('meter_reader.usbutil.reset_usb_device') as reset_usb,
+            patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()),
+        ):
+            await asyncio.wait_for(reader.run(), timeout=2)
+
+        mock_rtltcp.stop.assert_not_awaited()
+        reset_usb.assert_not_called()
+        mock_rtlamr.start_with_retry.assert_awaited_once()
+
+    async def test_failed_restart_shuts_down(self, sample_config, mock_rtlamr, mock_rtltcp):
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp, is_remote=True)
+        mock_rtlamr.start_with_retry = AsyncMock(return_value=False)
+        async def fake_read_line():
+            await asyncio.sleep(10)
+        mock_rtlamr.read_line = fake_read_line
+
+        with patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()):
+            await asyncio.wait_for(reader.run(), timeout=2)
+
+        assert reader.shutdown_event.is_set()
+
+    async def test_output_resets_the_timer(self, sample_config, mock_rtlamr, mock_rtltcp):
+        """Lines arriving faster than the timeout must never trigger a restart."""
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp)
+        call_count = 0
+        async def fake_read_line():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 6:
+                reader.shutdown_event.set()
+            await asyncio.sleep(0.05)  # each line well within the 0.1s timeout
+            return 'some rtlamr log line'
+        mock_rtlamr.read_line = fake_read_line
+
+        await asyncio.wait_for(reader.run(), timeout=2)
+
+        mock_rtlamr.stop.assert_not_awaited()
+        mock_rtlamr.start_with_retry.assert_not_awaited()
