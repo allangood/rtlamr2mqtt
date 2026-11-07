@@ -3,10 +3,14 @@ FROM golang:1.24 AS go-builder
 
 WORKDIR /go/src/app
 
+# Pinned so builds are reproducible: process_manager.py relies on how this
+# rtl_tcp version handles SIGTERM. Check that before bumping.
+ARG RTL_SDR_VERSION=v2.0.3
+
 RUN go install github.com/bemasher/rtlamr@v0.9.5 \
     && apt-get update \
     && apt-get install -y libusb-1.0-0-dev build-essential git cmake \
-    && git clone https://git.osmocom.org/rtl-sdr.git \
+    && git clone --depth 1 --branch ${RTL_SDR_VERSION} https://git.osmocom.org/rtl-sdr.git \
     && cd rtl-sdr \
     && mkdir build && cd build \
     && cmake .. -DDETACH_KERNEL_DRIVER=ON -DENABLE_ZEROCOPY=ON -Wno-dev \
