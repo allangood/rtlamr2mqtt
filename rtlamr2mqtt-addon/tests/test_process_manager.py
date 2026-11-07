@@ -64,6 +64,33 @@ class TestManagedProcessStop:
         await proc.stop()
         assert proc.is_alive is False
 
+    async def test_stop_resends_sigterm(self, tmp_path, caplog):
+        """Like rtl_tcp right after a client disconnects: the first SIGTERM is lost."""
+        script = tmp_path / 'deaf.sh'
+        script.write_text(
+            '#!/bin/bash\n'
+            'n=0\n'
+            "trap 'n=$((n+1)); [ $n -ge 2 ] && exit 0' TERM\n"
+            'echo "READY"\n'
+            'while true; do sleep 0.05; done\n'
+        )
+        script.chmod(0o755)
+        proc = ManagedProcess(
+            name='deaf',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=5.0,
+        )
+        await proc.start()
+        loop = asyncio.get_running_loop()
+        started = loop.time()
+
+        await proc.stop()
+
+        assert proc.is_alive is False
+        assert loop.time() - started < 1.5
+        assert 'SIGKILL' not in caplog.text
+
     async def test_stop_when_not_started(self):
         proc = ManagedProcess(
             name='test',
