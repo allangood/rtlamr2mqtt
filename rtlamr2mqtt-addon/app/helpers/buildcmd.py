@@ -2,6 +2,12 @@
 Helper functions for building commands for rtl_tcp and rtlamr
 """
 
+import logging
+
+from helpers.config import is_local_rtltcp_host, split_rtltcp_host
+
+logger = logging.getLogger('rtlamr2mqtt')
+
 
 def get_comma_separated_str(key, meters_dict):
     """
@@ -27,6 +33,26 @@ def partial_match_remove(prefix, args_list):
     Returns a new list (does not modify the original).
     """
     return [arg for arg in args_list if not arg.startswith(prefix)]
+
+
+def remove_option(flag, args_list):
+    """
+    Remove a short option and its value, given either as two tokens
+    ('-p', '5555') or as one ('-p5555'). Returns (new_list, removed).
+    """
+    result = []
+    removed = False
+    skip_value = False
+    for arg in args_list:
+        if skip_value:
+            skip_value = False
+        elif arg == flag:
+            removed = skip_value = True
+        elif arg.startswith(flag):
+            removed = True
+        else:
+            result.append(arg)
+    return result, removed
 
 
 def build_rtlamr_args(config):
@@ -69,9 +95,10 @@ def build_rtltcp_args(config):
     Custom parameters can override defaults like -s (sample rate).
     Returns None if rtl_tcp host is remote.
     """
-    host, _, port = config['general']['rtltcp_host'].partition(':')
-    if host not in ['127.0.0.1', 'localhost']:
+    rtltcp_host = config['general']['rtltcp_host']
+    if not is_local_rtltcp_host(rtltcp_host):
         return None
+    _, port = split_rtltcp_host(rtltcp_host)
 
     # Parse custom parameters first so we can check for overrides
     custom_args = []
@@ -79,6 +106,15 @@ def build_rtltcp_args(config):
         custom = config['custom_parameters']['rtltcp']
         if custom:
             custom_args = custom.split()
+
+    # rtlamr connects to rtltcp_host, so rtl_tcp must listen on its port
+    custom_args, port_removed = remove_option('-p', custom_args)
+    if port_removed:
+        logger.warning(
+            'Ignoring -p in custom_parameters.rtltcp: set the port in rtltcp_host '
+            '(currently %s) instead, so rtlamr connects to the same port',
+            config['general']['rtltcp_host'],
+        )
 
     args = []
 
@@ -89,7 +125,7 @@ def build_rtltcp_args(config):
     args.extend(custom_args)
 
     # Listen on the port rtlamr connects to (rtl_tcp defaults to 1234)
-    if port and not has_prefix('-p', custom_args):
+    if port:
         args.extend(['-p', port])
 
     # Device index

@@ -1,7 +1,7 @@
 import os
 import pytest
 import tempfile
-from helpers.config import load_config
+from helpers.config import is_local_rtltcp_host, load_config, split_rtltcp_host
 
 
 def write_temp_yaml(content):
@@ -127,6 +127,15 @@ class TestLoadConfig:
         finally:
             os.unlink(path)
 
+    def test_negative_watchdog_timeout_fails(self):
+        path = write_temp_yaml("general:\n  watchdog_timeout: -1\n" + MINIMAL_YAML)
+        try:
+            status, msg, config = load_config(path)
+            assert status == 'error'
+            assert 'watchdog_timeout' in msg
+        finally:
+            os.unlink(path)
+
     def test_empty_meters_list_without_listen_mode_fails(self):
         path = write_temp_yaml("mqtt:\n  host: 127.0.0.1\nmeters: []\n")
         try:
@@ -184,3 +193,22 @@ meters:
             assert isinstance(config['general']['device_id'], int)
         finally:
             os.unlink(path)
+
+
+class TestRtltcpHost:
+    @pytest.mark.parametrize('value, expected', [
+        ('127.0.0.1:1235', ('127.0.0.1', '1235')),
+        ('localhost', ('localhost', None)),
+        ('192.168.1.100:1234', ('192.168.1.100', '1234')),
+    ])
+    def test_split(self, value, expected):
+        assert split_rtltcp_host(value) == expected
+
+    @pytest.mark.parametrize('value, local', [
+        ('127.0.0.1:1234', True),
+        ('localhost', True),
+        ('192.168.1.100:1234', False),
+        ('rtl-tcp.lan', False),
+    ])
+    def test_is_local(self, value, local):
+        assert is_local_rtltcp_host(value) is local

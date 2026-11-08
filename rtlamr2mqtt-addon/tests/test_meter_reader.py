@@ -129,6 +129,20 @@ class TestMeterReaderSleepCycle:
         # Two readings should be on the queue
         assert queue.qsize() == 2
 
+    async def test_shutdown_cuts_sleep_short(self, reader, mock_rtlamr, mock_rtltcp):
+        """A shutdown during the sleep ends it at once, without restarting anything."""
+        reader.sleep_for = 30
+        reader.meter_ids = ['33333333']
+        scm_33 = '{"Time":"2025-05-05T21:25:11Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":33333333,"Type":7,"TamperPhy":3,"TamperEnc":2,"Consumption":1978226,"ChecksumVal":60151}}'
+        mock_rtlamr.read_line = AsyncMock(return_value=scm_33)
+        asyncio.get_running_loop().call_later(0.2, reader.shutdown_event.set)
+
+        await asyncio.wait_for(reader.run(), timeout=2)
+
+        mock_rtltcp.stop.assert_awaited_once()
+        mock_rtltcp.start_with_retry.assert_not_awaited()
+        mock_rtlamr.start_with_retry.assert_not_awaited()
+
 
 class TestMeterReaderListenMode:
     @pytest.fixture
@@ -382,6 +396,24 @@ class TestMeterReaderWatchdog:
         mock_rtltcp.start_with_retry.assert_awaited_once()
         mock_rtlamr.start_with_retry.assert_awaited_once()
 
+    async def test_silence_skips_usb_reset_with_mock(
+        self, sample_config, mock_rtlamr, mock_rtltcp, monkeypatch
+    ):
+        monkeypatch.setenv('RTLAMR2MQTT_USE_MOCK', '1')
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp)
+        mock_rtlamr.read_line = self.silent_then_shutdown(reader)
+
+        with (
+            patch('meter_reader.usbutil.reset_usb_device') as reset_usb,
+            patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()),
+        ):
+            await asyncio.wait_for(reader.run(), timeout=2)
+
+        reset_usb.assert_not_called()
+        mock_rtltcp.stop.assert_awaited()
+        mock_rtltcp.start_with_retry.assert_awaited_once()
+        mock_rtlamr.start_with_retry.assert_awaited_once()
+
     async def test_silence_restarts_only_rtlamr_when_remote(
         self, sample_config, mock_rtlamr, mock_rtltcp
     ):
@@ -427,3 +459,20 @@ class TestMeterReaderWatchdog:
 
         mock_rtlamr.stop.assert_not_awaited()
         mock_rtlamr.start_with_retry.assert_not_awaited()
+
+    async def test_shutdown_during_restart_is_not_an_error(
+        self, sample_config, mock_rtlamr, mock_rtltcp, caplog
+    ):
+        """start_with_retry returns False when a shutdown interrupts it; that's no failure."""
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp, is_remote=True)
+        mock_rtlamr.read_line = self.silent_then_shutdown(reader)
+
+        async def interrupted_start():
+            reader.shutdown_event.set()
+            return False
+        mock_rtlamr.start_with_retry = AsyncMock(side_effect=interrupted_start)
+
+        with patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()):
+            await asyncio.wait_for(reader.run(), timeout=2)
+
+        assert 'ERROR' not in caplog.text

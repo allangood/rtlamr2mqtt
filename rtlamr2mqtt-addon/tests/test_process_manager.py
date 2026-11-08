@@ -51,6 +51,58 @@ class TestManagedProcessStart:
         result = await proc.start()
         assert result is False
 
+    async def test_shutdown_interrupts_ready_wait(self, tmp_path):
+        """A shutdown while waiting for the ready line must not wait out ready_timeout."""
+        script = tmp_path / 'slow.sh'
+        script.write_text('#!/bin/bash\nwhile true; do sleep 1; done\n')
+        script.chmod(0o755)
+        shutdown = asyncio.Event()
+        proc = ManagedProcess(
+            name='slow',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=30.0,
+            shutdown_event=shutdown,
+        )
+        asyncio.get_running_loop().call_later(0.2, shutdown.set)
+        result = await asyncio.wait_for(proc.start(), timeout=5.0)
+        assert result is False
+        assert proc.is_alive is False
+
+    async def test_start_skipped_after_shutdown(self, tmp_path):
+        script = tmp_path / 'never.sh'
+        marker = tmp_path / 'ran'
+        script.write_text(f'#!/bin/bash\ntouch {marker}\necho READY\nsleep 30\n')
+        script.chmod(0o755)
+        shutdown = asyncio.Event()
+        shutdown.set()
+        proc = ManagedProcess(
+            name='never',
+            command=[str(script)],
+            ready_pattern='READY',
+            shutdown_event=shutdown,
+        )
+        assert await proc.start_with_retry() is False
+        assert not marker.exists()
+
+    async def test_shutdown_during_start_skips_retry(self, tmp_path):
+        script = tmp_path / 'slow.sh'
+        script.write_text('#!/bin/bash\nwhile true; do sleep 1; done\n')
+        script.chmod(0o755)
+        shutdown = asyncio.Event()
+        on_retry = AsyncMock()
+        proc = ManagedProcess(
+            name='slow',
+            command=[str(script)],
+            ready_pattern='READY',
+            ready_timeout=30.0,
+            on_retry=on_retry,
+            shutdown_event=shutdown,
+        )
+        asyncio.get_running_loop().call_later(0.2, shutdown.set)
+        assert await asyncio.wait_for(proc.start_with_retry(), timeout=5.0) is False
+        on_retry.assert_not_called()
+
 
 class TestManagedProcessStop:
     async def test_stop_terminates(self, mock_script_dir):
@@ -199,6 +251,9 @@ class TestManagedProcessReadLine:
                 break
             lines.append(line)
         assert 'line1' in lines
+        # stdout hits EOF before asyncio reaps the child, so returncode can
+        # still be None right after the last read
+        await asyncio.wait_for(proc.wait_for_exit(), timeout=5.0)
         assert proc.is_alive is False
 
 

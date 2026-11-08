@@ -7,6 +7,22 @@ import requests
 from json import load
 from yaml import safe_load
 
+# rtltcp_host values that mean "run rtl_tcp locally and manage its dongle"
+LOCAL_RTLTCP_HOSTS = ('127.0.0.1', 'localhost')
+
+
+def split_rtltcp_host(rtltcp_host):
+    """
+    Split rtltcp_host ('host' or 'host:port') into (host, port).
+    port is None when not given; rtl_tcp then uses its default, 1234.
+    """
+    host, _, port = rtltcp_host.partition(':')
+    return host, port or None
+
+
+def is_local_rtltcp_host(rtltcp_host):
+    return split_rtltcp_host(rtltcp_host)[0] in LOCAL_RTLTCP_HOSTS
+
 
 def get_mqtt_info_from_supervisor(mqtt_config):
     """
@@ -84,6 +100,10 @@ def load_config(config_path=None):
     general['verbosity'] = str(general.get('verbosity', 'info'))
     general['device_id'] = int(general.get('device_id', 0))
     general['rtltcp_host'] = str(general.get('rtltcp_host', '127.0.0.1:1234'))
+
+    if general['watchdog_timeout'] < 0:
+        return ('error', 'watchdog_timeout must be 0 (disabled) or a positive number of seconds.',
+                None)
 
     if not (config.get('meters') or []) and not general['listen_mode']:
         return ('error', 'No meters configured. Add at least one meter or enable listen_mode to discover meter IDs.', None)

@@ -75,6 +75,9 @@ class ManagedProcess:
         if self.is_alive:
             await self.stop()
 
+        if self._shutdown_requested():
+            return False
+
         # Prepend stdbuf for line-buffered output if available
         full_command = list(self.command)
         if _stdbuf_path:
@@ -95,25 +98,40 @@ class ManagedProcess:
             self._process = None
             return False
 
-        # Wait for ready pattern with timeout
+        # Wait for ready pattern with timeout, giving up early on shutdown
+        ready_task = asyncio.ensure_future(self._wait_for_ready())
+        waiters = [ready_task]
+        if self.shutdown_event is not None:
+            waiters.append(asyncio.ensure_future(self.shutdown_event.wait()))
         try:
-            ready = await asyncio.wait_for(
-                self._wait_for_ready(),
-                timeout=self.ready_timeout,
+            await asyncio.wait(
+                waiters, timeout=self.ready_timeout, return_when=asyncio.FIRST_COMPLETED,
             )
+        finally:
+            for task in waiters:
+                task.cancel()
+            await asyncio.gather(*waiters, return_exceptions=True)
+
+        if not ready_task.cancelled():
+            ready = ready_task.result()
             if ready:
                 logger.info('%s is ready', self.name)
                 if self.drain_output:
                     self._drain_task = asyncio.create_task(self._drain())
             return ready
-        except asyncio.TimeoutError:
+        if self._shutdown_requested():
+            logger.info('Shutdown requested, giving up on starting %s', self.name)
+        else:
             logger.error(
                 '%s did not become ready within %.1fs (waiting for %r)',
                 self.name, self.ready_timeout, self.ready_pattern,
             )
             self._log_recent_output('last output before timeout')
-            await self.stop()
-            return False
+        await self.stop()
+        return False
+
+    def _shutdown_requested(self) -> bool:
+        return self.shutdown_event is not None and self.shutdown_event.is_set()
 
     async def _wait_for_ready(self) -> bool:
         """
@@ -251,6 +269,8 @@ class ManagedProcess:
             return True
 
         for attempt in range(self.max_retries):
+            if self._shutdown_requested():
+                return False
             delay = self.backoff[min(attempt, len(self.backoff) - 1)]
             logger.warning(
                 '%s failed to start, retry %d/%d in %.1fs',
@@ -269,6 +289,8 @@ class ManagedProcess:
             if await self.start():
                 return True
 
+        if self._shutdown_requested():
+            return False
         logger.error('%s failed to start after %d retries', self.name, self.max_retries)
         return False
 

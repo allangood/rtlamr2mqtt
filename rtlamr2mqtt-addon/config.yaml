@@ -1,11 +1,13 @@
 ---
 name: rtlamr2mqtt
-version: 2026.11.7
+version: 2026.11.8
 slug: rtlamr2mqtt
 panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
 startup: application
 boot: auto
+# Stopping rtlamr then rtl_tcp can take up to ~21s (see rtlamr2mqtt.py)
+timeout: 30
 map:
   - config:rw
 url: https://github.com/allangood/rtlamr2mqtt
@@ -35,7 +37,7 @@ options:
 schema:
   general:
     sleep_for: "int?"
-    watchdog_timeout: "int?"
+    watchdog_timeout: "int(0,)?"
     verbosity: "list(debug|info|warning|critical|none)?"
     device_id: "int?"
     rtltcp_host: "str?"

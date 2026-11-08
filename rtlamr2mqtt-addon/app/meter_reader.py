@@ -5,6 +5,7 @@ Handles sleep/wake cycle and process restart on failure.
 
 import asyncio
 import logging
+import os
 
 import helpers.read_output as ro
 import helpers.usb_utils as usbutil
@@ -70,6 +71,13 @@ class MeterReader:
             return None
         raise asyncio.TimeoutError
 
+    def _give_up(self, message: str):
+        # start_with_retry also returns False when a shutdown interrupts it,
+        # which is no failure
+        if not self.shutdown_event.is_set():
+            logger.error(message)
+        self.shutdown_event.set()
+
     async def _restart_receiver(self) -> bool:
         await self.rtlamr.stop()
         if not self.is_remote:
@@ -81,7 +89,8 @@ class MeterReader:
 
     async def _recover_rtltcp(self, reset_usb: bool) -> bool:
         await self.rtltcp.stop()
-        if reset_usb:
+        # The mock rtl_tcp has no USB device behind it
+        if reset_usb and 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
             device_index = self.config['general']['device_id']
             # Callers log why the recovery is needed
             logger.warning('Resetting USB device at index %d', device_index)
@@ -116,8 +125,7 @@ class MeterReader:
                         self.watchdog_timeout,
                     )
                     if not await self._restart_receiver():
-                        logger.error('Failed to restart receiver, shutting down')
-                        self.shutdown_event.set()
+                        self._give_up('Failed to restart receiver, shutting down')
                         return
                     continue
 
@@ -143,20 +151,17 @@ class MeterReader:
                                 'rtlamr exited after rtl_tcp read timeout, forcing rtl_tcp recovery'
                             )
                             if not await self._recover_rtltcp(reset_usb=True):
-                                logger.error('Failed to recover rtl_tcp, shutting down')
-                                self.shutdown_event.set()
+                                self._give_up('Failed to recover rtl_tcp, shutting down')
                                 return
                         # If rtl_tcp also died (e.g. shared USB error), restart it first
                         # so rtlamr's reconnect attempts have something to talk to.
                         elif not self.is_remote and not self.rtltcp.is_alive:
                             logger.warning('rtl_tcp also died, restarting it first')
                             if not await self._recover_rtltcp(reset_usb=False):
-                                logger.error('Failed to restart rtl_tcp, shutting down')
-                                self.shutdown_event.set()
+                                self._give_up('Failed to restart rtl_tcp, shutting down')
                                 return
                         if not await self.rtlamr.start_with_retry():
-                            logger.error('Failed to restart rtlamr, shutting down')
-                            self.shutdown_event.set()
+                            self._give_up('Failed to restart rtlamr, shutting down')
                             return
                     else:
                         # stdout closed but process alive — avoid tight loop
@@ -221,30 +226,19 @@ class MeterReader:
 
         logger.info('Sleeping for %d seconds', self.sleep_for)
 
-        # Cancellable sleep
-        sleep_task = asyncio.create_task(asyncio.sleep(self.sleep_for))
-        shutdown_task = asyncio.create_task(self.shutdown_event.wait())
-        done, pending = await asyncio.wait(
-            [sleep_task, shutdown_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for task in pending:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-
-        if self.shutdown_event.is_set():
+        # Sleep, waking early on shutdown
+        try:
+            await asyncio.wait_for(self.shutdown_event.wait(), timeout=self.sleep_for)
             return
+        except asyncio.TimeoutError:
+            pass
 
         logger.info('Waking up, restarting processes')
 
         # Restart rtl_tcp first (if local)
         if not self.is_remote:
             if not await self.rtltcp.start_with_retry():
-                logger.error('Failed to restart rtl_tcp after sleep, shutting down')
-                self.shutdown_event.set()
+                self._give_up('Failed to restart rtl_tcp after sleep, shutting down')
                 return
 
         # Tickle rtl_tcp to wake up the receiver
@@ -252,6 +246,5 @@ class MeterReader:
 
         # Restart rtlamr
         if not await self.rtlamr.start_with_retry():
-            logger.error('Failed to restart rtlamr after sleep, shutting down')
-            self.shutdown_event.set()
+            self._give_up('Failed to restart rtlamr after sleep, shutting down')
             return
