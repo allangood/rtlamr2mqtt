@@ -140,7 +140,9 @@ async def main():
         drain_output=True,
         shutdown_event=shutdown_event,
         # After rtlamr disconnects, rtl_tcp can take ~5s to tear the session
-        # down (a 5s worker timeout) before a SIGTERM makes it exit
+        # down (a 5s worker timeout) before a SIGTERM makes it exit. Stopping
+        # both can take ~21s at worst, hence the 30s stop grace in config.yaml
+        # and the README's Docker examples.
         stop_timeout=7.0,
     )
 

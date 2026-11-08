@@ -6,6 +6,8 @@ panel_icon: mdi:gauge
 description: RTLAMR to MQTT Bridge
 startup: application
 boot: auto
+# Stopping rtlamr then rtl_tcp can take up to ~21s (see rtlamr2mqtt.py)
+timeout: 30
 map:
   - config:rw
 url: https://github.com/allangood/rtlamr2mqtt
