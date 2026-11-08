@@ -1,5 +1,20 @@
 # CHANGELOG
 
+### 2026.11.8
+
+**Fixes**
+
+- Shutdown (SIGTERM/SIGINT) no longer waits up to 30s for rtl_tcp or rtlamr to finish starting, and no longer resets the USB device on its way out (#464)
+- The add-on now gets 30s to stop instead of 10s (`timeout: 30`). Stopping rtlamr and then rtl_tcp can take ~21s in the worst case, and a kill partway through could leave the dongle claimed. Standalone Docker users: add `--stop-timeout 30` (or `stop_grace_period: 30s` in Compose), as the README now shows (#466)
+- A `-p` in `custom_parameters.rtltcp` is now ignored with a warning: the local rtl_tcp port comes only from `rtltcp_host`, so rtl_tcp and rtlamr can't end up on different ports (#467)
+- A negative `watchdog_timeout` is now rejected instead of restarting the receiver in a tight loop (#468)
+- Stopping the add-on during a restart no longer logs a misleading "Failed to restart ..., shutting down" error (#469)
+- With the mock `docker compose` setup, a watchdog restart no longer tries to reset a USB device that isn't there and exit (#465)
+
+**Internal**
+
+- `rtltcp_host` is parsed in one place (#470), the sleep-cycle wait is simpler (#471), and a flaky process test is fixed (#472)
+
 ### 2026.11.7
 
 **New option**
