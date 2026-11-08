@@ -127,6 +127,15 @@ class TestLoadConfig:
         finally:
             os.unlink(path)
 
+    def test_negative_watchdog_timeout_fails(self):
+        path = write_temp_yaml("general:\n  watchdog_timeout: -1\n" + MINIMAL_YAML)
+        try:
+            status, msg, config = load_config(path)
+            assert status == 'error'
+            assert 'watchdog_timeout' in msg
+        finally:
+            os.unlink(path)
+
     def test_empty_meters_list_without_listen_mode_fails(self):
         path = write_temp_yaml("mqtt:\n  host: 127.0.0.1\nmeters: []\n")
         try:
