@@ -4,6 +4,8 @@ Helper functions for building commands for rtl_tcp and rtlamr
 
 import logging
 
+from helpers.config import is_local_rtltcp_host, split_rtltcp_host
+
 logger = logging.getLogger('rtlamr2mqtt')
 
 
@@ -93,9 +95,10 @@ def build_rtltcp_args(config):
     Custom parameters can override defaults like -s (sample rate).
     Returns None if rtl_tcp host is remote.
     """
-    host, _, port = config['general']['rtltcp_host'].partition(':')
-    if host not in ['127.0.0.1', 'localhost']:
+    rtltcp_host = config['general']['rtltcp_host']
+    if not is_local_rtltcp_host(rtltcp_host):
         return None
+    _, port = split_rtltcp_host(rtltcp_host)
 
     # Parse custom parameters first so we can check for overrides
     custom_args = []

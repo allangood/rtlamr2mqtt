@@ -94,7 +94,7 @@ async def main():
 
     # Determine if rtl_tcp is remote
     rtltcp_host = config['general']['rtltcp_host']
-    is_remote = rtltcp_host.split(':')[0] not in ['127.0.0.1', 'localhost']
+    is_remote = not cnf.is_local_rtltcp_host(rtltcp_host)
 
     # USB setup (sync, before async work)
     if not is_remote and 'RTLAMR2MQTT_USE_MOCK' not in os.environ:

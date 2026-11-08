@@ -10,6 +10,8 @@ from random import randrange
 from struct import pack
 import usb.core
 
+from helpers.config import split_rtltcp_host
+
 logger = logging.getLogger('rtlamr2mqtt')
 
 
@@ -90,9 +92,8 @@ async def tickle_rtl_tcp(remote_server):
     SET_FREQUENCY = 0x01
     SET_SAMPLERATE = 0x02
 
-    parts = remote_server.split(':', 1)
-    remote_host = parts[0]
-    remote_port = int(parts[1]) if len(parts) > 1 else 1234
+    remote_host, port = split_rtltcp_host(remote_server)
+    remote_port = int(port) if port else 1234
 
     writer = None
     try:
