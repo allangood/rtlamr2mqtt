@@ -5,6 +5,7 @@ Handles sleep/wake cycle and process restart on failure.
 
 import asyncio
 import logging
+import os
 
 import helpers.read_output as ro
 import helpers.usb_utils as usbutil
@@ -81,7 +82,8 @@ class MeterReader:
 
     async def _recover_rtltcp(self, reset_usb: bool) -> bool:
         await self.rtltcp.stop()
-        if reset_usb:
+        # The mock rtl_tcp has no USB device behind it
+        if reset_usb and 'RTLAMR2MQTT_USE_MOCK' not in os.environ:
             device_index = self.config['general']['device_id']
             # Callers log why the recovery is needed
             logger.warning('Resetting USB device at index %d', device_index)

@@ -382,6 +382,24 @@ class TestMeterReaderWatchdog:
         mock_rtltcp.start_with_retry.assert_awaited_once()
         mock_rtlamr.start_with_retry.assert_awaited_once()
 
+    async def test_silence_skips_usb_reset_with_mock(
+        self, sample_config, mock_rtlamr, mock_rtltcp, monkeypatch
+    ):
+        monkeypatch.setenv('RTLAMR2MQTT_USE_MOCK', '1')
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp)
+        mock_rtlamr.read_line = self.silent_then_shutdown(reader)
+
+        with (
+            patch('meter_reader.usbutil.reset_usb_device') as reset_usb,
+            patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()),
+        ):
+            await asyncio.wait_for(reader.run(), timeout=2)
+
+        reset_usb.assert_not_called()
+        mock_rtltcp.stop.assert_awaited()
+        mock_rtltcp.start_with_retry.assert_awaited_once()
+        mock_rtlamr.start_with_retry.assert_awaited_once()
+
     async def test_silence_restarts_only_rtlamr_when_remote(
         self, sample_config, mock_rtlamr, mock_rtltcp
     ):
