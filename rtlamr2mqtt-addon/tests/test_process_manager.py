@@ -199,6 +199,9 @@ class TestManagedProcessReadLine:
                 break
             lines.append(line)
         assert 'line1' in lines
+        # stdout hits EOF before asyncio reaps the child, so returncode can
+        # still be None right after the last read
+        await asyncio.wait_for(proc.wait_for_exit(), timeout=5.0)
         assert proc.is_alive is False
 
 
