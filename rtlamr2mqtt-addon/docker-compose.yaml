@@ -15,6 +15,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.mock
+    stop_grace_period: 30s
     volumes:
       - ./test-config.yaml:/etc/rtlamr2mqtt.yaml:ro
     depends_on:

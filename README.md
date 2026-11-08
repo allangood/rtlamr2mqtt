@@ -75,6 +75,7 @@ docker run --name rtlamr2mqtt \
   -v /path/to/rtlamr2mqtt.yaml:/etc/rtlamr2mqtt.yaml:ro \
   --device /dev/bus/usb:/dev/bus/usb \
   --restart unless-stopped \
+  --stop-timeout 30 \
   allangood/rtlamr2mqtt
 ```
 
@@ -86,6 +87,7 @@ services:
     image: allangood/rtlamr2mqtt
     container_name: rtlamr2mqtt
     restart: unless-stopped
+    stop_grace_period: 30s
     devices:
       - /dev/bus/usb:/dev/bus/usb
     volumes:
@@ -135,6 +137,7 @@ Run the container and watch the logs:
 docker run --rm \
   -v /path/to/listen.yaml:/etc/rtlamr2mqtt.yaml:ro \
   --device /dev/bus/usb:/dev/bus/usb \
+  --stop-timeout 30 \
   allangood/rtlamr2mqtt
 ```
 
