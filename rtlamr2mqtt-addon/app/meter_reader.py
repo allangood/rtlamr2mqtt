@@ -226,22 +226,12 @@ class MeterReader:
 
         logger.info('Sleeping for %d seconds', self.sleep_for)
 
-        # Cancellable sleep
-        sleep_task = asyncio.create_task(asyncio.sleep(self.sleep_for))
-        shutdown_task = asyncio.create_task(self.shutdown_event.wait())
-        done, pending = await asyncio.wait(
-            [sleep_task, shutdown_task],
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        for task in pending:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
-
-        if self.shutdown_event.is_set():
+        # Sleep, waking early on shutdown
+        try:
+            await asyncio.wait_for(self.shutdown_event.wait(), timeout=self.sleep_for)
             return
+        except asyncio.TimeoutError:
+            pass
 
         logger.info('Waking up, restarting processes')
 

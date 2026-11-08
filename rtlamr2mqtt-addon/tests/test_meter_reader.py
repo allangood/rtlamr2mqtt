@@ -129,6 +129,20 @@ class TestMeterReaderSleepCycle:
         # Two readings should be on the queue
         assert queue.qsize() == 2
 
+    async def test_shutdown_cuts_sleep_short(self, reader, mock_rtlamr, mock_rtltcp):
+        """A shutdown during the sleep ends it at once, without restarting anything."""
+        reader.sleep_for = 30
+        reader.meter_ids = ['33333333']
+        scm_33 = '{"Time":"2025-05-05T21:25:11Z","Offset":0,"Length":0,"Type":"SCM","Message":{"ID":33333333,"Type":7,"TamperPhy":3,"TamperEnc":2,"Consumption":1978226,"ChecksumVal":60151}}'
+        mock_rtlamr.read_line = AsyncMock(return_value=scm_33)
+        asyncio.get_running_loop().call_later(0.2, reader.shutdown_event.set)
+
+        await asyncio.wait_for(reader.run(), timeout=2)
+
+        mock_rtltcp.stop.assert_awaited_once()
+        mock_rtltcp.start_with_retry.assert_not_awaited()
+        mock_rtlamr.start_with_retry.assert_not_awaited()
+
 
 class TestMeterReaderListenMode:
     @pytest.fixture
