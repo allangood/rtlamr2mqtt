@@ -445,3 +445,20 @@ class TestMeterReaderWatchdog:
 
         mock_rtlamr.stop.assert_not_awaited()
         mock_rtlamr.start_with_retry.assert_not_awaited()
+
+    async def test_shutdown_during_restart_is_not_an_error(
+        self, sample_config, mock_rtlamr, mock_rtltcp, caplog
+    ):
+        """start_with_retry returns False when a shutdown interrupts it; that's no failure."""
+        reader = self.make_reader(sample_config, mock_rtlamr, mock_rtltcp, is_remote=True)
+        mock_rtlamr.read_line = self.silent_then_shutdown(reader)
+
+        async def interrupted_start():
+            reader.shutdown_event.set()
+            return False
+        mock_rtlamr.start_with_retry = AsyncMock(side_effect=interrupted_start)
+
+        with patch('meter_reader.usbutil.tickle_rtl_tcp', new=AsyncMock()):
+            await asyncio.wait_for(reader.run(), timeout=2)
+
+        assert 'ERROR' not in caplog.text
