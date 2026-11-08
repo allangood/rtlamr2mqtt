@@ -1,3 +1,4 @@
+import pytest
 from helpers.buildcmd import build_rtlamr_args, build_rtltcp_args
 
 
@@ -110,12 +111,17 @@ class TestBuildRtltcpArgs:
         args = build_rtltcp_args(sample_config)
         assert '-p' not in args
 
-    def test_custom_port_parameter_wins(self, sample_config):
+    @pytest.mark.parametrize('custom', ['-p 5555 -g 40', '-p5555 -g 40'])
+    def test_custom_port_parameter_dropped(self, sample_config, caplog, custom):
+        """rtlamr connects to rtltcp_host, so rtl_tcp must listen on its port."""
         sample_config['general']['rtltcp_host'] = '127.0.0.1:1235'
-        sample_config['custom_parameters']['rtltcp'] = '-p 5555'
+        sample_config['custom_parameters']['rtltcp'] = custom
         args = build_rtltcp_args(sample_config)
         assert args.count('-p') == 1
-        assert args[args.index('-p') + 1] == '5555'
+        assert args[args.index('-p') + 1] == '1235'
+        assert '5555' not in args and '-p5555' not in args
+        assert args[args.index('-g') + 1] == '40'
+        assert 'rtltcp_host' in caplog.text
 
     def test_remote_returns_none(self, sample_config):
         sample_config['general']['rtltcp_host'] = '192.168.1.100:1234'

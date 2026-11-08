@@ -213,7 +213,7 @@ meters:
 | `watchdog_timeout` | int | `0` | Restart rtl_tcp and rtlamr (resetting the USB dongle when local) after this many seconds without any decoded message. Recovers receivers that stay running but stop decoding. Set it well above your meters' longest transmit interval: with the default `-unique=true`, rtlamr stays silent while readings don't change. `0` = disabled. |
 | `verbosity` | string | `info` | Log level: `debug`, `info`, `warning`, `error`, `critical`, `none` |
 | `device_id` | int | `0` | RTL-SDR device index. `0` = first device found. |
-| `rtltcp_host` | string | `127.0.0.1:1234` | RTL_TCP server address. Set to remote host to skip local rtl_tcp. |
+| `rtltcp_host` | string | `127.0.0.1:1234` | RTL_TCP server address. Set to remote host to skip local rtl_tcp. A local rtl_tcp listens on this port; `-p` in `custom_parameters.rtltcp` is ignored. |
 | `listen_mode` | bool | `false` | Log all received meters without filtering. No MQTT connection. See [Finding Your Meter ID](#finding-your-meter-id-listen-mode). |
 
 #### mqtt
